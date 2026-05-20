@@ -3,6 +3,7 @@ import type {
   AuthTokens,
   LoginPayload,
   RegisterPayload,
+  SocialConnection,
   UpdateSettingsPayload,
   User,
 } from '@/domain/types/auth.types';
@@ -17,10 +18,48 @@ export class AuthService {
 
   async login(payload: LoginPayload): Promise<{ user: User; tokens: AuthTokens }> {
     const tokens = await this.authRepository.login(payload);
-    tokenStorage.setAccessToken(tokens.accessToken);
-    tokenStorage.setRefreshToken(tokens.refreshToken);
+    this.storeTokens(tokens);
     const user = await this.authRepository.me();
     return { user, tokens };
+  }
+
+  /** Initiates social login by redirecting the browser to Auth0. Does not return. */
+  initiateSocialLogin(connection: string): void {
+    this.authRepository.initiateSocialLogin(connection);
+  }
+
+  /** Completes the OAuth redirect callback — exchanges code, stores session, returns user. */
+  async completeOAuthLogin(
+    code: string,
+    codeVerifier: string,
+    redirectUri: string
+  ): Promise<{ user: User; tokens: AuthTokens }> {
+    const tokens = await this.authRepository.completeOAuthCallback(code, codeVerifier, redirectUri);
+    this.storeTokens(tokens);
+    const user = await this.authRepository.me();
+    return { user, tokens };
+  }
+
+  /**
+   * Restores the session from the stored access token on page load.
+   * No network call to Auth0 — the session token in sessionStorage is the source of truth.
+   * When the backend issues httpOnly cookies, this becomes a single GET /api/auth/me call.
+   */
+  async bootstrap(): Promise<{ user: User; accessToken: string } | null> {
+    const accessToken = tokenStorage.getAccessToken();
+    if (!accessToken) return null;
+
+    try {
+      const user = await this.authRepository.me();
+      return { user, accessToken };
+    } catch {
+      tokenStorage.clearAll();
+      return null;
+    }
+  }
+
+  async fetchSocialConnections(): Promise<SocialConnection[]> {
+    return this.authRepository.fetchSocialConnections();
   }
 
   async me(): Promise<User> {
@@ -33,5 +72,10 @@ export class AuthService {
 
   logout(): void {
     tokenStorage.clearAll();
+  }
+
+  private storeTokens(tokens: AuthTokens): void {
+    tokenStorage.setAccessToken(tokens.accessToken);
+    if (tokens.idToken) tokenStorage.setIdToken(tokens.idToken);
   }
 }

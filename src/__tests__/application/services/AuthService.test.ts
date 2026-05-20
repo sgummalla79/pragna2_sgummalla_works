@@ -13,14 +13,15 @@ const mockUser = {
 
 const mockTokens = {
   accessToken: 'access-abc',
-  refreshToken: 'refresh-xyz',
 };
 
 function makeRepo(overrides: Partial<IAuthRepository> = {}): IAuthRepository {
   return {
     register: vi.fn().mockResolvedValue(mockUser),
     login: vi.fn().mockResolvedValue(mockTokens),
-    refresh: vi.fn().mockResolvedValue(mockTokens),
+    initiateSocialLogin: vi.fn(),
+    completeOAuthCallback: vi.fn().mockResolvedValue(mockTokens),
+    fetchSocialConnections: vi.fn().mockResolvedValue([]),
     me: vi.fn().mockResolvedValue(mockUser),
     updateSettings: vi.fn().mockResolvedValue(mockUser),
     ...overrides,
@@ -43,7 +44,6 @@ describe('AuthService.login', () => {
     expect(result.user).toEqual(mockUser);
     expect(result.tokens).toEqual(mockTokens);
     expect(tokenStorage.getAccessToken()).toBe('access-abc');
-    expect(tokenStorage.getRefreshToken()).toBe('refresh-xyz');
   });
 
   it('propagates error if repository login fails', async () => {
@@ -68,13 +68,11 @@ describe('AuthService.me', () => {
 describe('AuthService.logout', () => {
   it('clears token storage', () => {
     tokenStorage.setAccessToken('tok');
-    tokenStorage.setRefreshToken('ref');
     const service = new AuthService(makeRepo());
 
     service.logout();
 
     expect(tokenStorage.getAccessToken()).toBeNull();
-    expect(tokenStorage.getRefreshToken()).toBeNull();
   });
 });
 

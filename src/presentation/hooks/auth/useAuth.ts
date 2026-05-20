@@ -19,11 +19,15 @@ export function useAuth() {
     setUser(loggedInUser);
   }
 
+  function initiateSocialLogin(connection: string): void {
+    authService.initiateSocialLogin(connection);
+  }
+
   function logout(): void {
     authService.logout();
     tokenStorage.clearAll();
     reset();
   }
 
-  return { user, isAuthenticated, bootstrapped, login, logout };
+  return { user, isAuthenticated, bootstrapped, login, initiateSocialLogin, logout };
 }

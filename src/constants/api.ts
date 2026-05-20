@@ -5,8 +5,6 @@ export const API_BASE_URL: string =
 export const COPILOTKIT_RUNTIME_URL: string =
   (import.meta.env.VITE_COPILOTKIT_URL as string | undefined) ?? `${API_BASE_URL}/pragna`;
 
-export const REFRESH_TOKEN_PATH: string =
-  (import.meta.env.VITE_REFRESH_TOKEN_PATH as string | undefined) ?? '/api/auth/refresh';
 
 export const LOG_LEVEL: string =
   (import.meta.env.VITE_LOG_LEVEL as string | undefined) ?? 'info';

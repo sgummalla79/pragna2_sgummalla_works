@@ -1,50 +1,38 @@
-const REFRESH_TOKEN_KEY = 'pragna_rt';
+// Session tokens live in sessionStorage — they survive page refreshes within
+// the same browser tab and are cleared automatically when the tab closes.
+//
+// When the backend supports httpOnly session cookies, this module will be
+// replaced entirely: the cookie is sent automatically by the browser and
+// JavaScript never touches the token.
 
-let _accessToken: string | null = null;
+const KEYS = {
+  accessToken: 'pragna_at',
+  idToken:     'pragna_idt',
+} as const;
+
+function read(key: string): string | null {
+  try { return sessionStorage.getItem(key) || null; } catch { return null; }
+}
+
+function write(key: string, value: string): void {
+  try { if (value) sessionStorage.setItem(key, value); } catch { /* unavailable */ }
+}
+
+function erase(key: string): void {
+  try { sessionStorage.removeItem(key); } catch { /* ignore */ }
+}
 
 export const tokenStorage = {
-  getAccessToken(): string | null {
-    return _accessToken;
-  },
+  getAccessToken: ()          => read(KEYS.accessToken),
+  setAccessToken: (t: string) => write(KEYS.accessToken, t),
+  clearAccessToken: ()        => erase(KEYS.accessToken),
 
-  setAccessToken(token: string): void {
-    _accessToken = token;
-  },
-
-  clearAccessToken(): void {
-    _accessToken = null;
-  },
-
-  getRefreshToken(): string | null {
-    try {
-      return sessionStorage.getItem(REFRESH_TOKEN_KEY);
-    } catch {
-      return null;
-    }
-  },
-
-  setRefreshToken(token: string): void {
-    try {
-      sessionStorage.setItem(REFRESH_TOKEN_KEY, token);
-    } catch {
-      // sessionStorage unavailable (private browsing restrictions)
-    }
-  },
-
-  clearRefreshToken(): void {
-    try {
-      sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-    } catch {
-      // ignore
-    }
-  },
+  getIdToken: ()          => read(KEYS.idToken),
+  setIdToken: (t: string) => write(KEYS.idToken, t),
+  clearIdToken: ()        => erase(KEYS.idToken),
 
   clearAll(): void {
-    _accessToken = null;
-    try {
-      sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-    } catch {
-      // ignore
-    }
+    erase(KEYS.accessToken);
+    erase(KEYS.idToken);
   },
 };

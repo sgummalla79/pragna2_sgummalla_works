@@ -56,44 +56,13 @@ describe('authInterceptor: token attachment', () => {
   });
 });
 
-describe('authInterceptor: 401 refresh flow', () => {
-  it('retries original request after successful token refresh', async () => {
-    tokenStorage.setRefreshToken('valid-refresh-token');
-    tokenStorage.setAccessToken('old-token');
-
-    let callCount = 0;
-
-    server.use(
-      http.get(`${BASE_URL}/api/protected`, ({ request }) => {
-        callCount++;
-        const auth = request.headers.get('Authorization');
-        if (auth === 'Bearer old-token') {
-          return HttpResponse.json({ detail: 'Unauthorized' }, { status: 401 });
-        }
-        return HttpResponse.json({ data: 'success' });
-      }),
-      http.post(`${BASE_URL}/api/auth/refresh`, () =>
-        HttpResponse.json({ access_token: 'new-token', refresh_token: 'new-refresh' })
-      )
-    );
-
-    const { client } = makeClient();
-    const response = await client.get('/api/protected');
-    expect(response.data).toEqual({ data: 'success' });
-    expect(callCount).toBe(2);
-    expect(tokenStorage.getAccessToken()).toBe('new-token');
-  });
-
-  it('calls onLogout when refresh fails', async () => {
-    tokenStorage.setRefreshToken('bad-refresh');
-    tokenStorage.setAccessToken('old-token');
+describe('authInterceptor: 401 handling', () => {
+  it('calls onLogout and clears tokens on 401', async () => {
+    tokenStorage.setAccessToken('expired-token');
 
     server.use(
       http.get(`${BASE_URL}/api/protected`, () =>
         HttpResponse.json({ detail: 'Unauthorized' }, { status: 401 })
-      ),
-      http.post(`${BASE_URL}/api/auth/refresh`, () =>
-        HttpResponse.json({ detail: 'Refresh expired' }, { status: 401 })
       )
     );
 
@@ -103,28 +72,15 @@ describe('authInterceptor: 401 refresh flow', () => {
     expect(tokenStorage.getAccessToken()).toBeNull();
   });
 
-  it('does not refresh twice for concurrent 401s', async () => {
-    tokenStorage.setRefreshToken('valid-refresh');
-    tokenStorage.setAccessToken('old-token');
-
-    let refreshCallCount = 0;
-
+  it('passes through non-401 errors unchanged', async () => {
     server.use(
-      http.get(`${BASE_URL}/api/resource`, ({ request }) => {
-        const auth = request.headers.get('Authorization');
-        if (auth === 'Bearer old-token') {
-          return HttpResponse.json({}, { status: 401 });
-        }
-        return HttpResponse.json({ ok: true });
-      }),
-      http.post(`${BASE_URL}/api/auth/refresh`, () => {
-        refreshCallCount++;
-        return HttpResponse.json({ access_token: 'fresh-token', refresh_token: 'fresh-refresh' });
-      })
+      http.get(`${BASE_URL}/api/resource`, () =>
+        HttpResponse.json({ detail: 'Not found' }, { status: 404 })
+      )
     );
 
-    const { client } = makeClient();
-    await Promise.all([client.get('/api/resource'), client.get('/api/resource')]);
-    expect(refreshCallCount).toBe(1);
+    const { client, onLogout } = makeClient();
+    await expect(client.get('/api/resource')).rejects.toThrow();
+    expect(onLogout).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useAuthStore } from '@/presentation/store/authStore';
 import { useServices } from '@/presentation/providers/ServiceContext';
-import { tokenStorage } from '@/infrastructure/storage/tokenStorage';
 
 export function useBootstrap(): void {
   const setUser = useAuthStore((s) => s.setUser);
@@ -13,22 +12,13 @@ export function useBootstrap(): void {
   useEffect(() => {
     if (bootstrapped) return;
 
-    const refreshToken = tokenStorage.getRefreshToken();
-    if (!refreshToken) {
-      setBootstrapped(true);
-      return;
-    }
-
     authService
-      .me()
-      .then((user) => {
-        const accessToken = tokenStorage.getAccessToken();
-        setAccessToken(accessToken);
-        setUser(user);
-      })
-      .catch(() => {
-        tokenStorage.clearAll();
-        setUser(null);
+      .bootstrap()
+      .then((result) => {
+        if (result) {
+          setAccessToken(result.accessToken);
+          setUser(result.user);
+        }
       })
       .finally(() => {
         setBootstrapped(true);

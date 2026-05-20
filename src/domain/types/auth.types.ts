@@ -14,7 +14,7 @@ export interface UserSettings {
 
 export interface AuthTokens {
   accessToken: string;
-  refreshToken: string;
+  idToken?: string;
 }
 
 export interface LoginPayload {
@@ -28,10 +28,12 @@ export interface RegisterPayload {
   name?: string;
 }
 
-export interface RefreshPayload {
-  refreshToken: string;
-}
-
 export interface UpdateSettingsPayload {
   settings: UserSettings;
+}
+
+export interface SocialConnection {
+  name: string;       // Auth0 connection name, e.g. "google-oauth2"
+  strategy: string;   // Auth0 strategy key, e.g. "google-oauth2"
+  displayName: string; // Human label, e.g. "Google"
 }

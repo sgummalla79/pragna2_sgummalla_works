@@ -2,12 +2,20 @@
 
 @theme {
   --font-sans: 'Carlito', sans-serif;
-  --color-brand: #c97040;
+
+  /* ── Pragna Copper brand ─────────────────────────────────────────── */
+  --color-brand:       #c97040;
   --color-brand-hover: #b5633a;
-  --color-brand-light: #f3e0d4;
-  --color-brand-ring: rgba(201, 112, 64, 0.3);
+  --color-brand-light: rgba(201, 112, 64, 0.12);
+  --color-brand-ring:  rgba(201, 112, 64, 0.35);
 }
 
+/* ── Keyframes ───────────────────────────────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Reset ───────────────────────────────────────────────────────────── */
 *,
 *::before,
 *::after {
@@ -24,55 +32,58 @@ body,
 }
 
 body {
-  background-color: hsl(0 0% 100%);
-  color: hsl(240 10% 3.9%);
+  background-color: #282828;
+  color: hsl(0 0% 96%);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
+/* ── Design tokens ───────────────────────────────────────────────────── */
+/* The app is dark-first. #282828 is the base surface. */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
-  --primary: 24.6 65.1% 52%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 240 4.8% 95.9%;
-  --secondary-foreground: 240 5.9% 10%;
-  --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 46.1%;
-  --accent: 240 4.8% 95.9%;
-  --accent-foreground: 240 5.9% 10%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
-  --ring: 24.6 65.1% 52%;
-  --radius: 0.5rem;
-  --sidebar-width: 240px;
-  --sidebar-width-collapsed: 64px;
-}
+  /* Surfaces */
+  --background:          0 0% 16%;    /* #282828 — page canvas         */
+  --foreground:          0 0% 96%;    /* near-white text                */
 
-.dark {
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 3.9%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 24.6 65.1% 52%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
-  --accent: 240 3.7% 15.9%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 62.8% 30.6%;
+  --card:                0 0% 20%;    /* #333333 — elevated surface     */
+  --card-foreground:     0 0% 96%;
+
+  --popover:             0 0% 18%;    /* dropdowns / tooltips           */
+  --popover-foreground:  0 0% 96%;
+
+  /* Interaction */
+  --primary:             24.6 65.1% 52%;   /* Pragna Copper              */
+  --primary-foreground:  0 0% 98%;
+
+  --secondary:           0 0% 24%;
+  --secondary-foreground:0 0% 96%;
+
+  --muted:               0 0% 22%;         /* subtle fills               */
+  --muted-foreground:    0 0% 55%;         /* secondary text             */
+
+  --accent:              0 0% 24%;
+  --accent-foreground:   0 0% 96%;
+
+  /* Status */
+  --destructive:         0 72% 51%;
   --destructive-foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 24.6 65.1% 52%;
+
+  /* Structure */
+  --border:              0 0% 28%;    /* #474747 — general dividers           */
+  --input:               0 0% 32%;   /* #525252 — input field borders        */
+  --ring:                24.6 65.1% 52%;   /* focus ring — Pragna Copper      */
+
+  /* Sunken surface — used for inputs and dark action buttons inside cards.
+     Much darker than the card surface to create a recessed feel. */
+  --surface-sunken:      0 0% 7%;    /* #111111                              */
+  --surface-sunken-border: 255 255 255 / 0.12; /* rgba white for dark borders */
+
+  /* Display font — same as body, Carlito. One typeface throughout. */
+  --font-display: 'Carlito', sans-serif;
+
+  --radius: 0.5rem;
+
+  /* Layout */
+  --sidebar-width:           240px;
+  --sidebar-width-collapsed:  64px;
 }

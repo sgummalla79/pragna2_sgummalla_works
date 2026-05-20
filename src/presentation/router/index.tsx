@@ -5,6 +5,9 @@ import { ProtectedRoute } from './ProtectedRoute';
 import { GuestOnlyRoute } from './GuestOnlyRoute';
 
 const LoginView = lazy(() => import('@/presentation/views/LoginView/LoginView'));
+const AuthCallbackView = lazy(
+  () => import('@/presentation/views/AuthCallbackView/AuthCallbackView')
+);
 const RegisterView = lazy(() => import('@/presentation/views/RegisterView/RegisterView'));
 const ChatView = lazy(() => import('@/presentation/views/ChatView/ChatView'));
 const ProvidersView = lazy(() => import('@/presentation/views/ProvidersView/ProvidersView'));
@@ -91,6 +94,7 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route path={ROUTES.AUTH_CALLBACK} element={<AuthCallbackView />} />
         <Route path="*" element={<Navigate to={ROUTES.LOGIN} replace />} />
       </Routes>
     </Suspense>

@@ -3,8 +3,8 @@ import type { IAuthRepository } from '@/application/ports/IAuthRepository';
 import type {
   AuthTokens,
   LoginPayload,
-  RefreshPayload,
   RegisterPayload,
+  SocialConnection,
   UpdateSettingsPayload,
   User,
 } from '@/domain/types/auth.types';
@@ -19,7 +19,6 @@ interface ApiUserResponse {
 
 interface ApiTokenResponse {
   access_token: string;
-  refresh_token: string;
 }
 
 function mapUser(raw: ApiUserResponse): User {
@@ -32,38 +31,34 @@ function mapUser(raw: ApiUserResponse): User {
   };
 }
 
-function mapTokens(raw: ApiTokenResponse): AuthTokens {
-  return {
-    accessToken: raw.access_token,
-    refreshToken: raw.refresh_token,
-  };
-}
-
+/** Local (email/password) auth repository — used when AUTH_STRATEGY=local. */
 export class AuthRepository implements IAuthRepository {
   constructor(private readonly http: AxiosInstance) {}
 
   async register(payload: RegisterPayload): Promise<User> {
     const { data } = await this.http.post<ApiUserResponse>('/api/auth/register', {
-      email: payload.email,
-      password: payload.password,
-      name: payload.name,
+      email: payload.email, password: payload.password, name: payload.name,
     });
     return mapUser(data);
   }
 
   async login(payload: LoginPayload): Promise<AuthTokens> {
     const { data } = await this.http.post<ApiTokenResponse>('/api/auth/login', {
-      email: payload.email,
-      password: payload.password,
+      email: payload.email, password: payload.password,
     });
-    return mapTokens(data);
+    return { accessToken: data.access_token };
   }
 
-  async refresh(payload: RefreshPayload): Promise<AuthTokens> {
-    const { data } = await this.http.post<ApiTokenResponse>('/api/auth/refresh', {
-      refresh_token: payload.refreshToken,
-    });
-    return mapTokens(data);
+  initiateSocialLogin(_connection: string): void {
+    throw new Error('Social login is not supported with the local auth strategy.');
+  }
+
+  async completeOAuthCallback(_code: string, _codeVerifier: string, _redirectUri: string): Promise<AuthTokens> {
+    throw new Error('OAuth callback is not supported with the local auth strategy.');
+  }
+
+  async fetchSocialConnections(): Promise<SocialConnection[]> {
+    return [];
   }
 
   async me(): Promise<User> {

@@ -8,30 +8,18 @@ const BASE_URL = 'http://localhost:8000';
 
 const server = setupServer(
   http.post(`${BASE_URL}/api/auth/login`, () =>
-    HttpResponse.json({
-      access_token: 'test-access-token',
-      refresh_token: 'test-refresh-token',
-    })
+    HttpResponse.json({ access_token: 'test-access-token' })
   ),
   http.post(`${BASE_URL}/api/auth/register`, () =>
     HttpResponse.json(
-      {
-        id: 'user-1',
-        email: 'test@example.com',
-        name: 'Test User',
-        identity_provider: 'local',
-        settings: {},
-      },
+      { id: 'user-1', email: 'test@example.com', name: 'Test User', identity_provider: 'local', settings: {} },
       { status: 201 }
     )
   ),
   http.get(`${BASE_URL}/api/auth/me`, () =>
     HttpResponse.json({
-      id: 'user-1',
-      email: 'test@example.com',
-      name: 'Test User',
-      identity_provider: 'local',
-      settings: { theme: 'dark' },
+      id: 'user-1', email: 'test@example.com', name: 'Test User',
+      identity_provider: 'local', settings: { theme: 'dark' },
     })
   )
 );
@@ -40,14 +28,13 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-const http_client = axios.create({ baseURL: BASE_URL });
-const repo = new AuthRepository(http_client);
+const httpClient = axios.create({ baseURL: BASE_URL });
+const repo = new AuthRepository(httpClient);
 
 describe('AuthRepository.login', () => {
-  it('returns mapped AuthTokens on success', async () => {
+  it('returns accessToken on success', async () => {
     const tokens = await repo.login({ email: 'test@example.com', password: 'pass' });
     expect(tokens.accessToken).toBe('test-access-token');
-    expect(tokens.refreshToken).toBe('test-refresh-token');
   });
 
   it('sends email and password in request body', async () => {
@@ -55,7 +42,7 @@ describe('AuthRepository.login', () => {
     server.use(
       http.post(`${BASE_URL}/api/auth/login`, async ({ request }) => {
         capturedBody = await request.json();
-        return HttpResponse.json({ access_token: 'tok', refresh_token: 'ref' });
+        return HttpResponse.json({ access_token: 'tok' });
       })
     );
     await repo.login({ email: 'a@b.com', password: 'secret' });

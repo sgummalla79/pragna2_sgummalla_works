@@ -1,6 +1,7 @@
 export const ROUTES = {
   LOGIN: '/login',
   REGISTER: '/register',
+  AUTH_CALLBACK: '/auth-callback',
   CHAT: '/chat',
   PROVIDERS: '/providers',
   MODELS: '/models',
