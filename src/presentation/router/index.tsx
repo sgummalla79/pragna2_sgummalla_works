@@ -6,12 +6,13 @@ import { GuestOnlyRoute } from './GuestOnlyRoute';
 import { SettingsLayout } from '@/presentation/components/settings/SettingsLayout/SettingsLayout';
 
 // ── Auth pages ──────────────────────────────────────────────────────────────
-const LoginView        = lazy(() => import('@/presentation/views/LoginView/LoginView'));
-const RegisterView     = lazy(() => import('@/presentation/views/RegisterView/RegisterView'));
-const AuthCallbackView = lazy(() => import('@/presentation/views/AuthCallbackView/AuthCallbackView'));
+const LoginView        = lazy(() => import('@/presentation/views/auth/LoginView'));
+const RegisterView     = lazy(() => import('@/presentation/views/auth/RegisterView'));
+const AuthCallbackView = lazy(() => import('@/presentation/views/auth/AuthCallbackView'));
 
 // ── Chat ─────────────────────────────────────────────────────────────────────
-const ChatView = lazy(() => import('@/presentation/views/ChatView/ChatView'));
+const ChatView          = lazy(() => import('@/presentation/views/chat/ChatView'));
+const ConversationsView = lazy(() => import('@/presentation/views/chat/ConversationsView'));
 
 // ── Settings sections ────────────────────────────────────────────────────────
 const ProvidersView    = lazy(() => import('@/presentation/views/settings/ProvidersView/ProvidersView'));
@@ -22,8 +23,6 @@ const ProfileView      = lazy(() => import('@/presentation/views/settings/Profil
 // ── Dev / Design system ──────────────────────────────────────────────────────
 const UIFrameworkView = lazy(() => import('@/presentation/views/UIFrameworkView/UIFrameworkView'));
 
-// ── Legacy ───────────────────────────────────────────────────────────────────
-const ConversationsView = lazy(() => import('@/presentation/views/ConversationsView/ConversationsView'));
 
 export function AppRoutes() {
   return (
@@ -36,11 +35,13 @@ export function AppRoutes() {
         {/* ── OAuth callback (no auth guard — handles the redirect) ── */}
         <Route path={ROUTES.AUTH_CALLBACK} element={<AuthCallbackView />} />
 
-        {/* ── Chat ── */}
+        {/* ── Chat (layout shell + nested sub-views) ── */}
         <Route
           path={ROUTES.CHAT}
           element={<ProtectedRoute><ChatView /></ProtectedRoute>}
-        />
+        >
+          <Route index element={<ConversationsView />} />
+        </Route>
 
         {/* ── Settings (2-panel layout with sidebar) ── */}
         <Route
@@ -60,7 +61,7 @@ export function AppRoutes() {
         <Route path={ROUTES.FLOWS}         element={<Navigate to={ROUTES.SETTINGS_FLOWS}     replace />} />
         <Route path={ROUTES.FLOW_DETAIL}   element={<Navigate to={ROUTES.SETTINGS_FLOWS}     replace />} />
         <Route path={ROUTES.SKILLS}        element={<Navigate to={ROUTES.SETTINGS_SKILLS}    replace />} />
-        <Route path={ROUTES.CONVERSATIONS} element={<ProtectedRoute><ConversationsView /></ProtectedRoute>} />
+        <Route path={ROUTES.CONVERSATIONS} element={<Navigate to={ROUTES.CHAT} replace />} />
 
         {/* ── Design system showcase (no auth guard — dev only) ── */}
         <Route path={ROUTES.UI_FRAMEWORK} element={<UIFrameworkView />} />

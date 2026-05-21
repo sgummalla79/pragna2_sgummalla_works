@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import LoginView from '@/presentation/views/LoginView/LoginView';
+import LoginView from '@/presentation/views/auth/LoginView';
 import { ServiceContext, type Services } from '@/presentation/providers/ServiceContext';
 import { useAuthStore } from '@/presentation/store/authStore';
 

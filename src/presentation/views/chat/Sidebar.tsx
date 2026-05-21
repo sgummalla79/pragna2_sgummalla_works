@@ -35,7 +35,7 @@ interface ChatSidebarProps {
   onChats?: () => void;
 }
 
-export function ChatSidebar({ onNewChat, onChats }: ChatSidebarProps) {
+export function Sidebar({ onNewChat, onChats }: ChatSidebarProps) {
   const collapsed = useUiStore((s) => s.chatPaneCollapsed);
   const toggle = useUiStore((s) => s.toggleChatPane);
 

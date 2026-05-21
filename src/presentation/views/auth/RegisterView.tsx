@@ -12,7 +12,7 @@ import { Input } from '@/presentation/components/ui/Input';
 import { Label } from '@/presentation/components/ui/Label';
 import { PasswordInput } from '@/presentation/components/ui/PasswordInput';
 import { Card, CardContent } from '@/presentation/components/ui/Card';
-import { SocialLoginButton } from '@/presentation/views/LoginView/SocialLoginButton';
+import { SocialLoginButton } from './SocialLoginButton';
 
 /** Register page — mirrors the login layout so the two pages feel like a set. */
 export default function RegisterView() {

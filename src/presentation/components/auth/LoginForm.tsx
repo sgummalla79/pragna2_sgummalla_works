@@ -6,7 +6,7 @@ import { ROUTES } from '@/constants/routes';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/presentation/hooks/auth/useAuth';
 import { useAuth0Connections } from '@/presentation/hooks/auth/useAuth0Connections';
-import { SocialLoginButton } from '@/presentation/views/LoginView/SocialLoginButton';
+import { SocialLoginButton } from '@/presentation/views/auth/SocialLoginButton';
 import { Input } from '@/presentation/components/ui/Input';
 import { PasswordInput } from '@/presentation/components/ui/PasswordInput';
 
