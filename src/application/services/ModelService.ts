@@ -10,23 +10,15 @@ import type { BulkUpdateEntry, Model, UpdateModelPayload } from '@/domain/types/
 export class ModelService {
   constructor(private readonly modelRepository: IModelRepository) {}
 
-  /** Returns all of the user's models (archived rows excluded by default). */
   list(): Promise<Model[]> {
     return this.modelRepository.list();
   }
 
-  /**
-   * Partially updates a model's user-controllable fields via PATCH.
-   * Only fields present in `payload` are sent; omitted fields are unchanged.
-   */
   update(id: string, payload: UpdateModelPayload): Promise<Model> {
     return this.modelRepository.update(id, payload);
   }
 
-  /**
-   * Bulk-updates many models in a single server transaction.
-   * All-or-nothing — see {@link IModelRepository.bulkUpdate}.
-   */
+  /** Applies many partial updates in a single server transaction. */
   bulkUpdate(updates: BulkUpdateEntry[]): Promise<Model[]> {
     return this.modelRepository.bulkUpdate(updates);
   }

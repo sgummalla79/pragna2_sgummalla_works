@@ -1,12 +1,4 @@
-import {
-  useState,
-  useEffect,
-  useRef,
-  useImperativeHandle,
-  forwardRef,
-  type ReactNode,
-  type ForwardedRef,
-} from 'react';
+import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 // ── Column type definitions ────────────────────────────────────────────────────
@@ -21,6 +13,11 @@ export interface ReadonlyColumn<T> {
   render: (row: T) => ReactNode;
 }
 
+/**
+ * Cell whose value the user can edit inline.
+ * `onUpdate` is called on blur when the value has changed — the parent
+ * is responsible for buffering and persisting the change.
+ */
 export interface EditableColumn<T> {
   type: 'editable';
   key: string;
@@ -31,6 +28,10 @@ export interface EditableColumn<T> {
   isValid?: (value: string) => boolean;
 }
 
+/**
+ * Cell that fires `onUpdate` immediately on click — no blur needed.
+ * Used for boolean toggles (enabled, available_for_chat, etc.).
+ */
 export interface ToggleColumn<T> {
   type: 'toggle';
   key: string;
@@ -43,117 +44,42 @@ export interface ToggleColumn<T> {
 
 export type GridColumn<T> = ReadonlyColumn<T> | EditableColumn<T> | ToggleColumn<T>;
 
-// ── Imperative handle ─────────────────────────────────────────────────────────
-
-export interface DataGridHandle {
-  /** Saves all rows that have pending edits. */
-  save: () => Promise<void>;
-  /** Discards all pending edits, restoring original values. */
-  cancel: () => void;
-}
-
-// ── DataGrid props ─────────────────────────────────────────────────────────────
+// ── DataGrid ──────────────────────────────────────────────────────────────────
 
 interface DataGridProps<T> {
   columns: GridColumn<T>[];
   rows: T[];
   getRowId: (row: T) => string;
-  onUpdate: (id: string, payload: Record<string, unknown>) => Promise<void> | void;
+  /**
+   * Called when a cell change should be persisted.
+   * - editable cells: called on blur when the value differs from the original
+   * - toggle cells: called immediately on click
+   */
+  onUpdate: (id: string, payload: Record<string, unknown>) => void;
   isRowDisabled?: (row: T) => boolean;
   emptyMessage?: string;
   className?: string;
-  /** Fired whenever the overall dirty state changes (any editable cell differs from original). */
-  onDirtyChange?: (isDirty: boolean) => void;
 }
 
-// ── DataGrid (forwardRef, generic) ────────────────────────────────────────────
-
-function DataGridInner<T>(
-  {
-    columns,
-    rows,
-    getRowId,
-    onUpdate,
-    isRowDisabled,
-    emptyMessage = 'No data.',
-    className,
-    onDirtyChange,
-  }: DataGridProps<T>,
-  ref: ForwardedRef<DataGridHandle>
-) {
-  const editableCols = columns.filter((c): c is EditableColumn<T> => c.type === 'editable');
-
-  // All editable cell values hoisted here so DataGrid can compute global dirty state
-  // and expose save/cancel imperatively.
-  const makeInitial = () =>
-    Object.fromEntries(
-      rows.map((row) => [
-        getRowId(row),
-        Object.fromEntries(editableCols.map((c) => [c.key, c.getValue(row)])),
-      ])
-    );
-
-  const [editValues, setEditValues] = useState<Record<string, Record<string, string>>>(makeInitial);
-  const [pendingToggles, setPendingToggles] = useState<Set<string>>(new Set());
-  const [savingRows, setSavingRows] = useState<Set<string>>(new Set());
-
-  const isDirtyFor = (row: T) => {
-    const id = getRowId(row);
-    return editableCols.some((c) => {
-      const current = editValues[id]?.[c.key] ?? c.getValue(row);
-      const valid = c.isValid ? c.isValid(current) : current.trim() !== '';
-      return valid && current !== c.getValue(row);
-    });
-  };
-
-  const isDirty = rows.some(isDirtyFor);
-
-  // Notify parent when dirty state changes
-  const prevDirty = useRef(false);
-  useEffect(() => {
-    if (isDirty !== prevDirty.current) {
-      prevDirty.current = isDirty;
-      onDirtyChange?.(isDirty);
-    }
-  });
-
-  // Expose save / cancel via ref
-  useImperativeHandle(ref, () => ({
-    async save() {
-      const dirtyRows = rows.filter(isDirtyFor);
-      for (const row of dirtyRows) {
-        const id = getRowId(row);
-        const payload: Record<string, unknown> = {};
-        for (const col of editableCols) {
-          const current = editValues[id]?.[col.key] ?? col.getValue(row);
-          if (current !== col.getValue(row)) {
-            Object.assign(payload, col.buildPayload(current));
-          }
-        }
-        setSavingRows((prev) => new Set(prev).add(id));
-        try {
-          await onUpdate(id, payload);
-        } finally {
-          setSavingRows((prev) => { const s = new Set(prev); s.delete(id); return s; });
-        }
-      }
-    },
-    cancel() {
-      setEditValues(makeInitial());
-    },
-  }));
-
-  async function handleToggle(rowId: string, col: ToggleColumn<T>, row: T) {
-    const key = `${rowId}:${col.key}`;
-    if (pendingToggles.has(key)) return;
-    setPendingToggles((prev) => new Set(prev).add(key));
-    try {
-      await onUpdate(rowId, col.buildPayload(row));
-    } finally {
-      setPendingToggles((prev) => { const s = new Set(prev); s.delete(key); return s; });
-    }
-  }
-
+/**
+ * Generic data grid driven entirely by column config.
+ *
+ * Two interaction modes:
+ *  - editable → inline input; calls onUpdate on blur when changed
+ *  - toggle   → dot button; calls onUpdate immediately on click
+ *  - readonly → display only
+ *
+ * The parent owns persistence (buffering, PATCH, invalidation).
+ */
+export function DataGrid<T>({
+  columns,
+  rows,
+  getRowId,
+  onUpdate,
+  isRowDisabled,
+  emptyMessage = 'No data.',
+  className,
+}: DataGridProps<T>) {
   if (rows.length === 0) {
     return <p className="py-3 text-[12px] text-[#737373]">{emptyMessage}</p>;
   }
@@ -184,110 +110,149 @@ function DataGridInner<T>(
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => {
-            const id = getRowId(row);
-            const disabled = isRowDisabled?.(row) ?? false;
-            const isSaving = savingRows.has(id);
-
-            return (
-              <tr
-                key={id}
-                className={cn(
-                  'transition-colors hover:bg-[rgba(255,255,255,0.02)]',
-                  i < rows.length - 1 && 'border-b border-[rgba(255,255,255,0.05)]',
-                  disabled && 'opacity-50'
-                )}
-              >
-                {columns.map((col) => {
-                  const align = alignClass[col.align ?? 'left'];
-
-                  if (col.type === 'readonly') {
-                    return (
-                      <td key={col.key} className={cn('px-3 py-3', align)}>
-                        {col.render(row)}
-                      </td>
-                    );
-                  }
-
-                  if (col.type === 'editable') {
-                    const value = editValues[id]?.[col.key] ?? col.getValue(row);
-                    return (
-                      <td key={col.key} className={cn('px-2 py-2', align)}>
-                        <input
-                          value={value}
-                          onChange={(e) =>
-                            setEditValues((prev) => ({
-                              ...prev,
-                              [id]: { ...prev[id], [col.key]: e.target.value },
-                            }))
-                          }
-                          disabled={disabled || isSaving}
-                          className={cn(
-                            'w-full cursor-text rounded-md border border-[rgba(255,255,255,0.12)]',
-                            'bg-[rgba(255,255,255,0.05)] px-2.5 py-1.5 text-[14px] text-[#ececea] outline-none',
-                            'transition-colors duration-150',
-                            'hover:border-[rgba(255,255,255,0.22)] hover:bg-[rgba(255,255,255,0.08)]',
-                            'focus:border-[rgba(201,112,64,0.55)] focus:bg-[rgba(255,255,255,0.08)]',
-                            'disabled:cursor-not-allowed disabled:opacity-50'
-                          )}
-                        />
-                      </td>
-                    );
-                  }
-
-                  // toggle
-                  const toggleKey = `${id}:${col.key}`;
-                  const active = col.getValue(row);
-                  const isPending = pendingToggles.has(toggleKey);
-                  const isDisabled = disabled || isPending || (col.isDisabled?.(row) ?? false);
-
-                  return (
-                    <td key={col.key} className={cn('px-3 py-3', align)}>
-                      <button
-                        onClick={() => handleToggle(id, col, row)}
-                        disabled={isDisabled}
-                        aria-pressed={active}
-                        aria-label={col.header}
-                        className={cn(
-                          'mx-auto flex h-5 w-5 items-center justify-center rounded-full transition-all duration-150',
-                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
-                          'disabled:cursor-not-allowed disabled:opacity-40',
-                          active
-                            ? 'bg-[var(--color-brand)] shadow-[0_0_6px_rgba(201,112,64,0.4)]'
-                            : 'bg-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.16)]'
-                        )}
-                      >
-                        {isPending ? (
-                          <span className="text-[8px] text-white">…</span>
-                        ) : active ? (
-                          <CheckMark />
-                        ) : null}
-                      </button>
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
+          {rows.map((row, i) => (
+            <DataGridRow
+              key={getRowId(row)}
+              row={row}
+              rowId={getRowId(row)}
+              columns={columns}
+              onUpdate={onUpdate}
+              disabled={isRowDisabled?.(row) ?? false}
+              isLast={i === rows.length - 1}
+              alignClass={alignClass}
+            />
+          ))}
         </tbody>
       </table>
     </div>
   );
 }
 
-// TypeScript generic forwardRef pattern
-export const DataGrid = forwardRef(DataGridInner) as <T>(
-  props: DataGridProps<T> & { ref?: React.Ref<DataGridHandle> }
-) => React.ReactElement | null;
+// ── Row ────────────────────────────────────────────────────────────────────────
+
+interface DataGridRowProps<T> {
+  row: T;
+  rowId: string;
+  columns: GridColumn<T>[];
+  onUpdate: (id: string, payload: Record<string, unknown>) => void;
+  disabled: boolean;
+  isLast: boolean;
+  alignClass: Record<Align, string>;
+}
+
+function DataGridRow<T>({
+  row, rowId, columns, onUpdate, disabled, isLast, alignClass,
+}: DataGridRowProps<T>) {
+  // Local draft state per editable column — reset when row prop changes
+  const editableCols = columns.filter((c): c is EditableColumn<T> => c.type === 'editable');
+  const [drafts, setDrafts] = useState<Record<string, string>>(
+    () => Object.fromEntries(editableCols.map((c) => [c.key, c.getValue(row)]))
+  );
+  const [pendingToggle, setPendingToggle] = useState<string | null>(null);
+
+  function commitDraft(col: EditableColumn<T>) {
+    const draft = drafts[col.key] ?? col.getValue(row);
+    const original = col.getValue(row);
+    if (draft === original) return;
+    const valid = col.isValid ? col.isValid(draft) : draft.trim() !== '';
+    if (!valid) {
+      setDrafts((prev) => ({ ...prev, [col.key]: original })); // revert
+      return;
+    }
+    onUpdate(rowId, col.buildPayload(draft));
+  }
+
+  async function handleToggle(col: ToggleColumn<T>) {
+    if (pendingToggle || disabled) return;
+    setPendingToggle(col.key);
+    try {
+      onUpdate(rowId, col.buildPayload(row));
+    } finally {
+      setPendingToggle(null);
+    }
+  }
+
+  return (
+    <tr
+      className={cn(
+        'transition-colors hover:bg-[rgba(255,255,255,0.02)]',
+        !isLast && 'border-b border-[rgba(255,255,255,0.05)]',
+        disabled && 'opacity-50'
+      )}
+    >
+      {columns.map((col) => {
+        const align = alignClass[col.align ?? 'left'];
+
+        if (col.type === 'readonly') {
+          return (
+            <td key={col.key} className={cn('px-3 py-3', align)}>
+              {col.render(row)}
+            </td>
+          );
+        }
+
+        if (col.type === 'editable') {
+          const draft = drafts[col.key] ?? col.getValue(row);
+          return (
+            <td key={col.key} className={cn('px-2 py-2', align)}>
+              <input
+                value={draft}
+                onChange={(e) => setDrafts((prev) => ({ ...prev, [col.key]: e.target.value }))}
+                onBlur={() => commitDraft(col)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); } }}
+                disabled={disabled}
+                className={cn(
+                  'w-full cursor-text rounded-md border border-[rgba(255,255,255,0.12)]',
+                  'bg-[rgba(255,255,255,0.05)] px-2.5 py-1.5 text-[14px] text-[#ececea] outline-none',
+                  'transition-colors duration-150',
+                  'hover:border-[rgba(255,255,255,0.22)] hover:bg-[rgba(255,255,255,0.08)]',
+                  'focus:border-[rgba(201,112,64,0.55)] focus:bg-[rgba(255,255,255,0.08)]',
+                  'disabled:cursor-not-allowed disabled:opacity-50'
+                )}
+              />
+            </td>
+          );
+        }
+
+        // toggle
+        const active = col.getValue(row);
+        const isPending = pendingToggle === col.key;
+        const isDisabled = disabled || !!pendingToggle || (col.isDisabled?.(row) ?? false);
+
+        return (
+          <td key={col.key} className={cn('px-3 py-3', align)}>
+            <button
+              onClick={() => handleToggle(col)}
+              disabled={isDisabled}
+              aria-pressed={active}
+              aria-label={col.header}
+              className={cn(
+                'mx-auto flex h-5 w-5 items-center justify-center rounded-full transition-all duration-150',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
+                'disabled:cursor-not-allowed disabled:opacity-40',
+                active
+                  ? 'bg-[var(--color-brand)] shadow-[0_0_6px_rgba(201,112,64,0.4)]'
+                  : 'bg-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.16)]'
+              )}
+            >
+              {isPending ? (
+                <span className="text-[8px] text-white">…</span>
+              ) : active ? (
+                <CheckMark />
+              ) : null}
+            </button>
+          </td>
+        );
+      })}
+    </tr>
+  );
+}
 
 function CheckMark() {
   return (
-    <svg
-      width="10" height="10" viewBox="0 0 12 12"
+    <svg width="10" height="10" viewBox="0 0 12 12"
       fill="none" stroke="white" strokeWidth="2.5"
-      strokeLinecap="round" strokeLinejoin="round"
-      aria-hidden="true"
-    >
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M2 6l3 3 5-5" />
     </svg>
   );
