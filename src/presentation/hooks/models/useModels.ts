@@ -1,32 +1,33 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useServices } from '@/presentation/providers/ServiceContext';
-import type { RegisterModelPayload } from '@/domain/types/model.types';
+import type { UpdateModelPayload } from '@/domain/types/model.types';
 
-const MODELS_KEY = ['models'] as const;
+const MODELS_KEY                  = ['models']                           as const;
+const LLM_PROVIDERS_WITH_REG_KEY  = ['llm-providers-with-registrations'] as const;
 
+/** Fetches all of the user's models (archived rows excluded by default). */
 export function useModels() {
   const { modelService } = useServices();
   return useQuery({
     queryKey: MODELS_KEY,
-    queryFn: () => modelService.list(),
+    queryFn:  () => modelService.list(),
     staleTime: 30_000,
   });
 }
 
-export function useRegisterModel() {
+/**
+ * Partially updates a model's user-controllable fields via PATCH /api/user-models/{id}.
+ * On success invalidates the models list so all consumers reflect the change.
+ */
+export function useUpdateModel() {
   const { modelService } = useServices();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: RegisterModelPayload) => modelService.register(payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: MODELS_KEY }),
-  });
-}
-
-export function useDeleteModel() {
-  const { modelService } = useServices();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => modelService.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: MODELS_KEY }),
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateModelPayload }) =>
+      modelService.update(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MODELS_KEY });
+      queryClient.invalidateQueries({ queryKey: LLM_PROVIDERS_WITH_REG_KEY });
+    },
   });
 }

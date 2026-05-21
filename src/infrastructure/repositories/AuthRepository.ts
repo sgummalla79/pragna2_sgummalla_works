@@ -36,14 +36,17 @@ export class AuthRepository implements IAuthRepository {
   constructor(private readonly http: AxiosInstance) {}
 
   async register(payload: RegisterPayload): Promise<User> {
-    const { data } = await this.http.post<ApiUserResponse>('/api/auth/register', {
+    // POST /api/users creates a new user account (CLAUDE.md §9 — register
+    // is creation of a User resource, not an action on auth).
+    const { data } = await this.http.post<ApiUserResponse>('/api/users', {
       email: payload.email, password: payload.password, name: payload.name,
     });
     return mapUser(data);
   }
 
   async login(payload: LoginPayload): Promise<AuthTokens> {
-    const { data } = await this.http.post<ApiTokenResponse>('/api/auth/login', {
+    // POST /api/auth/sessions creates a session (login). Returns 201.
+    const { data } = await this.http.post<ApiTokenResponse>('/api/auth/sessions', {
       email: payload.email, password: payload.password,
     });
     return { accessToken: data.access_token };

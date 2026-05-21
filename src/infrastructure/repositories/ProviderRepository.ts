@@ -1,41 +1,72 @@
 import type { AxiosInstance } from 'axios';
-import type { IProviderRepository } from '@/application/ports/IProviderRepository';
-import type { CreateProviderPayload, Provider, ProviderKind } from '@/domain/types/provider.types';
+import type { IUserProviderRepository } from '@/application/ports/IProviderRepository';
+import type { RegisterProviderPayload, UserProvider, ProviderWithModels } from '@/domain/types/provider.types';
+import type { RefreshModelsResult } from '@/domain/types/model.types';
+import { mapModel, type ApiModelResponse } from './mappers/mapModel';
 
-interface ApiProviderResponse {
+interface ApiUserProviderResponse {
   id: string;
+  llm_provider_id: string;
   provider_name: string;
   enabled: boolean;
   metadata: Record<string, unknown>;
 }
 
-function mapProvider(raw: ApiProviderResponse): Provider {
+interface ApiProviderWithModelsResponse {
+  provider: ApiUserProviderResponse;
+  models: ApiModelResponse[];
+}
+
+interface ApiRefreshModelsResponse {
+  created:    ApiModelResponse[];
+  archived:   ApiModelResponse[];
+  unarchived: ApiModelResponse[];
+  models:     ApiModelResponse[];
+}
+
+function mapUserProvider(raw: ApiUserProviderResponse): UserProvider {
   return {
-    id: raw.id,
-    providerName: raw.provider_name as ProviderKind,
-    enabled: raw.enabled,
-    metadata: raw.metadata,
+    id:            raw.id,
+    llmProviderId: raw.llm_provider_id,
+    providerName:  raw.provider_name,
+    enabled:       raw.enabled,
+    metadata:      raw.metadata ?? {},
   };
 }
 
-export class ProviderRepository implements IProviderRepository {
+/** Manages user_providers: register, refresh models, delete. */
+export class ProviderRepository implements IUserProviderRepository {
   constructor(private readonly http: AxiosInstance) {}
 
-  async list(): Promise<Provider[]> {
-    const { data } = await this.http.get<ApiProviderResponse[]>('/api/providers');
-    return data.map(mapProvider);
+  async list(): Promise<UserProvider[]> {
+    const { data } = await this.http.get<ApiUserProviderResponse[]>('/api/user-providers');
+    return data.map(mapUserProvider);
   }
 
-  async create(payload: CreateProviderPayload): Promise<Provider> {
-    const { data } = await this.http.post<ApiProviderResponse>('/api/providers', {
-      provider_name: payload.providerName,
-      api_key: payload.apiKey,
-      metadata: payload.metadata ?? {},
+  async register(payload: RegisterProviderPayload): Promise<ProviderWithModels> {
+    const { data } = await this.http.post<ApiProviderWithModelsResponse>('/api/user-providers', {
+      llm_provider_id: payload.llmProviderId,
+      api_key:         payload.apiKey,
     });
-    return mapProvider(data);
+    return {
+      provider: mapUserProvider(data.provider),
+      models:   data.models.map(mapModel),
+    };
+  }
+
+  async refreshModels(providerId: string): Promise<RefreshModelsResult> {
+    const { data } = await this.http.post<ApiRefreshModelsResponse>(
+      `/api/user-providers/${providerId}/refresh-models`
+    );
+    return {
+      created:    data.created.map(mapModel),
+      archived:   data.archived.map(mapModel),
+      unarchived: data.unarchived.map(mapModel),
+      models:     data.models.map(mapModel),
+    };
   }
 
   async delete(id: string): Promise<void> {
-    await this.http.delete(`/api/providers/${id}`);
+    await this.http.delete(`/api/user-providers/${id}`);
   }
 }

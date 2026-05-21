@@ -45,7 +45,7 @@ beforeEach(() => {
 describe('LoginView', () => {
   it('renders email and password fields', () => {
     renderLogin();
-    expect(screen.getByLabelText('Email')).toBeInTheDocument();
+    expect(screen.getByLabelText('Email address')).toBeInTheDocument();
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
   });
 
@@ -60,7 +60,7 @@ describe('LoginView', () => {
   it('calls login with email and password on submit', async () => {
     mockLogin.mockResolvedValueOnce({ accessToken: 'tok', refreshToken: 'ref' });
     renderLogin();
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'test@example.com' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
     await waitFor(() => {
@@ -71,7 +71,7 @@ describe('LoginView', () => {
   it('shows error message on login failure', async () => {
     mockLogin.mockRejectedValueOnce(new Error('Unauthorized'));
     renderLogin();
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.com' } });
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'a@b.com' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'wrongpass' } });
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
     await waitFor(() => {

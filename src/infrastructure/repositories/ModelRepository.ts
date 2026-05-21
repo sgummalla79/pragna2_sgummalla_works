@@ -1,52 +1,32 @@
 import type { AxiosInstance } from 'axios';
 import type { IModelRepository } from '@/application/ports/IModelRepository';
-import type { Model, RegisterModelPayload } from '@/domain/types/model.types';
+import type { Model, UpdateModelPayload } from '@/domain/types/model.types';
+import { mapModel, type ApiModelResponse } from './mappers/mapModel';
 
-interface ApiModelResponse {
-  id: string;
-  user_provider_id: string;
-  model_id: string;
-  display_name: string;
-  cost_per_input_token: string;
-  cost_per_output_token: string;
-  enabled: boolean;
-  metadata: Record<string, unknown>;
-}
-
-function mapModel(raw: ApiModelResponse): Model {
-  return {
-    id: raw.id,
-    userProviderId: raw.user_provider_id,
-    modelId: raw.model_id,
-    displayName: raw.display_name,
-    costPerInputToken: raw.cost_per_input_token,
-    costPerOutputToken: raw.cost_per_output_token,
-    enabled: raw.enabled,
-    metadata: raw.metadata,
-  };
-}
-
+/**
+ * Manages user_models via GET and PATCH.
+ *
+ * Models are created automatically by POST /api/user-providers (auto-discovery)
+ * and POST /api/user-providers/{id}/refresh-models. There is no standalone
+ * POST or DELETE on user_models — those operations do not exist in the API.
+ */
 export class ModelRepository implements IModelRepository {
   constructor(private readonly http: AxiosInstance) {}
 
   async list(): Promise<Model[]> {
-    const { data } = await this.http.get<ApiModelResponse[]>('/api/models');
+    const { data } = await this.http.get<ApiModelResponse[]>('/api/user-models');
     return data.map(mapModel);
   }
 
-  async register(payload: RegisterModelPayload): Promise<Model> {
-    const { data } = await this.http.post<ApiModelResponse>('/api/models', {
-      user_provider_id: payload.userProviderId,
-      model_id: payload.modelId,
-      display_name: payload.displayName,
-      cost_per_input_token: payload.costPerInputToken ?? 0,
-      cost_per_output_token: payload.costPerOutputToken ?? 0,
-      metadata: payload.metadata ?? {},
-    });
-    return mapModel(data);
-  }
+  async update(id: string, payload: UpdateModelPayload): Promise<Model> {
+    const body: Record<string, unknown> = {};
+    if (payload.enabled           !== undefined) body.enabled            = payload.enabled;
+    if (payload.availableForChat  !== undefined) body.available_for_chat = payload.availableForChat;
+    if (payload.availableForFlows !== undefined) body.available_for_flows = payload.availableForFlows;
+    if (payload.displayName       !== undefined) body.display_name       = payload.displayName;
+    if (payload.metadata          !== undefined) body.metadata           = payload.metadata;
 
-  async delete(id: string): Promise<void> {
-    await this.http.delete(`/api/models/${id}`);
+    const { data } = await this.http.patch<ApiModelResponse>(`/api/user-models/${id}`, body);
+    return mapModel(data);
   }
 }

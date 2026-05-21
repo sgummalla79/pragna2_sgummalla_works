@@ -74,7 +74,7 @@ Copy `.env.example` to `.env` before running.
 |---|---|---|
 | `VITE_API_BASE_URL` | FastAPI backend base URL | `http://localhost:8000` |
 | `VITE_COPILOTKIT_URL` | CopilotKit SSE endpoint | `http://localhost:8000/pragna` |
-| `VITE_REFRESH_TOKEN_PATH` | Token refresh path | `/api/auth/refresh` |
+| `VITE_REFRESH_TOKEN_PATH` | Token refresh path | `/api/auth/sessions/refresh` |
 | `VITE_LOG_LEVEL` | Minimum log level: `debug\|info\|warn\|error` | `debug` |
 | `VITE_FEATURE_FLOW_BUILDER` | Enables the flow builder route | `true` |
 | `VITE_APP_NAME` | Application display name | `Pragna` |
@@ -87,11 +87,11 @@ Copy `.env.example` to `.env` before running.
 
 ### Token Lifecycle
 
-1. `POST /api/auth/login` → `{ access_token, refresh_token }`
+1. `POST /api/auth/sessions` → `{ access_token, refresh_token }`
 2. `access_token` stored **in memory** via `src/infrastructure/storage/tokenStorage.ts`
 3. `refresh_token` stored in `sessionStorage` (key: `pragna_rt`) — clears on tab close
 4. All Axios requests attach `Authorization: Bearer <access_token>` via `authInterceptor.ts`
-5. On 401 response: interceptor calls `POST /api/auth/refresh`, retries original request **once**
+5. On 401 response: interceptor calls `POST /api/auth/sessions/refresh`, retries original request **once**
 6. If refresh fails (401): `tokenStorage.clearAll()`, Zustand `reset()`, redirect to `/login`
 
 ### Concurrency Lock

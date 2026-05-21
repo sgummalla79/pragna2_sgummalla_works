@@ -7,10 +7,10 @@ import { AuthRepository } from '@/infrastructure/repositories/AuthRepository';
 const BASE_URL = 'http://localhost:8000';
 
 const server = setupServer(
-  http.post(`${BASE_URL}/api/auth/login`, () =>
+  http.post(`${BASE_URL}/api/auth/sessions`, () =>
     HttpResponse.json({ access_token: 'test-access-token' })
   ),
-  http.post(`${BASE_URL}/api/auth/register`, () =>
+  http.post(`${BASE_URL}/api/users`, () =>
     HttpResponse.json(
       { id: 'user-1', email: 'test@example.com', name: 'Test User', identity_provider: 'local', settings: {} },
       { status: 201 }
@@ -40,7 +40,7 @@ describe('AuthRepository.login', () => {
   it('sends email and password in request body', async () => {
     let capturedBody: unknown;
     server.use(
-      http.post(`${BASE_URL}/api/auth/login`, async ({ request }) => {
+      http.post(`${BASE_URL}/api/auth/sessions`, async ({ request }) => {
         capturedBody = await request.json();
         return HttpResponse.json({ access_token: 'tok' });
       })
@@ -51,7 +51,7 @@ describe('AuthRepository.login', () => {
 
   it('throws on 401', async () => {
     server.use(
-      http.post(`${BASE_URL}/api/auth/login`, () =>
+      http.post(`${BASE_URL}/api/auth/sessions`, () =>
         HttpResponse.json({ detail: 'Incorrect credentials' }, { status: 401 })
       )
     );
