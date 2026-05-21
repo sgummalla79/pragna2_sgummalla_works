@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HttpAgent } from '@ag-ui/client';
 import type { AgentSubscriber, Message } from '@ag-ui/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { PRAGNA_BASE_URL } from '@/constants/api';
 import { useAuthStore } from '@/presentation/store/authStore';
 import { logger } from '@/infrastructure/logging/logger';
+
+// First sidebar refresh fires immediately on RUN_FINISHED so the user
+// sees the new conversation appear right away (title may still be null).
+// The backend's auto-title flow is fire-and-forget after persistence and
+// usually completes within 1-2s of the assistant response ending — a
+// second invalidation after this delay catches the title once it lands.
+// Tuned conservatively (3s) to ride past a slow first-turn title-gen
+// without making the sidebar feel laggy.
+const AUTO_TITLE_REFRESH_DELAY_MS = 3000;
 
 /** A tool call rendered inline under an assistant turn. */
 export interface ChatToolCall {
@@ -83,6 +93,7 @@ export function useChatSession(
 ): ChatSessionApi {
   const { threadId, initialMessages } = options;
   const accessToken = useAuthStore((s) => s.accessToken);
+  const qc = useQueryClient();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [status, setStatus] = useState<ChatStatus>('idle');
@@ -136,6 +147,19 @@ export function useChatSession(
       },
       onRunFinalized: () => {
         setStatus((prev) => (prev === 'error' ? prev : 'idle'));
+        // First invalidation: catches the new conversation row that the
+        // backend auto-created on first turn so it appears in the sidebar
+        // immediately (title may still be null at this point).
+        qc.invalidateQueries({ queryKey: ['conversations'] });
+        // Second invalidation: rides past the backend's fire-and-forget
+        // auto-title flow so the sidebar refreshes once the title is in
+        // place. Cheap query; the cost is one extra request per turn.
+        const timer = window.setTimeout(() => {
+          qc.invalidateQueries({ queryKey: ['conversations'] });
+        }, AUTO_TITLE_REFRESH_DELAY_MS);
+        // No cleanup needed: setTimeout fires once, and on unmount the
+        // subscriber is detached so this branch can still run safely.
+        void timer;
       },
       onTextMessageStartEvent: () => {
         syncMessages();
@@ -194,7 +218,7 @@ export function useChatSession(
       unsubscribe();
       agent.abortRun();
     };
-  }, [agent, syncMessages]);
+  }, [agent, syncMessages, qc]);
 
   const send = useCallback(
     (text: string) => {
