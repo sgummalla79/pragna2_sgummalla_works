@@ -62,8 +62,6 @@ export function RenameConversationDialog({
           style={{ backdropFilter: 'blur(4px)' }}
         />
         <Dialog.Content
-          role="dialog"
-          aria-labelledby="rename-conv-title"
           className="
             fixed left-1/2 top-1/2 z-[701] -translate-x-1/2 -translate-y-1/2
             w-[420px] max-w-[calc(100vw-32px)]
@@ -73,12 +71,17 @@ export function RenameConversationDialog({
           "
           style={{ boxShadow: '0 24px 60px rgba(0,0,0,0.45)' }}
         >
-          <Dialog.Title
-            id="rename-conv-title"
-            className="text-base font-bold text-[#ececea] m-0"
-          >
+          {/* Radix auto-wires aria-labelledby + aria-describedby from
+              the Title + Description below — never set those attributes
+              manually on Content, it suppresses the auto-detection and
+              triggers the "missing title" dev warning. */}
+          <Dialog.Title className="text-base font-bold text-[#ececea] m-0">
             Rename conversation
           </Dialog.Title>
+          <Dialog.Description className="text-[13px] text-[#a3a3a3] m-0 leading-relaxed">
+            Set a new title for this chat. The change shows up in the
+            sidebar immediately.
+          </Dialog.Description>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="rename-conv-input">Title</Label>
