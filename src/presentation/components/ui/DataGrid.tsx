@@ -206,7 +206,7 @@ function DataGridRow<T>({
                   'bg-[rgba(255,255,255,0.05)] px-2.5 py-1.5 text-[14px] text-foreground outline-none',
                   'transition-colors duration-150',
                   'hover:border-[rgba(255,255,255,0.22)] hover:bg-[rgba(255,255,255,0.08)]',
-                  'focus:border-[rgba(201,112,64,0.55)] focus:bg-[rgba(255,255,255,0.08)]',
+                  'focus:border-primary focus:bg-[rgba(255,255,255,0.08)]',
                   'disabled:cursor-not-allowed disabled:opacity-50'
                 )}
               />
@@ -228,10 +228,10 @@ function DataGridRow<T>({
               aria-label={col.header}
               className={cn(
                 'mx-auto flex h-5 w-5 items-center justify-center rounded-full transition-all duration-150',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
                 'disabled:cursor-not-allowed disabled:opacity-40',
                 active
-                  ? 'bg-brand shadow-[0_0_6px_rgba(201,112,64,0.4)]'
+                  ? 'bg-primary shadow-[0_0_6px_var(--color-primary)]'
                   : 'bg-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.16)]'
               )}
             >

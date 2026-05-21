@@ -1,5 +1,6 @@
 import { APP_NAME } from '@/constants/api';
 import type { Conversation } from '@/domain/types/conversation.types';
+import { AgentPicker } from './AgentPicker';
 
 interface ChatHeaderProps {
   /** The conversation backing this view, or nullish before its row
@@ -14,13 +15,14 @@ interface ChatHeaderProps {
  * Slim header strip above the chat message list.
  *
  * Shows the conversation title (or "New conversation" while the row is
- * still pending) and the agent name, separated by a thin middle dot. The
- * app name sits on the far right as a quiet brand mark.
+ * still pending), and the :class:`AgentPicker` so the user can start a
+ * new chat against a different agent. The app name sits on the far
+ * right as a quiet brand mark.
  *
- * Future home for the agent picker (R2) and the model picker (R1 backend
- * already supports per-conversation model change via PATCH). For R1's
- * frontend slice the header is read-only — model/agent change is a
- * later release.
+ * The picker is a dropdown when there's more than one agent available;
+ * when only the default agent exists it renders as inert text instead.
+ * Either way it consumes the same horizontal space, so the header
+ * layout doesn't shift between users with and without flows.
  */
 export function ChatHeader({ conversation, agentName }: ChatHeaderProps) {
   const title =
@@ -44,21 +46,13 @@ export function ChatHeader({ conversation, agentName }: ChatHeaderProps) {
   //      the gradient feels physical rather than abrupt.
   //
   // ``relative z-10`` keeps the shadow stack above the scroll column.
-  // Hide the agent name when it's just ``default`` — that's the "free
-  // chat" agent and adds no information for the user.
-  const showAgentName = agentName && agentName !== 'default';
-
   return (
     <div className="relative z-10 flex h-12 items-center gap-3 bg-background px-4 shadow-[inset_0_-1px_0_rgba(255,255,255,0.08),0_2px_4px_rgba(0,0,0,0.15),0_12px_32px_-8px_rgba(0,0,0,0.25)]">
       <span className="text-[14px] font-semibold text-foreground truncate">
         {title}
       </span>
-      {showAgentName && (
-        <>
-          <span className="text-[12px] text-muted-foreground" aria-hidden>·</span>
-          <span className="text-[12px] text-muted-foreground">{agentName}</span>
-        </>
-      )}
+      <span className="text-[12px] text-muted-foreground" aria-hidden>·</span>
+      <AgentPicker value={agentName} />
       <span className="ml-auto text-[11px] text-muted-foreground">{APP_NAME}</span>
     </div>
   );

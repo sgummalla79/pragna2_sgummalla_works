@@ -55,7 +55,7 @@ export function ProviderTile({
         'relative w-40 h-40 flex flex-col gap-2 rounded-2xl border-[1.5px] cursor-pointer select-none',
         'pt-4 px-3.5 pb-3 bg-background',
         'transition-[border-color,box-shadow] duration-[180ms]',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
         hovered
           ? connected
             ? 'border-[rgba(34,197,94,0.85)] shadow-[0_4px_16px_rgba(34,197,94,0.12)]'
@@ -76,10 +76,10 @@ export function ProviderTile({
           className={cn(
             'absolute top-2.5 right-2.5 inline-flex items-center gap-1 rounded-full',
             'px-2 py-[3px] text-[10px] font-semibold border transition-colors duration-150',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             providerEnabled
-              ? 'bg-brand text-white border-brand hover:bg-brand-hover'
+              ? 'bg-primary text-white border-primary hover:bg-primary/90'
               : 'bg-violet-500/10 text-violet-400 border-violet-500/25 hover:bg-violet-500/20'
           )}
         >

@@ -92,7 +92,7 @@ export function ConnectedPanel({
               </span>
             )}
             {isDirty && (
-              <span className="ml-2 text-[11px] font-normal text-brand">
+              <span className="ml-2 text-[11px] font-normal text-primary">
                 · {dirtyCount} unsaved {dirtyCount === 1 ? 'change' : 'changes'}
               </span>
             )}

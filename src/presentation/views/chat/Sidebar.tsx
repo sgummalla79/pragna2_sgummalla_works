@@ -90,7 +90,7 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
             className={cn(
               'mx-auto flex h-8 w-8 items-center justify-center rounded-md',
               'hover:bg-accent transition-colors',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]'
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]'
             )}
           >
             <PragnaLogo className="h-6 w-6" aria-hidden="true" />
@@ -99,7 +99,7 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
           <>
             <div className="flex flex-1 min-w-0 items-center gap-2 px-2">
               <PragnaLogo className="h-6 w-6 flex-shrink-0" aria-hidden="true" />
-              <span className="truncate font-bold text-base text-brand">
+              <span className="truncate font-bold text-base text-primary">
                 {APP_NAME}
               </span>
             </div>
@@ -112,7 +112,7 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
                 'flex h-8 w-8 items-center justify-center rounded-md',
                 'text-muted-foreground hover:text-foreground hover:bg-accent',
                 'transition-colors focus-visible:outline-none focus-visible:ring-2',
-                'focus-visible:ring-[var(--color-brand-ring)]'
+                'focus-visible:ring-[var(--color-ring)]'
               )}
             >
               <PanelLeftClose size={18} />

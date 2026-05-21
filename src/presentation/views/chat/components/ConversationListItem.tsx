@@ -57,7 +57,7 @@ export function ConversationListItem({ conversation }: ConversationListItemProps
         className={cn(
           'group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] no-underline transition-colors',
           'text-foreground hover:bg-accent hover:text-foreground',
-          isActive && 'bg-brand-light text-foreground',
+          isActive && 'bg-primary/10 text-foreground',
         )}
         aria-current={isActive ? 'page' : undefined}
         title={displayTitle}

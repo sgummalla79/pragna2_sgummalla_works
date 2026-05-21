@@ -80,7 +80,7 @@ export default function AuthCallbackView() {
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="flex items-center gap-3 text-muted-foreground">
         <span
-          className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-[var(--color-brand)]"
+          className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-[var(--color-primary)]"
           aria-hidden="true"
         />
         <span className="text-sm">Completing sign-in…</span>

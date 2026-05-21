@@ -143,7 +143,7 @@ export function ChatInput({
                 'flex h-9 w-9 items-center justify-center rounded-full',
                 'bg-foreground text-background transition-opacity',
                 'hover:opacity-90',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
               )}
             >
               <Square size={14} fill="currentColor" />
@@ -157,9 +157,9 @@ export function ChatInput({
               className={cn(
                 'flex h-9 w-9 items-center justify-center rounded-full',
                 'transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
                 canSend
-                  ? 'bg-brand text-white hover:bg-brand-hover'
+                  ? 'bg-primary text-white hover:bg-primary/90'
                   : 'bg-muted text-muted-foreground cursor-not-allowed',
               )}
             >

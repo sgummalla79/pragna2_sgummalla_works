@@ -5,6 +5,7 @@ import { ErrorBoundary } from '@/presentation/components/ui/ErrorBoundary';
 import { useLlmProvidersWithRegistrations } from '@/presentation/hooks/providers/useProviders';
 import { useConversation } from '@/presentation/hooks/conversations/useConversation';
 import { useConversationMessages } from '@/presentation/hooks/conversations/useConversationMessages';
+import { useFlows } from '@/presentation/hooks/flows/useFlows';
 import { APP_NAME } from '@/constants/api';
 import { ERRORS } from '@/constants/errors';
 import { ROUTES } from '@/constants/routes';
@@ -15,7 +16,7 @@ import type {
 import { useChatSession } from './hooks/useChatSession';
 import {
   consumePendingInitialMessage,
-  hasPendingInitialMessage,
+  peekPendingInitialMessage,
 } from './hooks/initialMessageHandoff';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
@@ -40,28 +41,57 @@ const DEFAULT_AGENT_NAME = 'default';
  */
 export default function ChatSessionView() {
   const { id: conversationId } = useParams<{ id: string }>();
-  // Brand-new conversations arrive here mid-handoff from
-  // :class:`ChatLandingView`: the route changed BEFORE the backend
-  // committed the row, so a ``GET .../messages`` would 404 every time.
-  // Snapshot the handoff state at the moment we land on each
-  // conversationId, via ``useMemo`` keyed on the id — this way:
-  //   - Within a single conversation render, the value is stable even
-  //     after the sessionStorage consume runs a tick later (the deps
-  //     haven't changed, so useMemo doesn't recompute).
-  //   - Navigating to a different conversation (e.g. clicking a Recent
-  //     row in the sidebar) re-evaluates against the new id, which is
-  //     critical: React Router REUSES this component instance across
-  //     param changes, so a stale snapshot would otherwise leave the
-  //     messages query disabled and the chat blank.
-  const isBrandNew = useMemo(
-    () => hasPendingInitialMessage(conversationId),
+  // Snapshot the pending-handoff state ONCE per ``conversationId``. This
+  // is load-bearing: the send-firing effect later in :class:`ChatSurface`
+  // consumes sessionStorage, which would flip
+  // ``peekPendingInitialMessage`` from returning the agent to returning
+  // ``null`` mid-render. If agent resolution recomputed off that, the
+  // fallback to ``"default"`` would kick in, ``useChatSession`` would
+  // rebuild the HttpAgent for the new name, the old effect's cleanup
+  // would call ``abortRun()`` on the in-flight run, and the user would
+  // see ``AbortError: signal is aborted without reason`` ~100ms after
+  // sending. Capturing the snapshot here keeps the handoff agent stable
+  // for the lifetime of this conversationId.
+  //
+  // React Router reuses this component instance across ``:id`` param
+  // changes, so the dep MUST be ``conversationId`` (not empty deps) —
+  // otherwise the snapshot would stay frozen for a never-revisited id.
+  const handoffSnapshot = useMemo(
+    () => peekPendingInitialMessage(conversationId),
     [conversationId],
   );
+  const isBrandNew = handoffSnapshot !== null;
+  const handoffAgent = handoffSnapshot?.agent ?? null;
+
   const { data: providers = [], isLoading: providersLoading } =
     useLlmProvidersWithRegistrations();
-  const { data: conversation } = useConversation(conversationId);
+  const { data: conversation, isLoading: conversationLoading } =
+    useConversation(conversationId);
   const { data: persistedMessages, isLoading: messagesLoading } =
     useConversationMessages(conversationId, { enabled: !isBrandNew });
+  // Flows feed the resumed-conversation agent resolution: the persisted
+  // ``conversation.flowId`` (a UUID) is mapped to the flow's name, and
+  // the name is what ``useChatSession`` needs when constructing the
+  // HttpAgent URL (``/pragna/agents/{name}``).
+  const { data: flows = [], isLoading: flowsLoading } = useFlows();
+
+  // Resolve which agent this conversation runs against. Three-step
+  // fallback:
+  //   1. Brand-new chat mid-handoff: ``handoffAgent`` carries the name
+  //      picked on the landing, snapshotted at mount above so it's
+  //      stable even after sessionStorage is consumed.
+  //   2. Resumed chat with a flow-backed conversation row: look the
+  //      flow up by id and use its name.
+  //   3. Free chat ("default") for everything else, including
+  //      conversations whose flow was deleted out from under them.
+  const agentName = useMemo(() => {
+    if (handoffAgent) return handoffAgent;
+    if (conversation?.flowId) {
+      const flow = flows.find((f) => f.id === conversation.flowId);
+      if (flow) return flow.name;
+    }
+    return DEFAULT_AGENT_NAME;
+  }, [handoffAgent, conversation, flows]);
 
   if (providersLoading) return <LoadingState />;
 
@@ -80,10 +110,20 @@ export default function ChatSessionView() {
     return <SetupPrompt message={ERRORS.CHT_002.message} />;
   }
 
-  // Wait for the message history to load so the agent is hydrated
-  // correctly on first mount. The conversationId is always defined here
-  // since this view only mounts at /chat/:id.
-  if (conversationId && messagesLoading) return <LoadingState />;
+  // On resumed chats, wait for messages AND flows AND the conversation
+  // row itself before mounting ChatSurface. Without the conversation
+  // gate, ``agentName`` would briefly resolve to ``"default"`` before
+  // ``conversation.flowId`` arrives, the agent would rebuild as soon
+  // as it does, and the in-flight first turn (if any) would abort.
+  // Brand-new chats skip every fetch — the handoff snapshot already
+  // carries the agent name, and there's no row to wait for yet.
+  if (
+    conversationId
+    && !isBrandNew
+    && (messagesLoading || flowsLoading || conversationLoading)
+  ) {
+    return <LoadingState />;
+  }
 
   return (
     <ErrorBoundary logTag="CHT_003" fallback={<ChatUnavailable />}>
@@ -91,6 +131,7 @@ export default function ChatSessionView() {
         conversationId={conversationId}
         conversation={conversation}
         persistedMessages={persistedMessages ?? []}
+        agentName={agentName}
       />
     </ErrorBoundary>
   );
@@ -129,6 +170,9 @@ interface ChatSurfaceProps {
   conversationId: string | undefined;
   conversation: Conversation | null | undefined;
   persistedMessages: PersistedMessage[];
+  /** Resolved agent name. See ``ChatSessionView`` for the resolution
+   *  fallback chain (handoff → flow lookup → default). */
+  agentName: string;
 }
 
 /**
@@ -143,6 +187,7 @@ function ChatSurface({
   conversationId,
   conversation,
   persistedMessages,
+  agentName,
 }: ChatSurfaceProps) {
   // The agent's threadId is the conversation id from the URL — the
   // landing view already generated it before navigating here. The
@@ -160,7 +205,7 @@ function ChatSurface({
   );
 
   const { messages, status, error, send, stop } = useChatSession(
-    DEFAULT_AGENT_NAME,
+    agentName,
     { threadId, initialMessages },
   );
 
@@ -183,7 +228,7 @@ function ChatSurface({
 
     const timer = window.setTimeout(() => {
       const pending = consumePendingInitialMessage(conversationId);
-      if (pending) send(pending);
+      if (pending) send(pending.text);
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -213,7 +258,7 @@ function ChatSurface({
 
   return (
     <div className="flex h-full flex-col bg-background">
-      <ChatHeader conversation={conversation} agentName={DEFAULT_AGENT_NAME} />
+      <ChatHeader conversation={conversation} agentName={agentName} />
 
       <div
         ref={scrollRef}
@@ -305,13 +350,13 @@ function LoadingState() {
 function SetupPrompt({ message }: { message: string }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[rgba(201,112,64,0.12)]">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
         <svg
           width="24"
           height="24"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="var(--color-brand)"
+          stroke="var(--color-primary)"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -324,7 +369,7 @@ function SetupPrompt({ message }: { message: string }) {
       <p className="text-[13px] text-muted-foreground max-w-xs">{message}</p>
       <Link
         to={ROUTES.SETTINGS_PROVIDERS}
-        className="rounded-lg bg-brand px-4 py-2 text-[13px] font-semibold text-white no-underline hover:bg-brand-hover transition-colors"
+        className="rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-white no-underline hover:bg-primary/90 transition-colors"
       >
         Go to Providers →
       </Link>

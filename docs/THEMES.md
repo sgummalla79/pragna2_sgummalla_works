@@ -1,8 +1,8 @@
-# Pragna Theme System — shadcn Zinc
+# Pragna Theme System — shadcn/ui Copper
 
 Single source of truth for colour. Every UI component must use the semantic Tailwind tokens listed below; **never** inline a hex literal like `bg-[#171717]` because it stops flipping when the user toggles light/dark.
 
-The tokens live in [src/index.css](../src/index.css) as CSS custom properties under `@theme` (dark mode default) plus a `[data-theme="light"]` override block. Tailwind 4 auto-generates a utility class for every `--color-*` token (`bg-background`, `text-foreground`, `border-border`, …).
+The tokens live in [src/index.css](../src/index.css) as CSS custom properties under `@theme` (dark mode default) plus a `[data-theme="light"]` override block. They follow the shadcn/ui v2 convention: oklch colour space, `--primary` as the brand accent, neutrals tuned for warmth. Tailwind 4 auto-generates a utility class for every `--color-*` token (`bg-background`, `text-foreground`, `bg-primary`, …).
 
 Theme is toggled from the avatar menu — implementation in [src/presentation/store/uiStore.ts](../src/presentation/store/uiStore.ts).
 
@@ -10,51 +10,55 @@ Theme is toggled from the avatar menu — implementation in [src/presentation/st
 
 ## Surfaces
 
-| Token | Tailwind utility | Dark value | Light value | Use it for |
+| Token | Tailwind utility | Dark (default) | Light | Use it for |
 |---|---|---|---|---|
-| `--color-background`          | `bg-background`          | `#09090B` (zinc-950) | `#FFFFFF`            | The page canvas. Default body background. The chat surface bg. |
-| `--color-foreground`          | `text-foreground`        | `#FAFAFA` (zinc-50)  | `#09090B`            | Default body text. Primary headings and paragraph text. |
-| `--color-card`                | `bg-card`                | `#18181B` (zinc-900) | `#FFFFFF`            | Elevated surface — modals, cards, the chat header strip. One step "above" the page. |
-| `--color-card-foreground`     | `text-card-foreground`   | `#FAFAFA`            | `#09090B`            | Text sitting on a `bg-card` surface. Usually the same as foreground. |
-| `--color-popover`             | `bg-popover`             | `#18181B`            | `#FFFFFF`            | Dropdown menus, tooltips, autocomplete popovers. |
-| `--color-popover-foreground`  | `text-popover-foreground`| `#FAFAFA`            | `#09090B`            | Text inside popovers. |
-| `--color-muted`               | `bg-muted`               | `#27272A` (zinc-800) | `#F4F4F5` (zinc-100) | Subtle filled areas — skeleton placeholders, "no data yet" zones, disabled inputs. |
-| `--color-muted-foreground`    | `text-muted-foreground`  | `#A1A1AA` (zinc-400) | `#71717A` (zinc-500) | Secondary text: captions, helper text, timestamps, placeholders. Never use it for primary copy. |
-| `--color-accent`              | `bg-accent`              | `#27272A`            | `#F4F4F5`            | **Hover states** on list rows, sidebar items, menu items. Pair with `hover:bg-accent`. |
-| `--color-accent-foreground`   | `text-accent-foreground` | `#FAFAFA`            | `#09090B`            | Text on accent surface. |
-| `--color-secondary`           | `bg-secondary`           | `#27272A`            | `#F4F4F5`            | Less-emphasised buttons (the Cancel button in a modal, "Maybe later" CTAs). |
-| `--color-secondary-foreground`| `text-secondary-foreground` | `#FAFAFA`         | `#09090B`            | Text on secondary buttons. |
+| `--color-background`          | `bg-background`          | near-black (`oklch(0.145 0.004 285)`) | white                          | The page canvas. Default body background. The chat surface bg. |
+| `--color-foreground`          | `text-foreground`        | near-white (`oklch(0.985 0 0)`)       | near-black                     | Default body text. Primary headings and paragraph text. |
+| `--color-card`                | `bg-card`                | dark zinc (`oklch(0.21 0.006 285)`)   | white                          | Elevated surface — modals, cards, the chat header strip. One step "above" the page. |
+| `--color-card-foreground`     | `text-card-foreground`   | near-white                            | near-black                     | Text sitting on a `bg-card` surface. Usually the same as foreground. |
+| `--color-popover`             | `bg-popover`             | dark zinc                             | white                          | Dropdown menus, tooltips, autocomplete popovers. |
+| `--color-popover-foreground`  | `text-popover-foreground`| near-white                            | near-black                     | Text inside popovers. |
+| `--color-muted`               | `bg-muted`               | medium zinc (`oklch(0.274 0.006 286)`)| light zinc (`oklch(0.967 …)`)  | Subtle filled areas — skeleton placeholders, "no data yet" zones, disabled inputs. |
+| `--color-muted-foreground`    | `text-muted-foreground`  | light zinc (`oklch(0.705 …)`)         | mid zinc (`oklch(0.552 …)`)    | Secondary text: captions, helper text, timestamps, placeholders. Never use it for primary copy. |
+| `--color-accent`              | `bg-accent`              | medium zinc                           | light zinc                     | **Hover states** on list rows, sidebar items, menu items. Pair with `hover:bg-accent`. |
+| `--color-accent-foreground`   | `text-accent-foreground` | near-white                            | near-black                     | Text on accent surface. |
+| `--color-secondary`           | `bg-secondary`           | medium zinc                           | light zinc                     | Less-emphasised buttons (Cancel in a modal, "Maybe later"). |
+| `--color-secondary-foreground`| `text-secondary-foreground` | near-white                         | near-black                     | Text on secondary buttons. |
 
-## Interaction
+## Brand accent — Copper
 
-| Token | Tailwind utility | Dark value | Light value | Use it for |
+shadcn/ui places the brand accent under the `--primary` token rather than a dedicated `--brand` namespace. The Pragna copper sits there in both modes, slightly lighter in dark so the warm hue still reads against the near-black background.
+
+| Token | Tailwind utility | Dark | Light | Use it for |
 |---|---|---|---|---|
-| `--color-primary`             | `bg-primary`             | `#FAFAFA`            | `#18181B`            | The shadcn "primary" button — high-contrast inverse. **NOT** the orange brand button (see Brand). |
-| `--color-primary-foreground`  | `text-primary-foreground`| `#18181B`            | `#FAFAFA`            | Text on primary buttons. |
-| `--color-destructive`         | `bg-destructive`         | dark red             | bright red           | Prominent destructive buttons ("Delete forever", "Discard changes"). |
-| `--color-destructive-foreground` | `text-destructive-foreground` | `#FAFAFA`     | `#FAFAFA`            | Text on destructive button surfaces. |
-| `--color-error-bg`            | `bg-[var(--color-error-bg)]`     | very dark red | very light pink     | Soft error banner background (inline validation, "couldn't save"). |
-| `--color-error-border`        | `border-[var(--color-error-border)]` | dark red border | light red border | Border on a soft error banner. |
-| `--color-error-text`          | `text-[var(--color-error-text)]` | light red    | dark red             | Text inside a soft error banner / inline validation message. |
+| `--color-primary`             | `bg-primary` / `text-primary` / `border-primary` | copper (`oklch(0.7 0.13 47)`)  | copper (`oklch(0.62 0.135 47)`) | The Pragna copper — primary CTAs (Send button), active conversation indicator, important highlights. |
+| `--color-primary-foreground`  | `text-primary-foreground`                        | near-black                     | near-white                      | Text on primary buttons. |
+
+Conventional opacity utilities replace what would have been dedicated hover/light variants:
+
+| Pattern | Use it for |
+|---|---|
+| `hover:bg-primary/90` | Hover state for a primary button. (Previously `--brand-hover`.) |
+| `bg-primary/10`       | Subtle brand-tinted background — selected conversation row, active pill. (Previously `--brand-light`.) |
+| `ring-ring`           | Default focus ring; `--color-ring` is wired to the copper, so this **is** the brand ring. |
+
+## Destructive
+
+| Token | Tailwind utility | Dark | Light | Use it for |
+|---|---|---|---|---|
+| `--color-destructive`         | `bg-destructive`              | bright red                 | bright red                 | Prominent destructive buttons ("Delete forever", "Discard changes"). |
+| `--color-destructive-foreground` | `text-destructive-foreground` | near-white               | near-white                 | Text on destructive button surfaces. |
+| `--color-error-bg`            | `bg-[var(--color-error-bg)]`     | very dark red             | very light pink            | Soft error banner background (inline validation, "couldn't save"). |
+| `--color-error-border`        | `border-[var(--color-error-border)]` | dark red border       | light red border           | Border on a soft error banner. |
+| `--color-error-text`          | `text-[var(--color-error-text)]` | light red                  | dark red                   | Text inside a soft error banner / inline validation message. |
 
 ## Structure
 
-| Token | Tailwind utility | Dark value | Light value | Use it for |
+| Token | Tailwind utility | Dark | Light | Use it for |
 |---|---|---|---|---|
-| `--color-border` | `border-border` or just `border` | `#27272A` | `#E4E4E7` (zinc-200) | Dividers, card outlines, separators, table row borders. Default border colour. |
-| `--color-input`  | `border-input`                  | `#27272A` | `#E4E4E7`            | Form input borders (textarea, select, text input). |
-| `--color-ring`   | `ring-ring` / `focus:ring-ring` | `#A1A1AA` | `#18181B`            | Default focus ring. For brand-emphasised focus rings, use `--color-brand-ring`. |
-
-## Brand (constant across themes)
-
-These four tokens **do not change** when light/dark flips. The copper is the brand's identity in both modes.
-
-| Token | Tailwind utility | Value | Use it for |
-|---|---|---|---|
-| `--color-brand`       | `bg-brand` / `text-brand` / `border-brand` | `#C97040`                      | The Pragna copper. Primary CTAs (Send button), the active conversation indicator, important highlights. |
-| `--color-brand-hover` | `hover:bg-brand-hover`                     | `#B5633A`                      | Hover state for any element on `bg-brand`. |
-| `--color-brand-light` | `bg-brand-light`                           | `rgba(201, 112, 64, 0.12)`     | Subtle brand-tinted background — the active row in the sidebar, "selected" pill backgrounds. |
-| `--color-brand-ring`  | `ring-brand-ring`                          | `rgba(201, 112, 64, 0.35)`     | Brand-emphasised focus ring for primary inputs. |
+| `--color-border` | `border-border` or just `border` | translucent white (`oklch(1 0 0 / 0.1)`)  | light zinc | Dividers, card outlines, separators, table row borders. |
+| `--color-input`  | `border-input`                  | translucent white (`oklch(1 0 0 / 0.15)`) | light zinc | Form input borders (textarea, select, text input). |
+| `--color-ring`   | `ring-ring` / `focus:ring-ring` | copper                                   | copper      | Default focus ring. Wired to the primary so focus rings feel branded. |
 
 ---
 
@@ -63,9 +67,8 @@ These four tokens **do not change** when light/dark flips. The copper is the bra
 **Is it text?**
 - Primary content (paragraph, heading) → `text-foreground`
 - Caption, helper, placeholder, timestamp → `text-muted-foreground`
-- Sitting on a primary button → `text-primary-foreground`
-- Sitting on a destructive button → `text-destructive-foreground`
-- Sitting on a brand-coloured button → `text-white` (the copper is dark enough that white text reads in both modes)
+- On a primary (copper) button → `text-primary-foreground`
+- On a destructive button → `text-destructive-foreground`
 
 **Is it a background?**
 - The whole page → `bg-background`
@@ -73,15 +76,17 @@ These four tokens **do not change** when light/dark flips. The copper is the bra
 - A dropdown / tooltip / popover → `bg-popover`
 - A subtle disabled / placeholder area → `bg-muted`
 - A hover state on a list / menu row → `hover:bg-accent`
-- The Pragna primary CTA → `bg-brand` (`hover:bg-brand-hover`)
+- The Pragna primary CTA → `bg-primary hover:bg-primary/90`
+- Subtle brand-tinted highlight (active row) → `bg-primary/10`
 
 **Is it a border?**
-- Always `border-border` (or just `border` on most Tailwind versions).
+- Default → `border-border` (or just `border`)
 - Form input border → `border-input`
+- Primary-coloured outline (rare) → `border-primary`
 
 **Is it a focus ring?**
-- Default → `ring-ring`
-- Brand-emphasised → `ring-[var(--color-brand-ring)]`
+- Default → `ring-ring` (this is the copper)
+- For a custom inline ring colour → `ring-[var(--color-ring)]`
 
 ---
 
@@ -101,6 +106,8 @@ Good — adapts automatically:
 
 If you find yourself reaching for an inline hex, the colour you need probably already exists as a token — check this table. If it doesn't, add a new `--color-*` token to [src/index.css](../src/index.css) in BOTH `@theme` and `[data-theme="light"]`, then update this doc.
 
+The same rule applies to inline `style={{}}` — use `style={{ color: 'var(--color-foreground)' }}` instead of a hex string. Tailwind utility classes are preferred where the surface already supports them; CSS variables in `style={{}}` are the fallback for surfaces where Tailwind's classes don't reach (computed strokes, gradient stops).
+
 ---
 
 ## Theme toggle plumbing
@@ -113,6 +120,22 @@ If you find yourself reaching for an inline hex, the colour you need probably al
 | User entry point | Avatar menu → "Light mode" / "Dark mode" item |
 
 First paint matches the persisted preference (no flash) because `applyTheme` runs at module load before React renders.
+
+---
+
+## Migrating from older `bg-brand` classes
+
+Earlier iterations of this codebase carried a separate `--color-brand-*` namespace. The R2 theme overhaul retired it in favour of shadcn's `--color-primary`. If you encounter old patterns:
+
+| Old | New |
+|---|---|
+| `bg-brand`           | `bg-primary`           |
+| `text-brand`         | `text-primary`         |
+| `border-brand`       | `border-primary`       |
+| `hover:bg-brand-hover` | `hover:bg-primary/90` |
+| `bg-brand-light`     | `bg-primary/10`        |
+| `ring-brand-ring`    | `ring-ring`            |
+| `var(--color-brand)` | `var(--color-primary)` |
 
 ---
 

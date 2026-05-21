@@ -70,7 +70,7 @@ export function AvatarMenu({ collapsed }: AvatarMenuProps) {
             'flex w-full items-center gap-4 rounded-md px-2 py-2 font-medium',
             'text-foreground transition-colors',
             'hover:bg-accent',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
             collapsed && 'justify-center px-0 gap-0',
           )}
         >
@@ -78,7 +78,7 @@ export function AvatarMenu({ collapsed }: AvatarMenuProps) {
             aria-hidden="true"
             className={cn(
               'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full',
-              'bg-brand-light text-brand font-semibold',
+              'bg-primary/10 text-primary font-semibold',
             )}
           >
             {initial}

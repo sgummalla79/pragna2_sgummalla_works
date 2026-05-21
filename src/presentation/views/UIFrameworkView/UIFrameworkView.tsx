@@ -165,9 +165,9 @@ function StyleChip({ label, description }: { label: string; description: string 
       <span style={{
         padding: '2px 10px', borderRadius: 99,
         fontSize: 11, fontWeight: 600,
-        background: 'rgba(201,112,64,0.12)',
-        border: '1.5px solid rgba(201,112,64,0.3)',
-        color: 'var(--color-brand)', whiteSpace: 'nowrap',
+        background: 'var(--color-primary)',
+        border: '1.5px solid var(--color-primary)',
+        color: 'var(--color-primary)', whiteSpace: 'nowrap',
       }}>
         {label}
       </span>

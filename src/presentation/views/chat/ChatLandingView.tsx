@@ -1,12 +1,15 @@
 import { useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import PragnaLogo from '@/assets/logo.svg?react';
 import { useLlmProvidersWithRegistrations } from '@/presentation/hooks/providers/useProviders';
+import { useAgents } from '@/presentation/hooks/agents/useAgents';
 import { APP_NAME } from '@/constants/api';
 import { ROUTES } from '@/constants/routes';
 import { ChatInput } from './components/ChatInput';
 import { useGreeting } from './hooks/useGreeting';
-import { INITIAL_MESSAGE_STORAGE_KEY } from './hooks/initialMessageHandoff';
+import { writePendingInitialMessage } from './hooks/initialMessageHandoff';
+
+const DEFAULT_AGENT_NAME = 'default';
 
 /**
  * Landing surface for ``/chat``.
@@ -35,7 +38,29 @@ import { INITIAL_MESSAGE_STORAGE_KEY } from './hooks/initialMessageHandoff';
 export default function ChatLandingView() {
   const navigate = useNavigate();
   const greeting = useGreeting();
+  const [searchParams] = useSearchParams();
   const { data: providers = [], isLoading } = useLlmProvidersWithRegistrations();
+
+  // ``/chat?agent={name}`` selects which agent the next fresh
+  // conversation will be created against. Defaults to the free-chat
+  // ``default`` agent when omitted. The AgentPicker (in the chat
+  // header of any open conversation) navigates here with this param
+  // set when the user wants to start a new chat against a different
+  // agent.
+  const requestedAgent =
+    searchParams.get('agent')?.trim() || DEFAULT_AGENT_NAME;
+
+  // Validate ``requestedAgent`` against the live agent list. Without this
+  // check, a stale URL like ``/chat?agent=research-flow`` (where the flow
+  // has since been deleted) would carry through the handoff and surface
+  // as ``AbortError: signal is aborted without reason`` once the backend
+  // returns 404 mid-SSE — the AG-UI client can't recover the response
+  // body once the stream is broken, so the upstream error message is
+  // unreachable. Pre-flighting here keeps the failure path on a clear
+  // inline banner instead.
+  const { data: agents = [], isLoading: agentsLoading } = useAgents();
+  const knownAgent =
+    agentsLoading || agents.some((a) => a.name === requestedAgent);
 
   const connectedProviders = providers.filter((p) => p.userProviders.length > 0);
   const hasProviders = connectedProviders.length > 0;
@@ -44,21 +69,18 @@ export default function ChatLandingView() {
       up.models.some((m) => m.enabled && m.availableForChat),
     ),
   );
-  const ready = hasProviders && hasChatModel;
+  const ready = hasProviders && hasChatModel && knownAgent;
 
   const handleSend = useCallback(
     (text: string) => {
       const newId = crypto.randomUUID();
-      try {
-        sessionStorage.setItem(INITIAL_MESSAGE_STORAGE_KEY(newId), text);
-      } catch {
-        // sessionStorage can throw in privacy modes / SSR / out-of-quota;
-        // we fall back to navigating anyway. The user will need to retype,
-        // but the chat surface is reachable.
-      }
+      // Stash BOTH the text and the agent name so the session view can
+      // instantiate the right HttpAgent on mount. The handoff utility
+      // owns the JSON encoding and the storage-unavailable fallback.
+      writePendingInitialMessage(newId, { text, agent: requestedAgent });
       navigate(`${ROUTES.CHAT}/${newId}`);
     },
-    [navigate],
+    [navigate, requestedAgent],
   );
 
   return (
@@ -88,7 +110,9 @@ export default function ChatLandingView() {
             placeholder={
               ready
                 ? `Ask ${APP_NAME} anything…`
-                : 'Connect a model to start chatting…'
+                : !knownAgent
+                  ? `Agent '${requestedAgent}' isn't available…`
+                  : 'Connect a model to start chatting…'
             }
           >
             {!isLoading && !hasProviders && (
@@ -113,6 +137,19 @@ export default function ChatLandingView() {
                   Settings → Providers
                 </Link>{' '}
                 and turn on at least one model for chat.
+              </SetupBanner>
+            )}
+            {!agentsLoading && !knownAgent && (
+              <SetupBanner>
+                Agent <span className="font-mono">&apos;{requestedAgent}&apos;</span> isn&apos;t
+                available. It may have been deleted or never existed. Start a{' '}
+                <Link
+                  to={ROUTES.CHAT}
+                  className="font-semibold underline underline-offset-2 hover:opacity-80"
+                >
+                  free chat
+                </Link>{' '}
+                instead, or pick a different agent from any open conversation.
               </SetupBanner>
             )}
           </ChatInput>

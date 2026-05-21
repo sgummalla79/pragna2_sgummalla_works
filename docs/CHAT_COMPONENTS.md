@@ -184,13 +184,22 @@ Internal sub-component `ChatSurface` only mounts after gating passes — keeps t
 
 `src/presentation/views/chat/components/ChatHeader.tsx` *(new in R1)*
 
-Slim header strip at the top of the chat surface. Shows the conversation title (or "New conversation" for `/chat/new`), the agent name, and the app name on the far right.
-
-Future home for the agent picker (R2) and model picker — both surfaces will replace the static text spans with select controls.
+Slim header strip at the top of the chat surface. Shows the conversation title (or "New conversation" while the row is still pending) and hosts the `AgentPicker`. The app name sits on the far right as a quiet brand mark.
 
 **Props:**
-- `conversation?: Conversation` — when present, header shows the title; absent → "New conversation".
-- `agentName: string` — the active agent's name (currently always `'default'`).
+- `conversation: Conversation | null | undefined` — when present, header shows the title; nullish → "New conversation".
+- `agentName: string` — the active agent's name. Resolved by `ChatSessionView` via a three-step fallback (handoff → flow lookup → `default`).
+
+### `AgentPicker.tsx`
+
+`src/presentation/views/chat/components/AgentPicker.tsx` *(new in R2)*
+
+Per-conversation agent picker — a Radix dropdown listing every agent the user can run (`useAgents()`). The currently active agent is checked. Selecting an agent **always** navigates to `/chat?agent={name}` to start a fresh conversation under that agent, even when re-selecting the active value — this mirrors the backend's resume-mismatch guard (`pragna_run_agent` returns 400 if an existing conversation's `flow_id` doesn't match the requested agent).
+
+When only the `default` agent is available (no flows authored), the picker collapses to inert text since there's nothing to pick.
+
+**Props:**
+- `value: string` — the active agent name. Used to label the trigger and check the active menu item.
 
 ### `ChatMessage.tsx`
 
@@ -237,7 +246,7 @@ The Stop variant of the send button. Renders the lucide `Square` icon plus "Stop
 
 | Feature | Component to touch | Hook to add |
 |---|---|---|
-| Agent picker (R2) | `ChatHeader` — replace the static `agentName` span with a `<Select>` | `useAgents` (already built) |
+| ~~Agent picker (R2)~~ | ✅ Shipped — `AgentPicker` lives in `ChatHeader`; selecting an agent navigates to `/chat?agent={name}` for a fresh conversation | `useAgents` |
 | Model picker (R1 backend, frontend later) | `ChatHeader` — add a model select next to the agent picker | `useUserModels` (already built) + `useSetConversationModel` (new in R1) |
 | Slash-command autocomplete (R4) | `ChatInput` — listen for `/` in the textarea and pop a dropdown | `useSkills` (already built) |
 | Regenerate / edit / branch (R4) | `ChatMessage` — add an action menu on hover | New mutation hooks against new backend routes |

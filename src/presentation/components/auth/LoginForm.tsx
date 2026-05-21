@@ -141,7 +141,7 @@ export function LoginForm() {
             fontWeight: 600,
             cursor: busy ? 'not-allowed' : 'pointer',
             opacity: busy ? 0.5 : 1,
-            background: 'var(--color-brand)',
+            background: 'var(--color-primary)',
             color: '#fff',
             display: 'flex',
             alignItems: 'center',
@@ -200,7 +200,7 @@ export function LoginForm() {
         No account?{' '}
         <Link
           to={ROUTES.REGISTER}
-          style={{ color: 'var(--color-brand)', textDecoration: 'none', fontWeight: 500 }}
+          style={{ color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 500 }}
           onMouseEnter={(e) => { (e.target as HTMLAnchorElement).style.textDecoration = 'underline'; }}
           onMouseLeave={(e) => { (e.target as HTMLAnchorElement).style.textDecoration = 'none'; }}
         >

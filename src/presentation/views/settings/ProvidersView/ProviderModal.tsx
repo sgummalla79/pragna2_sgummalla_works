@@ -153,7 +153,7 @@ export function ProviderModal({
 
             <div className="flex flex-shrink-0 items-center gap-2">
               <Dialog.Close
-                className="rounded-md px-1.5 py-0.5 text-base text-muted-foreground border-none bg-transparent cursor-pointer transition-colors duration-150 hover:text-foreground hover:bg-[rgba(255,255,255,0.07)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]"
+                className="rounded-md px-1.5 py-0.5 text-base text-muted-foreground border-none bg-transparent cursor-pointer transition-colors duration-150 hover:text-foreground hover:bg-[rgba(255,255,255,0.07)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
                 aria-label="Close"
               >
                 ✕
