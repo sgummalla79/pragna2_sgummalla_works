@@ -14,10 +14,9 @@ const AuthCallbackView = lazy(() => import('@/presentation/views/AuthCallbackVie
 const ChatView = lazy(() => import('@/presentation/views/ChatView/ChatView'));
 
 // ── Settings sections ────────────────────────────────────────────────────────
-const ProvidersView    = lazy(() => import('@/presentation/views/ProvidersView/ProvidersView'));
-const ModelsView       = lazy(() => import('@/presentation/views/ModelsView/ModelsView'));
-const FlowBuilderView  = lazy(() => import('@/presentation/views/FlowBuilderView/FlowBuilderView'));
-const SkillsView       = lazy(() => import('@/presentation/views/SkillsView/SkillsView'));
+const ProvidersView    = lazy(() => import('@/presentation/views/settings/ProvidersView/ProvidersView'));
+const FlowBuilderView  = lazy(() => import('@/presentation/views/settings/FlowBuilderView/FlowBuilderView'));
+const SkillsView       = lazy(() => import('@/presentation/views/settings/SkillsView/SkillsView'));
 const ProfileView      = lazy(() => import('@/presentation/views/settings/ProfileView/ProfileView'));
 
 // ── Dev / Design system ──────────────────────────────────────────────────────
@@ -51,7 +50,6 @@ export function AppRoutes() {
           {/* /settings → redirect to providers */}
           <Route index element={<Navigate to={ROUTES.SETTINGS_PROVIDERS} replace />} />
           <Route path={ROUTES.SETTINGS_PROVIDERS} element={<ProvidersView />} />
-          <Route path={ROUTES.SETTINGS_MODELS}    element={<ModelsView />} />
           <Route path={ROUTES.SETTINGS_FLOWS}     element={<FlowBuilderView />} />
           <Route path={ROUTES.SETTINGS_SKILLS}    element={<SkillsView />} />
           <Route path={ROUTES.SETTINGS_PROFILE}   element={<ProfileView />} />
@@ -59,7 +57,6 @@ export function AppRoutes() {
 
         {/* ── Legacy redirects — point old standalone routes into settings ── */}
         <Route path={ROUTES.PROVIDERS}     element={<Navigate to={ROUTES.SETTINGS_PROVIDERS} replace />} />
-        <Route path={ROUTES.MODELS}        element={<Navigate to={ROUTES.SETTINGS_MODELS}    replace />} />
         <Route path={ROUTES.FLOWS}         element={<Navigate to={ROUTES.SETTINGS_FLOWS}     replace />} />
         <Route path={ROUTES.FLOW_DETAIL}   element={<Navigate to={ROUTES.SETTINGS_FLOWS}     replace />} />
         <Route path={ROUTES.SKILLS}        element={<Navigate to={ROUTES.SETTINGS_SKILLS}    replace />} />

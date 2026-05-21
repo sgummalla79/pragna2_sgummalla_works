@@ -2,6 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { cn } from '@/lib/utils';
 import { providerColor, providerInitial } from '@/constants/providers';
 import { PROVIDER_LOGO_URLS, MONO_BLACK_PROVIDERS } from '@/assets/providerLogos';
+import { Button } from '@/presentation/components/ui/Button';
 import { ConfirmButton } from '@/presentation/components/ui/ConfirmButton';
 import { ProviderConnectForm } from './ProviderConnectForm';
 import { ConnectedPanel } from './ConnectedPanel';
@@ -119,7 +120,13 @@ export function ProviderModal({
                 {userProvider ? 'Manage your connected provider.' : 'Enter your credentials to connect.'}
               </Dialog.Description>
               {userProvider && (
-                <div className="mt-1">
+                // Provider-level actions: Disconnect (destructive, archives
+                // the registration and cascades to models) and Refresh
+                // (re-discover models from the upstream provider). Both
+                // operate on the user_provider as a whole, so they belong
+                // here next to the title — not down in the grid toolbar
+                // (which is reserved for model-edit actions).
+                <div className="mt-1 flex items-center gap-2">
                   <ConfirmButton
                     size="xs"
                     disabled={disconnecting}
@@ -131,6 +138,15 @@ export function ProviderModal({
                   >
                     {disconnecting ? 'Removing…' : 'Disconnect'}
                   </ConfirmButton>
+                  <Button
+                    variant="default"
+                    size="xs"
+                    onClick={onRefresh}
+                    disabled={refreshing || disconnecting}
+                    aria-busy={refreshing}
+                  >
+                    {refreshing ? 'Refreshing…' : 'Refresh'}
+                  </Button>
                 </div>
               )}
             </div>
@@ -150,8 +166,6 @@ export function ProviderModal({
             <ConnectedPanel
               models={models}
               error={disconnectError}
-              refreshing={refreshing}
-              onRefresh={onRefresh}
             />
           ) : (
             <ProviderConnectForm

@@ -8,9 +8,11 @@ export const ROUTES = {
   CHAT:           '/chat',
 
   // ── Settings ─────────────────────────────────────────────────────────────
+  // Models do not have a top-level page — they are managed inside the
+  // provider modal on /settings/providers (auto-discovered + edited
+  // inline via the bulk PATCH endpoint).
   SETTINGS:           '/settings',
   SETTINGS_PROVIDERS: '/settings/providers',
-  SETTINGS_MODELS:    '/settings/models',
   SETTINGS_FLOWS:     '/settings/flows',
   SETTINGS_SKILLS:    '/settings/skills',
   SETTINGS_PROFILE:   '/settings/profile',
@@ -20,7 +22,6 @@ export const ROUTES = {
 
   // ── Legacy (kept for any existing links) ─────────────────────────────────
   PROVIDERS:     '/providers',
-  MODELS:        '/models',
   FLOWS:         '/flows',
   FLOW_DETAIL:   '/flows/:flowId',
   SKILLS:        '/skills',

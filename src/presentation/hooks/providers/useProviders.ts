@@ -59,12 +59,9 @@ export function useRegisterProvider() {
 
 /**
  * Reconciles a provider's stored model list against the upstream provider.
- * On success invalidates the models list so the UI reflects new/archived models.
- */
-/**
- * Reconciles a provider's stored model list against the upstream provider.
- * Invalidates both the flat models list (ModelsView) and the combined
- * providers-with-registrations query (ProvidersView modal pills).
+ * Invalidates both the flat models list and the combined
+ * providers-with-registrations query (ProvidersView modal pills) so the
+ * UI reflects new/archived models everywhere they're surfaced.
  */
 export function useRefreshModels() {
   const { providerService } = useServices();

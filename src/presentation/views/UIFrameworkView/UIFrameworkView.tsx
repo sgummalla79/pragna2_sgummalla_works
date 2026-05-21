@@ -5,7 +5,7 @@ import { Textarea } from '@/presentation/components/ui/Textarea';
 import { Label } from '@/presentation/components/ui/Label';
 import { Separator } from '@/presentation/components/ui/Separator';
 import { Sidebar } from '@/presentation/components/ui/Sidebar/Sidebar';
-import { ProviderTile } from '@/presentation/views/ProvidersView/ProviderTile';
+import { ProviderTile } from '@/presentation/views/settings/ProvidersView/ProviderTile';
 import { ROUTES } from '@/constants/routes';
 import type { SidebarItemConfig } from '@/presentation/components/ui/Sidebar/types';
 import type { LlmProvider } from '@/domain/types/provider.types';
@@ -17,7 +17,7 @@ const DEMO_NAV: SidebarItemConfig[] = [
   { type: 'divider' },
   { type: 'section', label: 'AI Setup' },
   { type: 'nav', to: ROUTES.SETTINGS_PROVIDERS, icon: <NavIcon d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />, label: 'Providers' },
-  { type: 'nav', to: ROUTES.SETTINGS_MODELS,    icon: <NavIcon d="M3 3h18v14H3z M8 21h8M12 17v4" />,   label: 'Models' },
+  { type: 'nav', to: ROUTES.SETTINGS_PROVIDERS, icon: <NavIcon d="M3 3h18v14H3z M8 21h8M12 17v4" />,   label: 'Models' },
   { type: 'section', label: 'Workflows' },
   { type: 'nav', to: ROUTES.SETTINGS_FLOWS,  icon: <NavIcon d="M6 6m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M18 18m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M6 18m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M6 9v6" />, label: 'Flows' },
 ];

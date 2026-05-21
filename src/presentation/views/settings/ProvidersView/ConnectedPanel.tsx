@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/presentation/components/ui/Button';
+import { ConfirmButton } from '@/presentation/components/ui/ConfirmButton';
 import { useBulkUpdateModels } from '@/presentation/hooks/models/useModels';
 import { ModelGrid } from './ModelGrid';
 import type { Model, UpdateModelPayload } from '@/domain/types/model.types';
@@ -8,8 +9,6 @@ interface ConnectedPanelProps {
   models: Model[];
   /** Surface for errors raised by the disconnect button (rendered in the modal header). */
   error: string;
-  refreshing: boolean;
-  onRefresh: () => void;
 }
 
 /**
@@ -31,8 +30,6 @@ interface ConnectedPanelProps {
 export function ConnectedPanel({
   models,
   error,
-  refreshing,
-  onRefresh,
 }: ConnectedPanelProps) {
   const [pendingChanges, setPendingChanges] = useState<Record<string, UpdateModelPayload>>({});
   // Remount-key bumped on Save / Cancel so DataGrid's internal cell
@@ -104,31 +101,38 @@ export function ConnectedPanel({
             Click display name to rename · Dots toggle on/off · Save commits all changes at once
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          {isDirty && (
-            <>
-              <Button variant="ghost" size="sm" onClick={handleCancel} disabled={saving}>
-                Cancel
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleSave}
-                disabled={saving}
-                aria-busy={saving}
-              >
-                {saving ? 'Saving…' : `Save${dirtyCount > 1 ? ` (${dirtyCount})` : ''}`}
-              </Button>
-            </>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onRefresh}
-            disabled={refreshing || saving}
-            aria-busy={refreshing}
+        {/* Grid-edit toolbar — Cancel / Save are always rendered
+            (disabled when nothing is dirty) so the buttons don't pop
+            in and out as the user clicks toggles. Both share size="xs"
+            with the Disconnect / Refresh buttons in the modal header
+            so the modal reads as one consistent visual language.
+            Cancel is destructive (discards unsaved edits) so it uses
+            the danger variant + confirmation dialog.
+            Refresh lives in the modal header next to Disconnect — it's
+            a provider-level action (re-discover models from upstream),
+            not a grid-edit action, so it does not belong here. */}
+        <div className="flex items-center gap-2 [&>button]:min-w-[80px]">
+          <ConfirmButton
+            variant="danger"
+            size="xs"
+            disabled={!isDirty || saving}
+            confirmTitle="Discard unsaved changes?"
+            confirmDescription={
+              `${dirtyCount} ${dirtyCount === 1 ? 'row' : 'rows'} will be reverted to their saved state. This cannot be undone.`
+            }
+            confirmLabel="Yes, discard"
+            onConfirm={handleCancel}
           >
-            {refreshing ? 'Refreshing…' : 'Refresh'}
+            Cancel
+          </ConfirmButton>
+          <Button
+            variant="default"
+            size="xs"
+            onClick={handleSave}
+            disabled={!isDirty || saving}
+            aria-busy={saving}
+          >
+            {saving ? 'Saving…' : 'Save'}
           </Button>
         </div>
       </div>
