@@ -1,26 +1,35 @@
 import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
 import { Button } from '@/presentation/components/ui/Button';
 import { Textarea } from '@/presentation/components/ui/Textarea';
+import { StopButton } from './StopButton';
 
 interface ChatInputProps {
   /** Called when the user submits a non-empty turn. */
   onSend: (text: string) => void;
-  /** Disable the input + send button while a run is in flight. */
+  /** Called when the user clicks Stop. Only rendered when ``disabled``. */
+  onStop?: () => void;
+  /** Disable the input while a run is in flight. */
   disabled?: boolean;
   /** Placeholder copy; injected so the view can localise per agent. */
   placeholder?: string;
 }
 
 /**
- * Bottom chat composer. Single-line submit via ``Enter``;
- * ``Shift+Enter`` inserts a newline.
+ * Bottom chat composer.
  *
- * Empty / whitespace-only submissions are silently ignored — the
- * containing hook also no-ops on empty input, but this keeps the keystroke
- * cheap and prevents an empty user turn from flashing in the message list.
+ * Behaviour:
+ *   - ``Enter`` submits the current input; ``Shift+Enter`` inserts a newline.
+ *   - Empty / whitespace-only submissions are silently ignored.
+ *   - While ``disabled`` (the parent is in ``status === 'running'``) the
+ *     textarea is disabled and the Send button is replaced by
+ *     :class:`StopButton` so the user always has one primary action.
+ *
+ * The parent owns ``disabled`` and ``onStop`` — :class:`ChatInput` is a
+ * dumb component with no awareness of the underlying agent lifecycle.
  */
 export function ChatInput({
   onSend,
+  onStop,
   disabled = false,
   placeholder = 'Send a message…',
 }: ChatInputProps) {
@@ -58,14 +67,18 @@ export function ChatInput({
         className="resize-none"
         aria-label="Chat input"
       />
-      <Button
-        type="button"
-        onClick={submit}
-        disabled={disabled || !value.trim()}
-        className="self-stretch"
-      >
-        Send
-      </Button>
+      {disabled && onStop ? (
+        <StopButton onStop={onStop} />
+      ) : (
+        <Button
+          type="button"
+          onClick={submit}
+          disabled={disabled || !value.trim()}
+          className="self-stretch"
+        >
+          Send
+        </Button>
+      )}
     </div>
   );
 }

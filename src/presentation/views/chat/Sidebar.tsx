@@ -1,6 +1,5 @@
 import {
   MessageSquarePlus,
-  MessagesSquare,
   PanelLeftClose,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -10,6 +9,7 @@ import { ROUTES } from '@/constants/routes';
 import { useUiStore } from '@/presentation/store/uiStore';
 import { cn } from '@/lib/utils';
 import { AvatarMenu } from './AvatarMenu';
+import { ConversationList } from './components/ConversationList';
 
 interface NavItem {
   icon: React.ComponentType<{ size?: number; className?: string }>;
@@ -26,18 +26,28 @@ interface NavItem {
  * lives in `useUiStore.chatPaneCollapsed` so the user's preference
  * survives navigation.
  *
- * Click handlers for the top items are intentionally stubs — the
- * calling site decides what each action does (start a fresh chat
- * session, open a conversations drawer, etc.). Pass `onNewChat` /
- * `onChats` from ChatView when the behaviour is wired. Sign out wires
- * straight to `useAuth().logout` since it has no per-page variation.
+ * Layout when expanded:
+ *   - Brand row at top
+ *   - "New Chat" action button (always visible)
+ *   - :class:`ConversationList` (real persisted conversations from the
+ *     backend, with rename + delete affordances)
+ *   - :class:`AvatarMenu` pinned at the bottom
+ *
+ * Layout when collapsed:
+ *   - Logo (click to expand)
+ *   - "New Chat" as icon-only button
+ *   - Conversation list is hidden (labels would be unreadable at this
+ *     width); user can expand to see it
+ *   - AvatarMenu at the bottom
+ *
+ * Parents can override the "New Chat" handler via :prop:`onNewChat`
+ * (default behaviour: navigate to ``/chat/new``).
  */
 interface ChatSidebarProps {
   onNewChat?: () => void;
-  onChats?: () => void;
 }
 
-export function Sidebar({ onNewChat, onChats }: ChatSidebarProps) {
+export function Sidebar({ onNewChat }: ChatSidebarProps) {
   const collapsed = useUiStore((s) => s.chatPaneCollapsed);
   const toggle = useUiStore((s) => s.toggleChatPane);
   const navigate = useNavigate();
@@ -46,17 +56,7 @@ export function Sidebar({ onNewChat, onChats }: ChatSidebarProps) {
     {
       icon: MessageSquarePlus,
       label: 'New Chat',
-      // TODO: wire to "start a fresh CopilotChat session" once the
-      //       runtime exposes a reset hook. For now: parent-supplied
-      //       handler or no-op.
       onClick: onNewChat ?? (() => navigate(`${ROUTES.CHAT}/new`)),
-    },
-    {
-      icon: MessagesSquare,
-      label: 'Chats',
-      // TODO: wire to a conversations list — could open an inline
-      //       drawer inside this pane, or navigate to ROUTES.CONVERSATIONS.
-      onClick: onChats ?? (() => {}),
     },
   ];
 
@@ -120,33 +120,47 @@ export function Sidebar({ onNewChat, onChats }: ChatSidebarProps) {
         )}
       </div>
 
-      <ul className="flex-1 flex flex-col py-2 list-none" role="list">
-        {items.map(({ icon: Icon, label, onClick }) => (
-          <li key={label}>
-            <button
-              type="button"
-              onClick={onClick}
-              // When collapsed, the label is hidden visually but a native
-              // tooltip surfaces it on hover so the icon-only mode stays
-              // discoverable.
-              title={collapsed ? label : undefined}
-              aria-label={label}
-              className={cn(
-                'group flex w-full items-center gap-3 px-4 py-3 text-sm font-medium',
-                'text-muted-foreground transition-colors hover:bg-accent hover:text-[#ececea]',
-                'focus-visible:outline-none focus-visible:bg-accent',
-                collapsed && 'justify-center px-0'
-              )}
-            >
-              <Icon size={18} aria-hidden="true" className="flex-shrink-0" />
-              {/* Hide the label completely when collapsed — using `hidden`
-                  rather than width-zero keeps the focus ring sized to the
-                  icon, not a phantom 200px text box. */}
-              {!collapsed && <span>{label}</span>}
-            </button>
-          </li>
-        ))}
-      </ul>
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <ul className="flex flex-col list-none m-0 p-0" role="list">
+          {items.map(({ icon: Icon, label, onClick }) => (
+            <li key={label}>
+              <button
+                type="button"
+                onClick={onClick}
+                // When collapsed, the label is hidden visually but a native
+                // tooltip surfaces it on hover so the icon-only mode stays
+                // discoverable.
+                title={collapsed ? label : undefined}
+                aria-label={label}
+                className={cn(
+                  'group flex w-full items-center gap-3 px-4 py-3 text-sm font-medium',
+                  'text-muted-foreground transition-colors hover:bg-accent hover:text-[#ececea]',
+                  'focus-visible:outline-none focus-visible:bg-accent',
+                  collapsed && 'justify-center px-0',
+                )}
+              >
+                <Icon size={18} aria-hidden="true" className="flex-shrink-0" />
+                {/* Hide the label completely when collapsed — using `hidden`
+                    rather than width-zero keeps the focus ring sized to the
+                    icon, not a phantom 200px text box. */}
+                {!collapsed && <span>{label}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        {/* Recent conversations — only shown when expanded. Scrolls
+            independently of the rest of the sidebar if it grows beyond
+            the viewport. */}
+        {!collapsed && (
+          <nav
+            aria-label="Recent conversations"
+            className="flex-1 min-h-0 overflow-y-auto px-2 py-1"
+          >
+            <ConversationList />
+          </nav>
+        )}
+      </div>
 
       {/* Account / settings pinned at the bottom. The avatar trigger
           opens a Radix dropdown containing user identity, settings

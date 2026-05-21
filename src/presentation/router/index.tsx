@@ -43,6 +43,9 @@ export function AppRoutes() {
         >
           <Route index element={<ConversationsView />} />
           <Route path="new" element={<ChatSessionView />} />
+          {/* Resume a persisted conversation. ChatSessionView reads :id
+              via useParams and hydrates the agent with the message log. */}
+          <Route path=":id" element={<ChatSessionView />} />
         </Route>
 
         {/* ── Settings (2-panel layout with sidebar) ── */}

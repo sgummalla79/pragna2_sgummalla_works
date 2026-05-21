@@ -1,32 +1,46 @@
-import { useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import type { Message } from '@ag-ui/client';
 import { ErrorBoundary } from '@/presentation/components/ui/ErrorBoundary';
 import { useLlmProvidersWithRegistrations } from '@/presentation/hooks/providers/useProviders';
+import { useConversation } from '@/presentation/hooks/conversations/useConversation';
+import { useConversationMessages } from '@/presentation/hooks/conversations/useConversationMessages';
 import { APP_NAME } from '@/constants/api';
 import { ERRORS } from '@/constants/errors';
 import { ROUTES } from '@/constants/routes';
+import type {
+  Conversation,
+  PersistedMessage,
+} from '@/domain/types/conversation.types';
 import { useChatSession } from './hooks/useChatSession';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
+import { ChatHeader } from './components/ChatHeader';
 
 const DEFAULT_AGENT_NAME = 'default';
 
 /**
- * The active chat surface.
+ * Active chat surface.
  *
- * Renders the hand-rolled AG-UI native chat UI when the user has at least
- * one provider and one chat-available model; otherwise shows a contextual
+ * Mounted at both ``/chat/new`` (fresh thread) and ``/chat/:id`` (resume).
+ * Renders the hand-rolled AG-UI chat UI when the user has at least one
+ * provider and one chat-available model; otherwise shows a contextual
  * setup prompt. Wraps the live chat in :class:`ErrorBoundary` so a runtime
  * failure (network drop, malformed event stream, agent crash) surfaces as
  * the ``CHT_003`` "Chat unavailable" empty state rather than a white page.
  *
- * Mounted at ``/chat/new``. The layout shell (:class:`ChatView`) owns the
- * sidebar; this view owns the right panel only.
+ * The layout shell (:class:`ChatView`) owns the sidebar; this view owns
+ * the right panel only.
  */
 export default function ChatSessionView() {
-  const { data: providers = [], isLoading } = useLlmProvidersWithRegistrations();
+  const { id: conversationId } = useParams<{ id: string }>();
+  const { data: providers = [], isLoading: providersLoading } =
+    useLlmProvidersWithRegistrations();
+  const { data: conversation } = useConversation(conversationId);
+  const { data: persistedMessages, isLoading: messagesLoading } =
+    useConversationMessages(conversationId);
 
-  if (isLoading) return <LoadingState />;
+  if (providersLoading) return <LoadingState />;
 
   const connectedProviders = providers.filter((p) => p.userProviders.length > 0);
   const hasProviders = connectedProviders.length > 0;
@@ -43,34 +57,115 @@ export default function ChatSessionView() {
     return <SetupPrompt message={ERRORS.CHT_002.message} />;
   }
 
+  // While resuming, wait for the message history to load so the agent
+  // is hydrated correctly on first mount. /chat/new skips this branch
+  // because messagesLoading is false (the query is disabled).
+  if (conversationId && messagesLoading) return <LoadingState />;
+
   return (
     <ErrorBoundary logTag="CHT_003" fallback={<ChatUnavailable />}>
-      <ChatSurface />
+      <ChatSurface
+        conversationId={conversationId}
+        conversation={conversation}
+        persistedMessages={persistedMessages ?? []}
+      />
     </ErrorBoundary>
   );
 }
 
 /**
- * Live chat surface — message list + composer + status footer.
+ * Translate a persisted backend message into the AG-UI in-memory shape
+ * the agent will hydrate from.
+ *
+ * Tool-call fidelity is intentionally NOT preserved across resume in R1
+ * — the assistant text is enough context for the LLM to continue the
+ * thread. Full tool-call rehydration is tracked for R4 (per-message
+ * model attribution sits in the same neighbourhood of work).
+ */
+function persistedToAGUIMessage(m: PersistedMessage): Message {
+  if (m.role === 'assistant') {
+    return { id: m.id, role: 'assistant', content: m.content } as Message;
+  }
+  if (m.role === 'system') {
+    return { id: m.id, role: 'system', content: m.content } as Message;
+  }
+  if (m.role === 'tool') {
+    // Tool turns get an empty toolCallId — they're seeded as historical
+    // context only. New turns won't reference them.
+    return {
+      id: m.id,
+      role: 'tool',
+      content: m.content,
+      toolCallId: '',
+    } as Message;
+  }
+  return { id: m.id, role: 'user', content: m.content } as Message;
+}
+
+interface ChatSurfaceProps {
+  conversationId: string | undefined;
+  conversation: Conversation | undefined;
+  persistedMessages: PersistedMessage[];
+}
+
+/**
+ * Live chat surface — header + message list + composer + status footer.
  *
  * Split out from the parent so it only mounts (and instantiates the
- * underlying :class:`HttpAgent`) once the provider/model gating has
- * passed. Aborts any in-flight run on unmount via the hook's cleanup.
+ * underlying :class:`HttpAgent`) once the provider/model gating and the
+ * resume-load have completed. Aborts any in-flight run on unmount via
+ * the hook's cleanup.
  */
-function ChatSurface() {
-  const { messages, status, error, send } = useChatSession(DEFAULT_AGENT_NAME);
-  const scrollRef = useRef<HTMLDivElement>(null);
+function ChatSurface({
+  conversationId,
+  conversation,
+  persistedMessages,
+}: ChatSurfaceProps) {
+  // Decide the agent's threadId. Resume reuses the conversation id;
+  // /chat/new generates a fresh UUID so the backend will auto-create
+  // the conversation row on the first turn. ``useMemo`` keeps the value
+  // stable across re-renders so the agent isn't recreated unnecessarily.
+  const threadId = useMemo(
+    () => conversationId ?? crypto.randomUUID(),
+    [conversationId],
+  );
 
-  // Keep the latest message in view as it streams in. ``scrollHeight`` is
-  // recomputed every render, so referencing it in the effect's body
-  // catches incremental content updates as well as new turns.
+  const initialMessages = useMemo(
+    () => persistedMessages.map(persistedToAGUIMessage),
+    [persistedMessages],
+  );
+
+  const { messages, status, error, send, stop } = useChatSession(
+    DEFAULT_AGENT_NAME,
+    { threadId, initialMessages },
+  );
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const didInitialScroll = useRef(false);
+
+  // First mount on a resumed conversation: jump to the bottom once,
+  // without animation, so the user lands at the latest turn. Avoids
+  // visible scroll-from-top flicker on resume.
   useEffect(() => {
+    if (didInitialScroll.current) return;
+    if (messages.length === 0) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+    didInitialScroll.current = true;
+  }, [messages]);
+
+  // Live tail: keep the latest message in view as it streams in or
+  // when a new turn arrives.
+  useEffect(() => {
+    if (!didInitialScroll.current) return;
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, status]);
 
   return (
     <div className="flex h-full flex-col bg-[#0a0a0a]">
+      <ChatHeader conversation={conversation} agentName={DEFAULT_AGENT_NAME} />
+
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-4 py-6"
@@ -96,6 +191,7 @@ function ChatSurface() {
 
       <ChatInput
         onSend={send}
+        onStop={stop}
         disabled={status === 'running'}
         placeholder={
           status === 'running'

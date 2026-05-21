@@ -1,12 +1,19 @@
 import type { AxiosInstance } from 'axios';
 import type { IConversationRepository } from '@/application/ports/IConversationRepository';
-import type { Conversation, ConversationUsage, UsageRecord } from '@/domain/types/conversation.types';
+import type {
+  Conversation,
+  ConversationUsage,
+  PersistedMessage,
+  UpdateConversationPayload,
+  UsageRecord,
+} from '@/domain/types/conversation.types';
 import type { PaginatedParams } from '@/domain/types/common.types';
 
 interface ApiConversationResponse {
   id: string;
   flow_id: string | null;
   thread_id: string;
+  user_model_id: string | null;
   title: string | null;
   created_at: string;
 }
@@ -29,11 +36,29 @@ interface ApiConversationUsageResponse {
   total_cost_usd: string;
 }
 
+interface ApiMessageResponse {
+  id: string;
+  role: 'user' | 'assistant' | 'tool' | 'system';
+  content: string;
+  tool_calls:
+    | Array<{
+        id: string;
+        name: string;
+        args?: Record<string, unknown>;
+        result?: string;
+      }>
+    | null;
+  message_index: number;
+  created_at: string;
+  modified_at: string;
+}
+
 function mapConversation(raw: ApiConversationResponse): Conversation {
   return {
     id: raw.id,
     flowId: raw.flow_id,
     threadId: raw.thread_id,
+    userModelId: raw.user_model_id,
     title: raw.title,
     createdAt: raw.created_at,
   };
@@ -48,6 +73,18 @@ function mapUsageRecord(raw: ApiUsageRecordResponse): UsageRecord {
     outputTokens: raw.output_tokens,
     costUsd: raw.cost_usd,
     createdAt: raw.created_at,
+  };
+}
+
+function mapMessage(raw: ApiMessageResponse): PersistedMessage {
+  return {
+    id: raw.id,
+    role: raw.role,
+    content: raw.content,
+    toolCalls: raw.tool_calls,
+    messageIndex: raw.message_index,
+    createdAt: raw.created_at,
+    modifiedAt: raw.modified_at,
   };
 }
 
@@ -66,7 +103,7 @@ export class ConversationRepository implements IConversationRepository {
 
   async getUsage(conversationId: string): Promise<ConversationUsage> {
     const { data } = await this.http.get<ApiConversationUsageResponse>(
-      `/api/conversations/${conversationId}/usage`
+      `/api/conversations/${conversationId}/usage`,
     );
     return {
       conversationId: data.conversation_id,
@@ -75,5 +112,31 @@ export class ConversationRepository implements IConversationRepository {
       totalOutputTokens: data.total_output_tokens,
       totalCostUsd: data.total_cost_usd,
     };
+  }
+
+  async getMessages(conversationId: string): Promise<PersistedMessage[]> {
+    const { data } = await this.http.get<ApiMessageResponse[]>(
+      `/api/conversations/${conversationId}/messages`,
+    );
+    return data.map(mapMessage);
+  }
+
+  async update(
+    conversationId: string,
+    payload: UpdateConversationPayload,
+  ): Promise<Conversation> {
+    // Wire-format uses snake_case; convert at the boundary.
+    const body: Record<string, unknown> = {};
+    if (payload.title !== undefined) body.title = payload.title;
+    if (payload.userModelId !== undefined) body.user_model_id = payload.userModelId;
+    const { data } = await this.http.patch<ApiConversationResponse>(
+      `/api/conversations/${conversationId}`,
+      body,
+    );
+    return mapConversation(data);
+  }
+
+  async delete(conversationId: string): Promise<void> {
+    await this.http.delete(`/api/conversations/${conversationId}`);
   }
 }
