@@ -1,146 +1,231 @@
 import { useState } from 'react';
-import { Plus, Trash2, Settings } from 'lucide-react';
-import { useModels, useRegisterModel, useDeleteModel } from '@/presentation/hooks/models/useModels';
-import { useProviders } from '@/presentation/hooks/providers/useProviders';
+import { Settings } from 'lucide-react';
+import { useModels, useUpdateModel } from '@/presentation/hooks/models/useModels';
+import { useProviders, useRefreshModels } from '@/presentation/hooks/providers/useProviders';
 import { formatCostPerMillion } from '@/domain/utils/formatCost';
+import { cn } from '@/lib/utils';
 import { Button } from '@/presentation/components/ui/Button';
-import { Input } from '@/presentation/components/ui/Input';
-import { Label } from '@/presentation/components/ui/Label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/presentation/components/ui/Card';
+import { Card, CardContent } from '@/presentation/components/ui/Card';
+import { Separator } from '@/presentation/components/ui/Separator';
+import type { Model } from '@/domain/types/model.types';
+import type { UserProvider } from '@/domain/types/provider.types';
 
+/**
+ * Models settings page.
+ *
+ * Models are created automatically when a provider is connected or refreshed —
+ * there is no manual register form here. Each model exposes three independent
+ * toggles: Enabled, Chat, and Flows. Archived models are shown in muted style
+ * with all toggles disabled.
+ */
 export default function ModelsView() {
   const { data: models = [], isLoading } = useModels();
-  const { data: providers = [] } = useProviders();
-  const registerModel = useRegisterModel();
-  const deleteModel = useDeleteModel();
+  const { data: userProviders = [] } = useProviders();
 
-  const [showForm, setShowForm] = useState(false);
-  const [providerId, setProviderId] = useState('');
-  const [modelId, setModelId] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [inputCost, setInputCost] = useState('');
-  const [outputCost, setOutputCost] = useState('');
-  const [formError, setFormError] = useState('');
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-7">
+        <PageHeader />
+        <p className="text-sm text-muted-foreground" aria-live="polite">Loading models…</p>
+      </div>
+    );
+  }
 
-  async function handleRegister() {
-    setFormError('');
-    if (!providerId || !modelId || !displayName) { setFormError('All fields are required.'); return; }
+  if (models.length === 0) {
+    return (
+      <div className="flex flex-col gap-7">
+        <PageHeader />
+        <div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
+          <Settings size={40} className="opacity-30" aria-hidden="true" />
+          <p className="text-base font-semibold text-[#ececea]">No models yet</p>
+          <p className="text-sm">Connect a provider in Settings → Providers to auto-discover models.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-7">
+      <PageHeader />
+
+      {userProviders.map((up) => {
+        const providerModels = models.filter((m) => m.userProviderId === up.id);
+        if (providerModels.length === 0) return null;
+        return (
+          <ProviderSection key={up.id} userProvider={up} models={providerModels} />
+        );
+      })}
+
+      {/* Models whose provider was deleted but rows still exist (edge case) */}
+      {(() => {
+        const knownProviderIds = new Set(userProviders.map((up) => up.id));
+        const orphaned = models.filter((m) => !knownProviderIds.has(m.userProviderId));
+        if (orphaned.length === 0) return null;
+        return (
+          <section className="flex flex-col gap-3">
+            <h3 className="text-sm font-semibold text-muted-foreground">Other models</h3>
+            <ul className="flex flex-col gap-2 list-none">
+              {orphaned.map((m) => <ModelRow key={m.id} model={m} />)}
+            </ul>
+          </section>
+        );
+      })()}
+    </div>
+  );
+}
+
+function PageHeader() {
+  return (
+    <div>
+      <h2 className="text-xl font-bold text-[#ececea]">Models</h2>
+      <p className="mt-1.5 text-sm text-muted-foreground">
+        Models are auto-discovered when you connect a provider. Toggle availability per use-case.
+      </p>
+    </div>
+  );
+}
+
+interface ProviderSectionProps {
+  userProvider: UserProvider;
+  models: Model[];
+}
+
+function ProviderSection({ userProvider, models }: ProviderSectionProps) {
+  const refreshModels = useRefreshModels();
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function handleRefresh() {
+    setRefreshing(true);
     try {
-      await registerModel.mutateAsync({
-        userProviderId: providerId,
-        modelId,
-        displayName,
-        costPerInputToken: parseFloat(inputCost) || 0,
-        costPerOutputToken: parseFloat(outputCost) || 0,
-      });
-      setShowForm(false);
-      setModelId(''); setDisplayName(''); setInputCost(''); setOutputCost('');
-    } catch {
-      setFormError('Failed to register model.');
+      await refreshModels.mutateAsync(userProvider.id);
+    } finally {
+      setRefreshing(false);
     }
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Models</h1>
-          <p className="text-muted-foreground text-sm mt-1">Register models with per-token pricing for cost tracking.</p>
-        </div>
-        <Button onClick={() => setShowForm(!showForm)} size="sm" disabled={providers.length === 0}>
-          <Plus size={16} aria-hidden="true" />
-          Register model
+    <section className="flex flex-col gap-3">
+      {/* Provider header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold capitalize text-[#ececea]">
+          {userProvider.providerName}
+          <span className="ml-2 text-xs font-normal text-muted-foreground">
+            ({models.length} model{models.length !== 1 ? 's' : ''})
+          </span>
+        </h3>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          aria-busy={refreshing}
+        >
+          {refreshing ? 'Refreshing…' : 'Refresh models'}
         </Button>
       </div>
 
-      {providers.length === 0 && (
-        <p className="text-sm text-muted-foreground mb-4">Add a provider first before registering models.</p>
-      )}
+      <Separator />
 
-      {showForm && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-base">Register model</CardTitle>
-            <CardDescription>Set the pricing in USD per token.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="provider-id">Provider</Label>
-                <select
-                  id="provider-id"
-                  value={providerId}
-                  onChange={(e) => setProviderId(e.target.value)}
-                  className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Select provider…</option>
-                  {providers.map((p) => (
-                    <option key={p.id} value={p.id}>{p.providerName} ({p.id.slice(0,8)}…)</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="model-id">Model ID</Label>
-                <Input id="model-id" placeholder="claude-sonnet-4-6" value={modelId} onChange={(e) => setModelId(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="display-name">Display name</Label>
-                <Input id="display-name" placeholder="Claude Sonnet" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="input-cost">Input cost ($/token)</Label>
-                <Input id="input-cost" type="number" step="0.000001" placeholder="0.000003" value={inputCost} onChange={(e) => setInputCost(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="output-cost">Output cost ($/token)</Label>
-                <Input id="output-cost" type="number" step="0.000001" placeholder="0.000015" value={outputCost} onChange={(e) => setOutputCost(e.target.value)} />
-              </div>
-            </div>
-            {formError && <p role="alert" className="text-sm text-destructive">{formError}</p>}
-            <div className="flex gap-2">
-              <Button onClick={handleRegister} disabled={registerModel.isPending}>
-                {registerModel.isPending ? 'Saving…' : 'Save model'}
-              </Button>
-              <Button variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <ul className="flex flex-col gap-2 list-none">
+        {models.map((m) => <ModelRow key={m.id} model={m} />)}
+      </ul>
+    </section>
+  );
+}
 
-      {isLoading ? (
-        <p className="text-muted-foreground text-sm">Loading models…</p>
-      ) : models.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <Settings size={40} className="mx-auto mb-3 opacity-30" aria-hidden="true" />
-          <p>No models registered yet.</p>
-        </div>
-      ) : (
-        <ul className="space-y-3 list-none" role="list">
-          {models.map((m) => (
-            <li key={m.id}>
-              <Card>
-                <CardContent className="flex items-center justify-between py-4">
-                  <div>
-                    <p className="font-medium">{m.displayName}</p>
-                    <p className="text-xs text-muted-foreground">{m.modelId}</p>
-                    <p className="text-xs text-muted-foreground">
-                      In: {formatCostPerMillion(m.costPerInputToken)} · Out: {formatCostPerMillion(m.costPerOutputToken)}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteModel.mutate(m.id)}
-                    aria-label={`Remove model ${m.displayName}`}
-                  >
-                    <Trash2 size={16} aria-hidden="true" />
-                  </Button>
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ul>
+interface ModelRowProps {
+  model: Model;
+}
+
+function ModelRow({ model }: ModelRowProps) {
+  const updateModel = useUpdateModel();
+  const [pendingField, setPendingField] = useState<string | null>(null);
+
+  async function toggle(field: 'enabled' | 'availableForChat' | 'availableForFlows') {
+    if (model.archived || pendingField) return;
+    setPendingField(field);
+    try {
+      await updateModel.mutateAsync({ id: model.id, payload: { [field]: !model[field] } });
+    } finally {
+      setPendingField(null);
+    }
+  }
+
+  return (
+    <li>
+      <Card className={cn(model.archived && 'opacity-60')}>
+        <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+          {/* Model identity */}
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-[#ececea] truncate">{model.displayName}</p>
+              {model.archived && (
+                <span className="flex-shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  archived
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground truncate">{model.modelName}</p>
+            <p className="text-xs text-muted-foreground">
+              In: {formatCostPerMillion(model.costPerInputToken)} · Out: {formatCostPerMillion(model.costPerOutputToken)}
+            </p>
+          </div>
+
+          {/* Toggles */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <ToggleChip
+              label="Enabled"
+              active={model.enabled}
+              pending={pendingField === 'enabled'}
+              disabled={model.archived || !!pendingField}
+              onClick={() => toggle('enabled')}
+            />
+            <ToggleChip
+              label="Chat"
+              active={model.availableForChat}
+              pending={pendingField === 'availableForChat'}
+              disabled={model.archived || !!pendingField}
+              onClick={() => toggle('availableForChat')}
+            />
+            <ToggleChip
+              label="Flows"
+              active={model.availableForFlows}
+              pending={pendingField === 'availableForFlows'}
+              disabled={model.archived || !!pendingField}
+              onClick={() => toggle('availableForFlows')}
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </li>
+  );
+}
+
+interface ToggleChipProps {
+  label: string;
+  active: boolean;
+  pending: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}
+
+function ToggleChip({ label, active, pending, disabled, onClick }: ToggleChipProps) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      aria-label={`${label}: ${active ? 'on' : 'off'}`}
+      className={cn(
+        'rounded-full border-[1.5px] px-3 py-1 text-xs font-medium transition-colors min-h-[32px]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
+        'disabled:cursor-not-allowed disabled:opacity-60',
+        active
+          ? 'border-[var(--color-brand)]/50 bg-[var(--color-brand)]/10 text-[var(--color-brand)] hover:bg-[var(--color-brand)]/20'
+          : 'border-white/10 bg-white/[0.04] text-muted-foreground hover:bg-white/10'
       )}
-    </div>
+    >
+      {pending ? '…' : label}
+    </button>
   );
 }

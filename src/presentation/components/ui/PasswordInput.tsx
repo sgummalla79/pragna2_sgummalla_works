@@ -19,9 +19,12 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
           type={visible ? 'text' : 'password'}
           disabled={disabled}
           className={cn(
-            'flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 pr-10',
-            'text-sm ring-offset-background placeholder:text-muted-foreground',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)] focus-visible:border-[var(--color-brand)]',
+            'w-full rounded-lg border-[1.5px] px-[13px] py-[10px] pr-10',
+            'bg-[rgba(255,255,255,0.07)] text-[14px] text-[#ececea] outline-none',
+            'border-[rgba(255,255,255,0.12)]',
+            'placeholder:text-[rgba(255,255,255,0.3)]',
+            'transition-colors duration-150',
+            'focus:border-[#c97040]',
             'disabled:cursor-not-allowed disabled:opacity-50',
             className
           )}

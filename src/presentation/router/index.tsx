@@ -3,98 +3,72 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ROUTES } from '@/constants/routes';
 import { ProtectedRoute } from './ProtectedRoute';
 import { GuestOnlyRoute } from './GuestOnlyRoute';
+import { SettingsLayout } from '@/presentation/components/settings/SettingsLayout/SettingsLayout';
 
-const LoginView = lazy(() => import('@/presentation/views/LoginView/LoginView'));
-const AuthCallbackView = lazy(
-  () => import('@/presentation/views/AuthCallbackView/AuthCallbackView')
-);
-const RegisterView = lazy(() => import('@/presentation/views/RegisterView/RegisterView'));
+// ── Auth pages ──────────────────────────────────────────────────────────────
+const LoginView        = lazy(() => import('@/presentation/views/LoginView/LoginView'));
+const RegisterView     = lazy(() => import('@/presentation/views/RegisterView/RegisterView'));
+const AuthCallbackView = lazy(() => import('@/presentation/views/AuthCallbackView/AuthCallbackView'));
+
+// ── Chat ─────────────────────────────────────────────────────────────────────
 const ChatView = lazy(() => import('@/presentation/views/ChatView/ChatView'));
-const ProvidersView = lazy(() => import('@/presentation/views/ProvidersView/ProvidersView'));
-const ModelsView = lazy(() => import('@/presentation/views/ModelsView/ModelsView'));
-const FlowBuilderView = lazy(() => import('@/presentation/views/FlowBuilderView/FlowBuilderView'));
-const SkillsView = lazy(() => import('@/presentation/views/SkillsView/SkillsView'));
-const ConversationsView = lazy(
-  () => import('@/presentation/views/ConversationsView/ConversationsView')
-);
+
+// ── Settings sections ────────────────────────────────────────────────────────
+const ProvidersView    = lazy(() => import('@/presentation/views/ProvidersView/ProvidersView'));
+const ModelsView       = lazy(() => import('@/presentation/views/ModelsView/ModelsView'));
+const FlowBuilderView  = lazy(() => import('@/presentation/views/FlowBuilderView/FlowBuilderView'));
+const SkillsView       = lazy(() => import('@/presentation/views/SkillsView/SkillsView'));
+const ProfileView      = lazy(() => import('@/presentation/views/settings/ProfileView/ProfileView'));
+
+// ── Dev / Design system ──────────────────────────────────────────────────────
+const UIFrameworkView = lazy(() => import('@/presentation/views/UIFrameworkView/UIFrameworkView'));
+
+// ── Legacy ───────────────────────────────────────────────────────────────────
+const ConversationsView = lazy(() => import('@/presentation/views/ConversationsView/ConversationsView'));
 
 export function AppRoutes() {
   return (
     <Suspense fallback={null}>
       <Routes>
-        <Route
-          path={ROUTES.LOGIN}
-          element={
-            <GuestOnlyRoute>
-              <LoginView />
-            </GuestOnlyRoute>
-          }
-        />
-        <Route
-          path={ROUTES.REGISTER}
-          element={
-            <GuestOnlyRoute>
-              <RegisterView />
-            </GuestOnlyRoute>
-          }
-        />
+        {/* ── Guest-only ── */}
+        <Route path={ROUTES.LOGIN}    element={<GuestOnlyRoute><LoginView /></GuestOnlyRoute>} />
+        <Route path={ROUTES.REGISTER} element={<GuestOnlyRoute><RegisterView /></GuestOnlyRoute>} />
+
+        {/* ── OAuth callback (no auth guard — handles the redirect) ── */}
+        <Route path={ROUTES.AUTH_CALLBACK} element={<AuthCallbackView />} />
+
+        {/* ── Chat ── */}
         <Route
           path={ROUTES.CHAT}
-          element={
-            <ProtectedRoute>
-              <ChatView />
-            </ProtectedRoute>
-          }
+          element={<ProtectedRoute><ChatView /></ProtectedRoute>}
         />
+
+        {/* ── Settings (2-panel layout with sidebar) ── */}
         <Route
-          path={ROUTES.PROVIDERS}
-          element={
-            <ProtectedRoute>
-              <ProvidersView />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={ROUTES.MODELS}
-          element={
-            <ProtectedRoute>
-              <ModelsView />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={ROUTES.FLOW_DETAIL}
-          element={
-            <ProtectedRoute>
-              <FlowBuilderView />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={ROUTES.FLOWS}
-          element={
-            <ProtectedRoute>
-              <FlowBuilderView />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={ROUTES.SKILLS}
-          element={
-            <ProtectedRoute>
-              <SkillsView />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path={ROUTES.CONVERSATIONS}
-          element={
-            <ProtectedRoute>
-              <ConversationsView />
-            </ProtectedRoute>
-          }
-        />
-        <Route path={ROUTES.AUTH_CALLBACK} element={<AuthCallbackView />} />
+          path={ROUTES.SETTINGS}
+          element={<ProtectedRoute><SettingsLayout /></ProtectedRoute>}
+        >
+          {/* /settings → redirect to providers */}
+          <Route index element={<Navigate to={ROUTES.SETTINGS_PROVIDERS} replace />} />
+          <Route path={ROUTES.SETTINGS_PROVIDERS} element={<ProvidersView />} />
+          <Route path={ROUTES.SETTINGS_MODELS}    element={<ModelsView />} />
+          <Route path={ROUTES.SETTINGS_FLOWS}     element={<FlowBuilderView />} />
+          <Route path={ROUTES.SETTINGS_SKILLS}    element={<SkillsView />} />
+          <Route path={ROUTES.SETTINGS_PROFILE}   element={<ProfileView />} />
+        </Route>
+
+        {/* ── Legacy redirects — point old standalone routes into settings ── */}
+        <Route path={ROUTES.PROVIDERS}     element={<Navigate to={ROUTES.SETTINGS_PROVIDERS} replace />} />
+        <Route path={ROUTES.MODELS}        element={<Navigate to={ROUTES.SETTINGS_MODELS}    replace />} />
+        <Route path={ROUTES.FLOWS}         element={<Navigate to={ROUTES.SETTINGS_FLOWS}     replace />} />
+        <Route path={ROUTES.FLOW_DETAIL}   element={<Navigate to={ROUTES.SETTINGS_FLOWS}     replace />} />
+        <Route path={ROUTES.SKILLS}        element={<Navigate to={ROUTES.SETTINGS_SKILLS}    replace />} />
+        <Route path={ROUTES.CONVERSATIONS} element={<ProtectedRoute><ConversationsView /></ProtectedRoute>} />
+
+        {/* ── Design system showcase (no auth guard — dev only) ── */}
+        <Route path={ROUTES.UI_FRAMEWORK} element={<UIFrameworkView />} />
+
+        {/* ── Fallback ── */}
         <Route path="*" element={<Navigate to={ROUTES.LOGIN} replace />} />
       </Routes>
     </Suspense>

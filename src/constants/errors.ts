@@ -33,6 +33,7 @@ export const ERRORS = {
   PRV_002: { code: 'PRV_002', message: 'This provider is already registered.', severity: 'warn' },
   PRV_003: { code: 'PRV_003', message: 'Failed to add provider. Check your API key and try again.', severity: 'error' },
   PRV_004: { code: 'PRV_004', message: 'Failed to remove provider.', severity: 'error' },
+  PRV_005: { code: 'PRV_005', message: 'Failed to load provider catalogue.', severity: 'error' },
 
   // ── Models ────────────────────────────────────────────────────────────────
   MDL_001: { code: 'MDL_001', message: 'Failed to load models.', severity: 'error' },

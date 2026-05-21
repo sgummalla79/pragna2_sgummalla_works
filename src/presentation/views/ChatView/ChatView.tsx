@@ -7,6 +7,7 @@ import { ERRORS } from '@/constants/errors';
 import { useProviders } from '@/presentation/hooks/providers/useProviders';
 import { useModels } from '@/presentation/hooks/models/useModels';
 import { ErrorBoundary } from '@/presentation/components/ui/ErrorBoundary';
+import { Input } from '@/presentation/components/ui/Input';
 
 const CHAT_INSTRUCTIONS = `You are ${APP_NAME}, an intelligent AI assistant that helps users accomplish tasks using configurable multi-agent workflows. You have access to skills the user has configured. When users type /skill-name, invoke the appropriate skill. Be helpful, concise, and clear.`;
 
@@ -80,11 +81,10 @@ function ChatShell({
 function DisabledInput({ placeholder }: { placeholder: string }) {
   return (
     <div className="max-w-3xl mx-auto w-full">
-      <input
+      <Input
         type="text"
         disabled
         placeholder={placeholder}
-        className="w-full rounded-lg border border-border bg-muted px-4 py-3 text-sm text-muted-foreground placeholder:text-muted-foreground cursor-not-allowed"
         aria-disabled="true"
       />
     </div>

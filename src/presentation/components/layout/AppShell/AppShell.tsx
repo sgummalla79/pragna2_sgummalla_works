@@ -1,9 +1,17 @@
 import { type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { NavBar } from '../NavBar/NavBar';
 import { Sidebar } from '../Sidebar/Sidebar';
 import { useUiStore } from '@/presentation/store/uiStore';
 import { useAuthStore } from '@/presentation/store/authStore';
+import { ROUTES } from '@/constants/routes';
 import { cn } from '@/lib/utils';
+
+/**
+ * Route prefixes that render without app shell chrome (nav sidebar, top bar).
+ * Settings has its own full-screen layout + sidebar; /ui is the dev showcase.
+ */
+const SHELL_BYPASS_PREFIXES = [ROUTES.SETTINGS, ROUTES.UI_FRAMEWORK];
 
 interface AppShellProps {
   children: ReactNode;
@@ -12,8 +20,10 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { sidebarCollapsed, setSidebarCollapsed } = useUiStore();
+  const { pathname } = useLocation();
 
-  if (!isAuthenticated) {
+  const bypassShell = !isAuthenticated || SHELL_BYPASS_PREFIXES.some((p) => pathname.startsWith(p));
+  if (bypassShell) {
     return <main className="min-h-screen">{children}</main>;
   }
 

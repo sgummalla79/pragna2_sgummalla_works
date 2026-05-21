@@ -3,16 +3,36 @@ import { cn } from '@/lib/utils';
 
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
-const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, ...props }, ref) => (
-  <input
-    ref={ref}
-    className={cn(
-      'flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)] focus-visible:border-[var(--color-brand)] disabled:cursor-not-allowed disabled:opacity-50',
-      className
-    )}
-    {...props}
-  />
-));
+/**
+ * Base text input — matches the login screen visual spec:
+ * - Background:  #111111 (sunken surface)
+ * - Border:      1.5px solid rgba(255,255,255,0.12), copper on focus
+ * - Radius:      8px
+ * - Padding:     10px 13px
+ * - Text:        14px #ececea
+ *
+ * This is the single source of truth for input styling in the app.
+ * Change here → updates everywhere.
+ */
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, disabled, ...props }, ref) => (
+    <input
+      ref={ref}
+      disabled={disabled}
+      className={cn(
+        'w-full rounded-lg border-[1.5px] px-[13px] py-[10px]',
+        'bg-[rgba(255,255,255,0.07)] text-[14px] text-[#ececea] outline-none',
+        'border-[rgba(255,255,255,0.12)]',
+        'placeholder:text-[rgba(255,255,255,0.3)]',
+        'transition-colors duration-150',
+        'focus:border-[#c97040]',
+        'disabled:cursor-not-allowed disabled:opacity-50',
+        className
+      )}
+      {...props}
+    />
+  )
+);
 Input.displayName = 'Input';
 
 export { Input };

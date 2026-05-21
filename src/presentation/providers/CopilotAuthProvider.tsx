@@ -32,6 +32,8 @@ export function CopilotAuthProvider({ children }: CopilotAuthProviderProps) {
         key={accessToken}
         runtimeUrl={COPILOTKIT_RUNTIME_URL}
         headers={{ Authorization: `Bearer ${accessToken}` }}
+        showDevConsole={false}
+        enableInspector={false}
       >
         {children}
       </CopilotKit>

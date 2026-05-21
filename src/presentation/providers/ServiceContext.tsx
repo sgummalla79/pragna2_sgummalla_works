@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { AuthService } from '@/application/services/AuthService';
+import type { LlmProviderService } from '@/application/services/LlmProviderService';
 import type { ProviderService } from '@/application/services/ProviderService';
 import type { ModelService } from '@/application/services/ModelService';
 import type { FlowService } from '@/application/services/FlowService';
@@ -8,6 +9,7 @@ import type { ConversationService } from '@/application/services/ConversationSer
 
 export interface Services {
   authService: AuthService;
+  llmProviderService: LlmProviderService;
   providerService: ProviderService;
   modelService: ModelService;
   flowService: FlowService;

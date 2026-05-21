@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Carlito', sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   /* ── Pragna Copper brand ─────────────────────────────────────────── */
   --color-brand:       #c97040;
@@ -15,27 +15,35 @@
   to { transform: rotate(360deg); }
 }
 
-/* ── Reset ───────────────────────────────────────────────────────────── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/*
+ * ── Base layer ────────────────────────────────────────────────────────
+ * MUST be inside @layer base so that @layer utilities (Tailwind's p-*, m-*,
+ * etc.) can override it. Unlayered CSS beats every @layer rule in the CSS
+ * cascade — putting the reset here keeps the correct priority order:
+ *   base → components → utilities
+ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 
-html,
-body,
-#root {
-  height: 100%;
-  font-family: 'Carlito', sans-serif;
-}
+  html,
+  body,
+  #root {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
 
-body {
-  background-color: #282828;
-  color: hsl(0 0% 96%);
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
+  body {
+    background-color: #282828;
+    color: hsl(0 0% 96%);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
 }
 
 /* ── Design tokens ───────────────────────────────────────────────────── */
@@ -78,8 +86,7 @@ body {
   --surface-sunken:      0 0% 7%;    /* #111111                              */
   --surface-sunken-border: 255 255 255 / 0.12; /* rgba white for dark borders */
 
-  /* Display font — same as body, Carlito. One typeface throughout. */
-  --font-display: 'Carlito', sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   --radius: 0.5rem;
 

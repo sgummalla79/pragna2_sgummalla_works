@@ -1,121 +1,151 @@
 import { useState } from 'react';
-import { Plus, Trash2, Cpu } from 'lucide-react';
-import { useProviders, useCreateProvider, useDeleteProvider } from '@/presentation/hooks/providers/useProviders';
-import { PROVIDER_LABELS, PROVIDER_NAMES } from '@/constants/providers';
-import type { ProviderKind } from '@/domain/types/provider.types';
-import { Button } from '@/presentation/components/ui/Button';
-import { Input } from '@/presentation/components/ui/Input';
-import { Label } from '@/presentation/components/ui/Label';
-import { Badge } from '@/presentation/components/ui/Badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/presentation/components/ui/Card';
+import {
+  useLlmProvidersWithRegistrations,
+  useRegisterProvider,
+  useRefreshModels,
+  useDeleteProvider,
+} from '@/presentation/hooks/providers/useProviders';
+import { serializeCredentials } from '@/constants/providers';
+import { ERRORS } from '@/constants/errors';
+import { ProviderTile } from './ProviderTile';
+import { ProviderModal } from './ProviderModal';
 
+/**
+ * Providers settings page.
+ *
+ * Stores only `selectedId` — the selected provider is derived from the live
+ * `providers` query result on every render. This ensures the modal always
+ * reflects fresh data after any mutation (toggle, refresh, connect, disconnect).
+ */
 export default function ProvidersView() {
-  const { data: providers = [], isLoading } = useProviders();
-  const createProvider = useCreateProvider();
-  const deleteProvider = useDeleteProvider();
+  const { data: providers = [], isLoading, isError } = useLlmProvidersWithRegistrations();
 
-  const [showForm, setShowForm] = useState(false);
-  const [providerName, setProviderName] = useState<ProviderKind>('anthropic');
-  const [apiKey, setApiKey] = useState('');
-  const [formError, setFormError] = useState('');
+  const registerProvider = useRegisterProvider();
+  const refreshModels    = useRefreshModels();
+  const deleteProvider   = useDeleteProvider();
 
-  async function handleAdd() {
-    setFormError('');
-    if (!apiKey.trim()) { setFormError('API key is required.'); return; }
+  const [selectedId, setSelectedId]             = useState<string | null>(null);
+  const [credentialValues, setCredentialValues] = useState<Record<string, string>>({});
+  const [connectError, setConnectError]         = useState('');
+  const [connecting, setConnecting]             = useState(false);
+  const [disconnectError, setDisconnectError]   = useState('');
+  const [disconnecting, setDisconnecting]       = useState(false);
+  const [refreshing, setRefreshing]             = useState(false);
+
+  // Always derived from live query — never stale after mutations
+  const selected = selectedId ? (providers.find((p) => p.id === selectedId) ?? null) : null;
+
+  function openModal(id: string) {
+    setSelectedId(id);
+    setCredentialValues({});
+    setConnectError('');
+    setDisconnectError('');
+  }
+
+  function closeModal() {
+    setSelectedId(null);
+    setCredentialValues({});
+    setConnectError('');
+    setDisconnectError('');
+  }
+
+  async function handleConnect() {
+    if (!selected) return;
+    setConnectError('');
+    setConnecting(true);
     try {
-      await createProvider.mutateAsync({ providerName, apiKey: apiKey.trim() });
-      setShowForm(false);
-      setApiKey('');
+      const apiKey = serializeCredentials(selected.credentialKind, credentialValues);
+      await registerProvider.mutateAsync({ llmProviderId: selected.id, apiKey });
+      setCredentialValues({});
     } catch {
-      setFormError('Failed to register provider. Check your key and try again.');
+      setConnectError(ERRORS.PRV_003.message);
+    } finally {
+      setConnecting(false);
     }
   }
 
+  async function handleDisconnect() {
+    const userProvider = selected?.userProviders[0];
+    if (!userProvider) return;
+    setDisconnectError('');
+    setDisconnecting(true);
+    try {
+      await deleteProvider.mutateAsync(userProvider.id);
+      closeModal();
+    } catch {
+      setDisconnectError(ERRORS.PRV_004.message);
+    } finally {
+      setDisconnecting(false);
+    }
+  }
+
+  async function handleRefresh() {
+    const userProvider = selected?.userProviders[0];
+    if (!userProvider) return;
+    setRefreshing(true);
+    try {
+      await refreshModels.mutateAsync(userProvider.id);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  const activeUserProvider = selected?.userProviders[0] ?? null;
+  const modalModels        = activeUserProvider?.models ?? [];
+
   return (
-    <div className="p-4 md:p-8 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">LLM Providers</h1>
-          <p className="text-muted-foreground text-sm mt-1">Register your API keys (BYOK). Keys are encrypted at rest.</p>
-        </div>
-        <Button onClick={() => setShowForm(!showForm)} size="sm">
-          <Plus size={16} aria-hidden="true" />
-          Add provider
-        </Button>
+    <div className="flex flex-col gap-7">
+      <div>
+        <h2 className="text-xl font-bold text-[#ececea]">Providers</h2>
+        <p className="mt-1.5 text-[13px] text-[#737373]">
+          Connect your LLM providers. Click a tile to manage credentials and models.
+        </p>
       </div>
 
-      {showForm && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-base">Register new provider</CardTitle>
-            <CardDescription>Your key is sent once and never displayed again.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="provider-select">Provider</Label>
-              <select
-                id="provider-select"
-                value={providerName}
-                onChange={(e) => setProviderName(e.target.value as ProviderKind)}
-                className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]"
-              >
-                {Object.values(PROVIDER_NAMES).map((name) => (
-                  <option key={name} value={name}>{PROVIDER_LABELS[name]}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="api-key">API Key</Label>
-              <Input id="api-key" type="password" placeholder="sk-…" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
-            </div>
-            {formError && <p role="alert" className="text-sm text-destructive">{formError}</p>}
-            <div className="flex gap-2">
-              <Button onClick={handleAdd} disabled={createProvider.isPending}>
-                {createProvider.isPending ? 'Saving…' : 'Save provider'}
-              </Button>
-              <Button variant="ghost" onClick={() => { setShowForm(false); setApiKey(''); }}>Cancel</Button>
-            </div>
-          </CardContent>
-        </Card>
+      {isLoading && (
+        <p className="text-[13px] text-[#737373]" aria-live="polite">Loading providers…</p>
+      )}
+      {isError && (
+        <p role="alert" className="text-[13px] text-[#ef4444]">{ERRORS.PRV_005.message}</p>
       )}
 
-      {isLoading ? (
-        <p className="text-muted-foreground text-sm">Loading providers…</p>
-      ) : providers.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <Cpu size={40} className="mx-auto mb-3 opacity-30" aria-hidden="true" />
-          <p>No providers registered yet.</p>
-        </div>
-      ) : (
-        <ul className="space-y-3 list-none" role="list">
-          {providers.map((p) => (
-            <li key={p.id}>
-              <Card>
-                <CardContent className="flex items-center justify-between py-4">
-                  <div className="flex items-center gap-3">
-                    <Cpu size={20} className="text-muted-foreground" aria-hidden="true" />
-                    <div>
-                      <p className="font-medium">{PROVIDER_LABELS[p.providerName] ?? p.providerName}</p>
-                      <p className="text-xs text-muted-foreground">ID: {p.id.slice(0, 8)}…</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={p.enabled ? 'default' : 'secondary'}>{p.enabled ? 'Active' : 'Disabled'}</Badge>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteProvider.mutate(p.id)}
-                      aria-label={`Remove ${PROVIDER_LABELS[p.providerName]} provider`}
-                    >
-                      <Trash2 size={16} aria-hidden="true" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </li>
+      {!isLoading && !isError && providers.length > 0 && (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3.5">
+          {providers.map((item) => (
+            <ProviderTile
+              key={item.id}
+              llmProvider={item}
+              connected={item.userProviders.length > 0}
+              onClick={() => openModal(item.id)}
+            />
           ))}
-        </ul>
+        </div>
       )}
+
+      {!isLoading && !isError && providers.length === 0 && (
+        <div className="flex flex-col items-center gap-2 py-12 text-center">
+          <p className="text-base font-semibold text-[#ececea]">No providers available</p>
+          <p className="text-[13px] text-[#737373]">Contact your administrator to enable providers.</p>
+        </div>
+      )}
+
+      <ProviderModal
+        llmProvider={selected}
+        userProvider={activeUserProvider}
+        models={modalModels}
+        open={selectedId !== null}
+        onClose={closeModal}
+        connecting={connecting}
+        connectError={connectError}
+        credentialValues={credentialValues}
+        onCredentialChange={(key, val) => setCredentialValues((prev) => ({ ...prev, [key]: val }))}
+        onConnect={handleConnect}
+        disconnecting={disconnecting}
+        disconnectError={disconnectError}
+        onDisconnect={handleDisconnect}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
+      />
     </div>
   );
 }

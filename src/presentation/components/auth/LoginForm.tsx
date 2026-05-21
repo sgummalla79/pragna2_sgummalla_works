@@ -7,6 +7,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/presentation/hooks/auth/useAuth';
 import { useAuth0Connections } from '@/presentation/hooks/auth/useAuth0Connections';
 import { SocialLoginButton } from '@/presentation/views/LoginView/SocialLoginButton';
+import { Input } from '@/presentation/components/ui/Input';
+import { PasswordInput } from '@/presentation/components/ui/PasswordInput';
 
 /**
  * Self-contained login card.
@@ -105,7 +107,7 @@ export function LoginForm() {
 
       {/* Email / password form */}
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-[10px]">
-        <input
+        <Input
           type="email"
           autoComplete="email"
           placeholder="Email address"
@@ -114,24 +116,9 @@ export function LoginForm() {
           aria-label="Email address"
           aria-required="true"
           disabled={busy}
-          style={{
-            padding: '10px 13px',
-            background: '#111111',
-            border: '1.5px solid rgba(255,255,255,0.12)',
-            borderRadius: 8,
-            color: '#ececea',
-            fontSize: 14,
-            outline: 'none',
-            width: '100%',
-            boxSizing: 'border-box',
-            opacity: busy ? 0.5 : 1,
-          }}
-          onFocus={(e) => { e.target.style.borderColor = '#c97040'; }}
-          onBlur={(e) => { e.target.style.borderColor = 'rgba(255,255,255,0.12)'; }}
         />
 
-        <input
-          type="password"
+        <PasswordInput
           autoComplete="current-password"
           placeholder="Password"
           value={password}
@@ -139,20 +126,6 @@ export function LoginForm() {
           aria-label="Password"
           aria-required="true"
           disabled={busy}
-          style={{
-            padding: '10px 13px',
-            background: '#111111',
-            border: '1.5px solid rgba(255,255,255,0.12)',
-            borderRadius: 8,
-            color: '#ececea',
-            fontSize: 14,
-            outline: 'none',
-            width: '100%',
-            boxSizing: 'border-box',
-            opacity: busy ? 0.5 : 1,
-          }}
-          onFocus={(e) => { e.target.style.borderColor = '#c97040'; }}
-          onBlur={(e) => { e.target.style.borderColor = 'rgba(255,255,255,0.12)'; }}
         />
 
         <button

@@ -1,32 +1,92 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useServices } from '@/presentation/providers/ServiceContext';
-import type { CreateProviderPayload } from '@/domain/types/provider.types';
+import type { RegisterProviderPayload } from '@/domain/types/provider.types';
 
-const PROVIDERS_KEY = ['providers'] as const;
+const LLM_PROVIDERS_KEY                  = ['llm-providers']                   as const;
+const LLM_PROVIDERS_WITH_REG_KEY         = ['llm-providers-with-registrations'] as const;
+const PROVIDERS_KEY                      = ['providers']                        as const;
+const MODELS_KEY                         = ['models']                           as const;
 
-export function useProviders() {
-  const { providerService } = useServices();
+/** Fetches the global LLM provider catalogue (seeded at server startup, rarely changes). */
+export function useLlmProviders() {
+  const { llmProviderService } = useServices();
   return useQuery({
-    queryKey: PROVIDERS_KEY,
-    queryFn: () => providerService.list(),
+    queryKey: LLM_PROVIDERS_KEY,
+    queryFn:  () => llmProviderService.listAll(),
+    staleTime: Infinity,
+  });
+}
+
+/**
+ * Fetches all providers with the current user's registrations embedded.
+ * Single network call — replaces useLlmProviders() + useProviders() on the providers page.
+ * Empty userProviders array on an item means that provider is not connected.
+ */
+export function useLlmProvidersWithRegistrations() {
+  const { llmProviderService } = useServices();
+  return useQuery({
+    queryKey: LLM_PROVIDERS_WITH_REG_KEY,
+    queryFn:  () => llmProviderService.listWithRegistrations(),
     staleTime: 30_000,
   });
 }
 
-export function useCreateProvider() {
+/** Fetches the user's connected providers. */
+export function useProviders() {
   const { providerService } = useServices();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: CreateProviderPayload) => providerService.create(payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: PROVIDERS_KEY }),
+  return useQuery({
+    queryKey: PROVIDERS_KEY,
+    queryFn:  () => providerService.list(),
+    staleTime: 30_000,
   });
 }
 
+/**
+ * Registers a provider and auto-discovers its models.
+ * Invalidates the combined providers+registrations query and the models list.
+ */
+export function useRegisterProvider() {
+  const { providerService } = useServices();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: RegisterProviderPayload) => providerService.register(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: LLM_PROVIDERS_WITH_REG_KEY });
+      queryClient.invalidateQueries({ queryKey: MODELS_KEY });
+    },
+  });
+}
+
+/**
+ * Reconciles a provider's stored model list against the upstream provider.
+ * On success invalidates the models list so the UI reflects new/archived models.
+ */
+/**
+ * Reconciles a provider's stored model list against the upstream provider.
+ * Invalidates both the flat models list (ModelsView) and the combined
+ * providers-with-registrations query (ProvidersView modal pills).
+ */
+export function useRefreshModels() {
+  const { providerService } = useServices();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (providerId: string) => providerService.refreshModels(providerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MODELS_KEY });
+      queryClient.invalidateQueries({ queryKey: LLM_PROVIDERS_WITH_REG_KEY });
+    },
+  });
+}
+
+/** Deletes a provider and cascades to all its models. */
 export function useDeleteProvider() {
   const { providerService } = useServices();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => providerService.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: PROVIDERS_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: LLM_PROVIDERS_WITH_REG_KEY });
+      queryClient.invalidateQueries({ queryKey: MODELS_KEY });
+    },
   });
 }

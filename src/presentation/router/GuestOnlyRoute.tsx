@@ -12,6 +12,6 @@ export function GuestOnlyRoute({ children }: GuestOnlyRouteProps) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   if (!bootstrapped) return null;
-  if (isAuthenticated) return <Navigate to={ROUTES.CHAT} replace />;
+  if (isAuthenticated) return <Navigate to={ROUTES.SETTINGS} replace />;
   return <>{children}</>;
 }
