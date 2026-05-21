@@ -66,6 +66,14 @@ export class ProviderRepository implements IUserProviderRepository {
     };
   }
 
+  async toggle(id: string, enabled: boolean): Promise<UserProvider> {
+    const { data } = await this.http.patch<ApiUserProviderResponse>(
+      `/api/user-providers/${id}`,
+      { enabled }
+    );
+    return mapUserProvider(data);
+  }
+
   async delete(id: string): Promise<void> {
     await this.http.delete(`/api/user-providers/${id}`);
   }

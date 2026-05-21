@@ -4,6 +4,7 @@ import {
   useRegisterProvider,
   useRefreshModels,
   useDeleteProvider,
+  useToggleProvider,
 } from '@/presentation/hooks/providers/useProviders';
 import { serializeCredentials } from '@/constants/providers';
 import { ERRORS } from '@/constants/errors';
@@ -23,6 +24,7 @@ export default function ProvidersView() {
   const registerProvider = useRegisterProvider();
   const refreshModels    = useRefreshModels();
   const deleteProvider   = useDeleteProvider();
+  const toggleProvider   = useToggleProvider();
 
   const [selectedId, setSelectedId]             = useState<string | null>(null);
   const [credentialValues, setCredentialValues] = useState<Record<string, string>>({});
@@ -110,15 +112,20 @@ export default function ProvidersView() {
       )}
 
       {!isLoading && !isError && providers.length > 0 && (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3.5">
-          {providers.map((item) => (
-            <ProviderTile
-              key={item.id}
-              llmProvider={item}
-              connected={item.userProviders.length > 0}
-              onClick={() => openModal(item.id)}
-            />
-          ))}
+        <div className="flex flex-wrap gap-3.5">
+          {providers.map((item) => {
+            const up = item.userProviders[0];
+            return (
+              <ProviderTile
+                key={item.id}
+                llmProvider={item}
+                connected={!!up}
+                providerEnabled={up?.enabled}
+                onToggleEnabled={up ? () => toggleProvider.mutate({ id: up.id, enabled: !up.enabled }) : undefined}
+                onClick={() => openModal(item.id)}
+              />
+            );
+          })}
         </div>
       )}
 

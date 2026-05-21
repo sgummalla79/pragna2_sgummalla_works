@@ -21,5 +21,7 @@ export interface IUserProviderRepository {
    * currently returns. Returns the diff plus the full active model list.
    */
   refreshModels(providerId: string): Promise<RefreshModelsResult>;
+  /** Enables or disables a registered provider via PATCH /api/user-providers/{id}. */
+  toggle(id: string, enabled: boolean): Promise<UserProvider>;
   delete(id: string): Promise<void>;
 }

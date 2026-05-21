@@ -7,21 +7,41 @@ import type { LlmProvider } from '@/domain/types/provider.types';
 interface ProviderTileProps {
   llmProvider: LlmProvider;
   connected: boolean;
+  /** UserProvider.enabled — undefined when not connected. */
+  providerEnabled?: boolean;
+  /** Calls PATCH /api/user-providers/{id} to flip the enabled state. Only set when connected. */
+  onToggleEnabled?: () => void;
   onClick: () => void;
 }
 
 /**
- * Provider tile card — mirrors the ps-tile structure from ProvidersSettings.vue.
- *
- * Shows the real SVG logo when available; falls back to the coloured initial.
- * Mono-black logos (openai, groq, perplexity) are inverted for the dark UI.
- * Layout: logo → body (name + sub-label, flex-1) → footer (status badge).
+ * 10×10rem square provider tile.
+ * Top-right: enable/disable toggle pill — only shown when connected, calls PATCH on click.
+ * Bottom: connected status badge.
  */
-export function ProviderTile({ llmProvider, connected, onClick }: ProviderTileProps) {
+export function ProviderTile({
+  llmProvider,
+  connected,
+  providerEnabled,
+  onToggleEnabled,
+  onClick,
+}: ProviderTileProps) {
   const [hovered, setHovered] = useState(false);
+  const [toggling, setToggling] = useState(false);
   const { bg, fg } = providerColor(llmProvider.name);
-  const logoUrl = PROVIDER_LOGO_URLS[llmProvider.name];
+  const logoUrl     = PROVIDER_LOGO_URLS[llmProvider.name];
   const isMonoBlack = MONO_BLACK_PROVIDERS.has(llmProvider.name);
+
+  async function handleToggle(e: React.MouseEvent) {
+    e.stopPropagation(); // don't open modal
+    if (!onToggleEnabled || toggling) return;
+    setToggling(true);
+    try {
+      await onToggleEnabled();
+    } finally {
+      setToggling(false);
+    }
+  }
 
   return (
     <div
@@ -32,27 +52,58 @@ export function ProviderTile({ llmProvider, connected, onClick }: ProviderTilePr
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        'relative flex flex-col gap-3 rounded-2xl border-[1.5px] cursor-pointer select-none',
-        'pt-5 px-4 pb-3.5 bg-[#282828] min-h-[200px]',
+        'relative w-40 h-40 flex flex-col gap-2 rounded-2xl border-[1.5px] cursor-pointer select-none',
+        'pt-4 px-3.5 pb-3 bg-[#282828]',
         'transition-[border-color,box-shadow] duration-[180ms]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
         hovered
-          ? 'border-[#c97040] shadow-[0_4px_16px_rgba(0,0,0,0.1)]'
+          ? connected
+            ? 'border-[rgba(34,197,94,0.85)] shadow-[0_4px_16px_rgba(34,197,94,0.12)]'
+            : 'border-[rgba(239,68,68,0.85)] shadow-[0_4px_16px_rgba(239,68,68,0.12)]'
           : connected
           ? 'border-[rgba(34,197,94,0.4)]'
           : 'border-[rgba(239,68,68,0.4)]'
       )}
     >
-      {/* Logo — always 64×64 so every tile has an identical logo area */}
+      {/* Enable/disable toggle pill — top-right, only when connected */}
+      {connected && (
+        <button
+          type="button"
+          onClick={handleToggle}
+          disabled={toggling}
+          aria-pressed={providerEnabled}
+          aria-label={providerEnabled ? 'Disable provider' : 'Enable provider'}
+          className={cn(
+            'absolute top-2.5 right-2.5 inline-flex items-center gap-1 rounded-full',
+            'px-2 py-[3px] text-[10px] font-semibold border transition-colors duration-150',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
+            'disabled:opacity-50 disabled:cursor-not-allowed',
+            providerEnabled
+              ? 'bg-[var(--color-brand)] text-white border-[var(--color-brand)] hover:bg-[var(--color-brand-hover)]'
+              : 'bg-violet-500/10 text-violet-400 border-violet-500/25 hover:bg-violet-500/20'
+          )}
+        >
+          <span
+            className={cn(
+              'h-1.5 w-1.5 rounded-full flex-shrink-0',
+              providerEnabled ? 'bg-white' : 'bg-violet-400'
+            )}
+            aria-hidden="true"
+          />
+          {toggling ? '…' : providerEnabled ? 'On' : 'Off'}
+        </button>
+      )}
+
+      {/* Logo — 36×36 */}
       {logoUrl ? (
         <img
           src={logoUrl}
           alt={llmProvider.name}
-          className={cn('h-16 w-16 flex-shrink-0 rounded-[10px] object-contain', isMonoBlack && 'invert')}
+          className={cn('h-9 w-9 flex-shrink-0 rounded-[8px] object-contain', isMonoBlack && 'invert')}
         />
       ) : (
         <div
-          className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-[10px] text-[26px] font-bold"
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[8px] text-[16px] font-bold"
           style={{ background: bg, color: fg }}
           aria-hidden="true"
         >
@@ -60,22 +111,24 @@ export function ProviderTile({ llmProvider, connected, onClick }: ProviderTilePr
         </div>
       )}
 
-      {/* Body — name + sub-label, grows to push footer to bottom */}
-      <div className="flex flex-1 flex-col gap-[3px]">
-        <span className="text-[14px] font-bold text-[#ececea]">
+      {/* Name + technical identifier */}
+      <div className="flex flex-1 flex-col gap-[2px]">
+        <span className="text-[13px] font-bold text-[#ececea] leading-tight">
           {llmProvider.displayName}
         </span>
-        <span className="text-[11.5px] leading-[1.4] text-[#737373]">
+        <span className="text-[10.5px] leading-[1.3] text-[#737373]">
           {llmProvider.name}
         </span>
       </div>
 
-      {/* Footer — status badge */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Connected badge — bottom */}
+      <div className="flex items-center">
         <span
           className={cn(
-            'whitespace-nowrap rounded-full px-2.5 py-[3px] text-[11px] font-semibold flex-shrink-0',
-            connected ? 'bg-[#22c55e] text-black' : 'bg-[#ef4444] text-white'
+            'inline-flex items-center gap-1.5 rounded-full px-2 py-[2px] text-[10px] font-semibold border flex-shrink-0',
+            connected
+              ? 'bg-green-500/10 text-green-400 border-green-500/30'
+              : 'bg-red-500/10 text-red-400 border-red-500/25'
           )}
         >
           {connected ? 'Connected ✓' : 'Not connected'}

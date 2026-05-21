@@ -75,6 +75,21 @@ export function useRefreshModels() {
   });
 }
 
+/**
+ * Toggles a registered provider's enabled state via PATCH /api/user-providers/{id}.
+ * On success re-fetches the combined providers-with-registrations query so every
+ * tile reflects the new state immediately.
+ */
+export function useToggleProvider() {
+  const { providerService } = useServices();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      providerService.toggle(id, enabled),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: LLM_PROVIDERS_WITH_REG_KEY }),
+  });
+}
+
 /** Deletes a provider and cascades to all its models. */
 export function useDeleteProvider() {
   const { providerService } = useServices();

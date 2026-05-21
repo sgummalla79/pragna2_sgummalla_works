@@ -27,6 +27,11 @@ export class ProviderService {
     return this.providerRepository.refreshModels(providerId);
   }
 
+  /** Enables or disables a registered provider. */
+  toggle(id: string, enabled: boolean): Promise<UserProvider> {
+    return this.providerRepository.toggle(id, enabled);
+  }
+
   /** Deletes a provider and cascades to all its user_models. */
   delete(id: string): Promise<void> {
     return this.providerRepository.delete(id);
