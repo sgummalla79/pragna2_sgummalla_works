@@ -2,6 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { cn } from '@/lib/utils';
 import { providerColor, providerInitial } from '@/constants/providers';
 import { PROVIDER_LOGO_URLS, MONO_BLACK_PROVIDERS } from '@/assets/providerLogos';
+import { ConfirmButton } from '@/presentation/components/ui/ConfirmButton';
 import { ProviderConnectForm } from './ProviderConnectForm';
 import { ConnectedPanel } from './ConnectedPanel';
 import type { LlmProvider, UserProvider } from '@/domain/types/provider.types';
@@ -72,7 +73,7 @@ export function ProviderModal({
         <Dialog.Content
           className="
             fixed left-1/2 top-1/2 z-[601] -translate-x-1/2 -translate-y-1/2
-            w-[780px] max-w-[calc(100vw-32px)] max-h-[90vh] overflow-hidden
+            w-[1100px] max-w-[calc(100vw-32px)] max-h-[90vh] overflow-hidden
             flex flex-col gap-[18px]
             rounded-[18px] border border-[rgba(255,255,255,0.1)]
             bg-[#212121] p-7
@@ -99,34 +100,58 @@ export function ProviderModal({
               </div>
             )}
 
-            <div className="flex flex-1 min-w-0 flex-col gap-0.5">
-              <Dialog.Title className="text-base font-bold text-[#ececea] m-0">
-                {llmProvider.displayName}
-              </Dialog.Title>
+            <div className="flex flex-1 min-w-0 flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <Dialog.Title className="text-base font-bold text-[#ececea] m-0">
+                  {llmProvider.displayName}
+                </Dialog.Title>
+                {userProvider && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full border border-green-500/30 bg-green-500/[0.08] px-2 py-0.5 text-[11px] font-semibold text-green-500"
+                    aria-label="Connected"
+                  >
+                    <span aria-hidden="true">✓</span>
+                    Connected
+                  </span>
+                )}
+              </div>
               <Dialog.Description className="text-[12px] text-[#737373] m-0">
                 {userProvider ? 'Manage your connected provider.' : 'Enter your credentials to connect.'}
               </Dialog.Description>
+              {userProvider && (
+                <div className="mt-1">
+                  <ConfirmButton
+                    size="xs"
+                    disabled={disconnecting}
+                    aria-busy={disconnecting}
+                    confirmTitle={`Disconnect ${llmProvider.displayName}?`}
+                    confirmDescription="This archives your registration and disables every model under it. Your usage history is preserved. You can re-connect at any time."
+                    confirmLabel="Yes, disconnect"
+                    onConfirm={onDisconnect}
+                  >
+                    {disconnecting ? 'Removing…' : 'Disconnect'}
+                  </ConfirmButton>
+                </div>
+              )}
             </div>
 
-            <Dialog.Close
-              className="flex-shrink-0 rounded-md px-1.5 py-0.5 text-base text-[#737373] border-none bg-transparent cursor-pointer transition-colors duration-150 hover:text-[#ececea] hover:bg-[rgba(255,255,255,0.07)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]"
-              aria-label="Close"
-            >
-              ✕
-            </Dialog.Close>
+            <div className="flex flex-shrink-0 items-center gap-2">
+              <Dialog.Close
+                className="rounded-md px-1.5 py-0.5 text-base text-[#737373] border-none bg-transparent cursor-pointer transition-colors duration-150 hover:text-[#ececea] hover:bg-[rgba(255,255,255,0.07)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]"
+                aria-label="Close"
+              >
+                ✕
+              </Dialog.Close>
+            </div>
           </div>
 
           {/* Body */}
           {userProvider ? (
             <ConnectedPanel
-              userProvider={userProvider}
               models={models}
-              disconnecting={disconnecting}
               error={disconnectError}
               refreshing={refreshing}
-              onDisconnect={onDisconnect}
               onRefresh={onRefresh}
-              onClose={onClose}
             />
           ) : (
             <ProviderConnectForm

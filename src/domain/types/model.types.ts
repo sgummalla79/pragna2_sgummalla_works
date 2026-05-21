@@ -33,6 +33,14 @@ export interface UpdateModelPayload {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * One entry of a bulk PATCH /api/user-models payload.
+ * Same shape as {@link UpdateModelPayload} plus the row id.
+ */
+export interface BulkUpdateEntry extends UpdateModelPayload {
+  id: string;
+}
+
 /** Response from POST /api/user-providers/{id}/refresh-models. */
 export interface RefreshModelsResult {
   /** Newly discovered models (enabled=false, must be opted into). */

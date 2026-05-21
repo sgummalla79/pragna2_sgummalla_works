@@ -1,5 +1,5 @@
 import type { IModelRepository } from '@/application/ports/IModelRepository';
-import type { Model, UpdateModelPayload } from '@/domain/types/model.types';
+import type { BulkUpdateEntry, Model, UpdateModelPayload } from '@/domain/types/model.types';
 
 /**
  * Manages user models via /api/user-models.
@@ -21,5 +21,13 @@ export class ModelService {
    */
   update(id: string, payload: UpdateModelPayload): Promise<Model> {
     return this.modelRepository.update(id, payload);
+  }
+
+  /**
+   * Bulk-updates many models in a single server transaction.
+   * All-or-nothing — see {@link IModelRepository.bulkUpdate}.
+   */
+  bulkUpdate(updates: BulkUpdateEntry[]): Promise<Model[]> {
+    return this.modelRepository.bulkUpdate(updates);
   }
 }

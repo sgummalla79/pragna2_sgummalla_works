@@ -8,6 +8,14 @@
   --color-brand-hover: #b5633a;
   --color-brand-light: rgba(201, 112, 64, 0.12);
   --color-brand-ring:  rgba(201, 112, 64, 0.35);
+
+  /* ── Status tokens (registered for Tailwind utilities) ──────────────
+     Without these inside @theme, classes like bg-destructive /
+     text-destructive-foreground silently emit nothing. The :root block
+     below mirrors the same values for any consumer that reads the raw
+     custom property. */
+  --color-destructive:            #dc2626;
+  --color-destructive-foreground: #fafafa;
 }
 
 /* ── Keyframes ───────────────────────────────────────────────────────── */

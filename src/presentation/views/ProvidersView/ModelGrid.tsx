@@ -1,5 +1,4 @@
 import { DataGrid } from '@/presentation/components/ui/DataGrid';
-import { useUpdateModel } from '@/presentation/hooks/models/useModels';
 import { formatUsd } from '@/domain/utils/formatCost';
 import type { GridColumn } from '@/presentation/components/ui/DataGrid';
 import type { Model, UpdateModelPayload } from '@/domain/types/model.types';
@@ -20,7 +19,7 @@ const MODEL_COLUMNS: GridColumn<Model>[] = [
     key: 'modelName',
     header: 'Model',
     render: (m) => (
-      <span className="font-mono text-[13px] text-[#737373]">{m.modelName}</span>
+      <span className="whitespace-nowrap font-mono text-[13px] text-[#737373]">{m.modelName}</span>
     ),
   },
   {
@@ -37,7 +36,7 @@ const MODEL_COLUMNS: GridColumn<Model>[] = [
     header: '$/1M in',
     align: 'right',
     render: (m) => (
-      <span className="font-mono text-[13px] text-[#737373]">{perMillion(m.costPerInputToken)}</span>
+      <span className="whitespace-nowrap font-mono text-[13px] text-[#737373]">{perMillion(m.costPerInputToken)}</span>
     ),
   },
   {
@@ -46,7 +45,7 @@ const MODEL_COLUMNS: GridColumn<Model>[] = [
     header: '$/1M out',
     align: 'right',
     render: (m) => (
-      <span className="font-mono text-[13px] text-[#737373]">{perMillion(m.costPerOutputToken)}</span>
+      <span className="whitespace-nowrap font-mono text-[13px] text-[#737373]">{perMillion(m.costPerOutputToken)}</span>
     ),
   },
   {
@@ -80,23 +79,37 @@ const MODEL_COLUMNS: GridColumn<Model>[] = [
 
 interface ModelGridProps {
   models: Model[];
+  /**
+   * Receives cell-level changes (toggle click, editable blur/Enter).
+   * Parent is responsible for buffering and surfacing Save / Cancel.
+   */
+  onCellChange: (id: string, payload: UpdateModelPayload) => void;
+  /** Pass-through to the underlying DataGrid wrapper (e.g. `flex-1 min-h-0`). */
+  className?: string;
 }
 
 /**
- * Model management grid for the provider modal.
- * Configured by MODEL_COLUMNS — add/change columns there, not here.
+ * Model management grid for the provider modal — fully controlled.
+ *
+ * The grid is presentational: it renders rows from `models` and emits
+ * cell-level changes via `onCellChange`. Persistence lives in the
+ * parent (ConnectedPanel) which holds a pending-changes buffer and
+ * commits via the bulk PATCH endpoint.
+ *
+ * Add or reorder columns in MODEL_COLUMNS — neither the grid nor the
+ * parent needs to change.
  */
-export function ModelGrid({ models }: ModelGridProps) {
-  const updateModel = useUpdateModel();
-
+export function ModelGrid({ models, onCellChange, className }: ModelGridProps) {
   return (
     <DataGrid
+      className={className}
       columns={MODEL_COLUMNS}
       rows={models}
       getRowId={(m) => m.id}
-      onUpdate={(id, payload) => updateModel.mutateAsync({ id, payload: payload as UpdateModelPayload }).then(() => {})}
+      onUpdate={(id, payload) => onCellChange(id, payload as UpdateModelPayload)}
       isRowDisabled={(m) => m.archived}
       emptyMessage="No models yet — click Refresh to discover models."
+      hideRowSave
     />
   );
 }

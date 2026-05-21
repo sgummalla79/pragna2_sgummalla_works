@@ -1,4 +1,4 @@
-import type { Model, UpdateModelPayload } from '@/domain/types/model.types';
+import type { BulkUpdateEntry, Model, UpdateModelPayload } from '@/domain/types/model.types';
 
 /**
  * Access to a user's registered models (/api/user-models).
@@ -10,4 +10,10 @@ import type { Model, UpdateModelPayload } from '@/domain/types/model.types';
 export interface IModelRepository {
   list(): Promise<Model[]>;
   update(id: string, payload: UpdateModelPayload): Promise<Model>;
+  /**
+   * Apply many partial updates in one server transaction.
+   * All-or-nothing: a single bad id or constraint failure rejects the
+   * whole batch. Returns the updated rows in input order.
+   */
+  bulkUpdate(updates: BulkUpdateEntry[]): Promise<Model[]>;
 }
