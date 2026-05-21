@@ -141,3 +141,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# macOS Finder metadata — never commit
+.DS_Store
+**/.DS_Store
