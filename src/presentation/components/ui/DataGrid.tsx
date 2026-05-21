@@ -81,7 +81,7 @@ export function DataGrid<T>({
   className,
 }: DataGridProps<T>) {
   if (rows.length === 0) {
-    return <p className="py-3 text-[12px] text-[#737373]">{emptyMessage}</p>;
+    return <p className="py-3 text-[12px] text-muted-foreground">{emptyMessage}</p>;
   }
 
   const alignClass: Record<Align, string> = {
@@ -99,8 +99,8 @@ export function DataGrid<T>({
               <th
                 key={col.key}
                 className={cn(
-                  'sticky top-0 z-10 bg-[#2a2a2a] border-b border-[rgba(255,255,255,0.08)]',
-                  'whitespace-nowrap px-3 py-3 text-[12px] font-bold uppercase tracking-wide text-[#737373]',
+                  'sticky top-0 z-10 bg-card border-b border-[rgba(255,255,255,0.08)]',
+                  'whitespace-nowrap px-3 py-3 text-[12px] font-bold uppercase tracking-wide text-muted-foreground',
                   alignClass[col.align ?? 'left']
                 )}
               >
@@ -203,7 +203,7 @@ function DataGridRow<T>({
                 disabled={disabled}
                 className={cn(
                   'w-full cursor-text rounded-md border border-[rgba(255,255,255,0.12)]',
-                  'bg-[rgba(255,255,255,0.05)] px-2.5 py-1.5 text-[14px] text-[#ececea] outline-none',
+                  'bg-[rgba(255,255,255,0.05)] px-2.5 py-1.5 text-[14px] text-foreground outline-none',
                   'transition-colors duration-150',
                   'hover:border-[rgba(255,255,255,0.22)] hover:bg-[rgba(255,255,255,0.08)]',
                   'focus:border-[rgba(201,112,64,0.55)] focus:bg-[rgba(255,255,255,0.08)]',
@@ -231,7 +231,7 @@ function DataGridRow<T>({
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
                 'disabled:cursor-not-allowed disabled:opacity-40',
                 active
-                  ? 'bg-[var(--color-brand)] shadow-[0_0_6px_rgba(201,112,64,0.4)]'
+                  ? 'bg-brand shadow-[0_0_6px_rgba(201,112,64,0.4)]'
                   : 'bg-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.16)]'
               )}
             >

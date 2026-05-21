@@ -53,7 +53,7 @@ export function ProviderTile({
       onMouseLeave={() => setHovered(false)}
       className={cn(
         'relative w-40 h-40 flex flex-col gap-2 rounded-2xl border-[1.5px] cursor-pointer select-none',
-        'pt-4 px-3.5 pb-3 bg-[#282828]',
+        'pt-4 px-3.5 pb-3 bg-background',
         'transition-[border-color,box-shadow] duration-[180ms]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
         hovered
@@ -79,7 +79,7 @@ export function ProviderTile({
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             providerEnabled
-              ? 'bg-[var(--color-brand)] text-white border-[var(--color-brand)] hover:bg-[var(--color-brand-hover)]'
+              ? 'bg-brand text-white border-brand hover:bg-brand-hover'
               : 'bg-violet-500/10 text-violet-400 border-violet-500/25 hover:bg-violet-500/20'
           )}
         >
@@ -113,10 +113,10 @@ export function ProviderTile({
 
       {/* Name + technical identifier */}
       <div className="flex flex-1 flex-col gap-[2px]">
-        <span className="text-[13px] font-bold text-[#ececea] leading-tight">
+        <span className="text-[13px] font-bold text-foreground leading-tight">
           {llmProvider.displayName}
         </span>
-        <span className="text-[10.5px] leading-[1.3] text-[#737373]">
+        <span className="text-[10.5px] leading-[1.3] text-muted-foreground">
           {llmProvider.name}
         </span>
       </div>

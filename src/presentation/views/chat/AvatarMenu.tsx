@@ -1,6 +1,6 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useNavigate } from 'react-router-dom';
-import { Moon, Settings as SettingsIcon, Sun, LogOut } from 'lucide-react';
+import { History as HistoryIcon, Moon, Settings as SettingsIcon, Sun, LogOut } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
 import { useAuth } from '@/presentation/hooks/auth/useAuth';
 import { useUiStore } from '@/presentation/store/uiStore';
@@ -15,8 +15,8 @@ import { cn } from '@/lib/utils';
  */
 const MENU_ITEM_CLASS = cn(
   'flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm',
-  'text-[#ececea] outline-none',
-  'data-[highlighted]:bg-[rgba(255,255,255,0.06)]',
+  'text-foreground outline-none',
+  'data-[highlighted]:bg-accent',
 );
 
 /**
@@ -68,8 +68,8 @@ export function AvatarMenu({ collapsed }: AvatarMenuProps) {
           title={collapsed ? displayName : undefined}
           className={cn(
             'flex w-full items-center gap-4 rounded-md px-2 py-2 font-medium',
-            'text-[#ececea] transition-colors',
-            'hover:bg-[rgba(255,255,255,0.06)]',
+            'text-foreground transition-colors',
+            'hover:bg-accent',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]',
             collapsed && 'justify-center px-0 gap-0',
           )}
@@ -78,7 +78,7 @@ export function AvatarMenu({ collapsed }: AvatarMenuProps) {
             aria-hidden="true"
             className={cn(
               'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full',
-              'bg-[var(--color-brand-light)] text-[var(--color-brand)] font-semibold',
+              'bg-brand-light text-brand font-semibold',
             )}
           >
             {initial}
@@ -99,20 +99,28 @@ export function AvatarMenu({ collapsed }: AvatarMenuProps) {
           align="start"
           sideOffset={8}
           className={cn(
-            'z-[700] min-w-[240px] rounded-lg border border-[rgba(255,255,255,0.1)]',
-            'bg-[#212121] p-1 shadow-[0_20px_60px_rgba(0,0,0,0.45)]',
+            'z-[700] min-w-[240px] rounded-lg border border-border',
+            'bg-popover p-1 shadow-[0_20px_60px_rgba(0,0,0,0.45)]',
             'focus:outline-none',
           )}
         >
           {/* User identity (non-interactive) */}
           <DropdownMenu.Label
-            className="select-text truncate px-3 py-2 text-sm text-[#a3a3a3]"
+            className="select-text truncate px-3 py-2 text-sm text-foreground"
             title={user?.email}
           >
             {user?.email ?? 'Signed in'}
           </DropdownMenu.Label>
 
-          <DropdownMenu.Separator className="my-1 h-px bg-[rgba(255,255,255,0.06)]" />
+          <DropdownMenu.Separator className="my-1 h-px bg-accent" />
+
+          <DropdownMenu.Item
+            onSelect={() => navigate(ROUTES.CHAT_HISTORY)}
+            className={MENU_ITEM_CLASS}
+          >
+            <HistoryIcon size={16} aria-hidden="true" />
+            History
+          </DropdownMenu.Item>
 
           <DropdownMenu.Item
             onSelect={() => navigate(ROUTES.SETTINGS)}
@@ -139,7 +147,7 @@ export function AvatarMenu({ collapsed }: AvatarMenuProps) {
             {switchToLight ? 'Light mode' : 'Dark mode'}
           </DropdownMenu.Item>
 
-          <DropdownMenu.Separator className="my-1 h-px bg-[rgba(255,255,255,0.06)]" />
+          <DropdownMenu.Separator className="my-1 h-px bg-accent" />
 
           <DropdownMenu.Item
             onSelect={() => logout()}

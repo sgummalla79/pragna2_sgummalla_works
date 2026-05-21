@@ -119,7 +119,7 @@ export default function SkillsView() {
                 <CardContent className="flex items-center justify-between py-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <p className="font-medium font-mono text-[var(--color-brand)]">/{s.name}</p>
+                      <p className="font-medium font-mono text-brand">/{s.name}</p>
                       <Badge variant="secondary">{SKILL_TYPE_LABELS[s.skillType] ?? s.skillType}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">{s.description}</p>

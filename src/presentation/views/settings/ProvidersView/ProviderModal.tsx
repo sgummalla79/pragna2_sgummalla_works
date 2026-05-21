@@ -76,8 +76,8 @@ export function ProviderModal({
             fixed left-1/2 top-1/2 z-[601] -translate-x-1/2 -translate-y-1/2
             w-[1100px] max-w-[calc(100vw-32px)] max-h-[90vh] overflow-hidden
             flex flex-col gap-[18px]
-            rounded-[18px] border border-[rgba(255,255,255,0.1)]
-            bg-[#212121] p-7
+            rounded-[18px] border border-border
+            bg-popover p-7
           "
           style={{ boxShadow: '0 24px 60px rgba(0,0,0,0.45)' }}
           aria-describedby={undefined}
@@ -103,7 +103,7 @@ export function ProviderModal({
 
             <div className="flex flex-1 min-w-0 flex-col gap-1">
               <div className="flex items-center gap-2">
-                <Dialog.Title className="text-base font-bold text-[#ececea] m-0">
+                <Dialog.Title className="text-base font-bold text-foreground m-0">
                   {llmProvider.displayName}
                 </Dialog.Title>
                 {userProvider && (
@@ -116,7 +116,7 @@ export function ProviderModal({
                   </span>
                 )}
               </div>
-              <Dialog.Description className="text-[12px] text-[#737373] m-0">
+              <Dialog.Description className="text-[12px] text-muted-foreground m-0">
                 {userProvider ? 'Manage your connected provider.' : 'Enter your credentials to connect.'}
               </Dialog.Description>
               {userProvider && (
@@ -153,7 +153,7 @@ export function ProviderModal({
 
             <div className="flex flex-shrink-0 items-center gap-2">
               <Dialog.Close
-                className="rounded-md px-1.5 py-0.5 text-base text-[#737373] border-none bg-transparent cursor-pointer transition-colors duration-150 hover:text-[#ececea] hover:bg-[rgba(255,255,255,0.07)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]"
+                className="rounded-md px-1.5 py-0.5 text-base text-muted-foreground border-none bg-transparent cursor-pointer transition-colors duration-150 hover:text-foreground hover:bg-[rgba(255,255,255,0.07)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]"
                 aria-label="Close"
               >
                 ✕

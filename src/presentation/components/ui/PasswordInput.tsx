@@ -20,7 +20,7 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
           disabled={disabled}
           className={cn(
             'w-full rounded-lg border-[1.5px] px-[13px] py-[10px] pr-10',
-            'bg-[rgba(255,255,255,0.07)] text-[14px] text-[#ececea] outline-none',
+            'bg-[rgba(255,255,255,0.07)] text-[14px] text-foreground outline-none',
             'border-[rgba(255,255,255,0.12)]',
             'placeholder:text-[rgba(255,255,255,0.3)]',
             'transition-colors duration-150',

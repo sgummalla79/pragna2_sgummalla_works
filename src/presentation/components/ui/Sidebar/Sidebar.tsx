@@ -55,8 +55,8 @@ export function Sidebar({
         style={{
           width,
           minWidth: width,
-          background: '#282828',
-          color: '#ffffff',
+          background: 'var(--color-background)',
+          color: 'var(--color-foreground)',
           borderRight: '1px solid rgba(255,255,255,0.07)',
           display: 'flex',
           flexDirection: 'column',

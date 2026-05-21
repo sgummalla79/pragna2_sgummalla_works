@@ -65,17 +65,17 @@ export function ConfirmButton({
             fixed left-1/2 top-1/2 z-[701] -translate-x-1/2 -translate-y-1/2
             w-[420px] max-w-[calc(100vw-32px)]
             flex flex-col gap-4
-            rounded-[14px] border border-[rgba(255,255,255,0.1)]
-            bg-[#212121] p-6
+            rounded-[14px] border border-border
+            bg-popover p-6
           "
           style={{ boxShadow: '0 24px 60px rgba(0,0,0,0.45)' }}
         >
           <div className="flex flex-col gap-1.5">
-            <Dialog.Title className="text-base font-bold text-[#ececea] m-0">
+            <Dialog.Title className="text-base font-bold text-foreground m-0">
               {confirmTitle}
             </Dialog.Title>
             {confirmDescription && (
-              <Dialog.Description className="text-[13px] text-[#a3a3a3] m-0 leading-relaxed">
+              <Dialog.Description className="text-[13px] text-foreground m-0 leading-relaxed">
                 {confirmDescription}
               </Dialog.Description>
             )}

@@ -43,8 +43,9 @@ export function ConversationListItem({ conversation }: ConversationListItemProps
 
   async function handleDelete() {
     await del.mutateAsync(conversation.id);
-    // If the currently-open chat was deleted, redirect home.
-    if (isActive) navigate(`${ROUTES.CHAT}/new`);
+    // If the currently-open chat was deleted, bounce to the landing so
+    // we're not left rendering a session view pointed at a dead id.
+    if (isActive) navigate(ROUTES.CHAT);
   }
 
   const displayTitle = conversation.title ?? 'Untitled chat';
@@ -55,8 +56,8 @@ export function ConversationListItem({ conversation }: ConversationListItemProps
         to={`${ROUTES.CHAT}/${conversation.id}`}
         className={cn(
           'group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] no-underline transition-colors',
-          'text-[#a3a3a3] hover:bg-[#171717] hover:text-[#ececea]',
-          isActive && 'bg-[var(--color-brand-light)] text-[#ececea]',
+          'text-foreground hover:bg-accent hover:text-foreground',
+          isActive && 'bg-brand-light text-foreground',
         )}
         aria-current={isActive ? 'page' : undefined}
         title={displayTitle}
@@ -72,14 +73,14 @@ export function ConversationListItem({ conversation }: ConversationListItemProps
             type="button"
             onClick={handleRenameClick}
             aria-label="Rename conversation"
-            className="rounded p-1 hover:bg-[#2a2a2a] text-[#a3a3a3] hover:text-[#ececea]"
+            className="rounded p-1 hover:bg-accent text-foreground hover:text-foreground"
           >
             <Pencil size={12} />
           </button>
           <ConfirmButton
             size="xs"
             variant="ghost"
-            className="!min-h-0 !min-w-0 !p-1 !h-auto !w-auto rounded text-[#a3a3a3] hover:text-[#ef4444] hover:bg-[#2a2a2a]"
+            className="!min-h-0 !min-w-0 !p-1 !h-auto !w-auto rounded text-foreground hover:text-destructive hover:bg-accent"
             aria-label="Delete conversation"
             confirmTitle="Delete this conversation?"
             confirmDescription="This permanently removes the chat and its message history. This action cannot be undone."

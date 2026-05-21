@@ -6,6 +6,7 @@ export const ROUTES = {
 
   // ── Main ─────────────────────────────────────────────────────────────────
   CHAT:           '/chat',
+  CHAT_HISTORY:   '/chat/history',
 
   // ── Settings ─────────────────────────────────────────────────────────────
   // Models do not have a top-level page — they are managed inside the

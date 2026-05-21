@@ -6,10 +6,13 @@ interface ChatMessageProps {
 }
 
 /**
- * Render a single chat turn. User and assistant turns get distinct
- * bubble treatments; tool/system turns are suppressed because the
- * AG-UI runtime already surfaces the relevant detail via assistant
- * ``ToolCall*`` events (see :class:`ToolCallBadge`).
+ * Render a single chat turn. ChatGPT / Claude.ai treatment:
+ *   - User turns sit in a subtle grey bubble, right-aligned.
+ *   - Assistant turns are bare text in the column flow — no bubble, no
+ *     background — so long responses read like a document rather than a
+ *     wall of pill-shaped containers.
+ *   - Tool / system turns are suppressed (the relevant detail surfaces
+ *     via assistant ``ToolCall*`` events; see :class:`ToolCallBadge`).
  */
 export function ChatMessage({ message }: ChatMessageProps) {
   if (message.role === 'tool' || message.role === 'system') {
@@ -23,11 +26,11 @@ export function ChatMessage({ message }: ChatMessageProps) {
       data-role={message.role}
     >
       <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 text-[14px] leading-relaxed ${
+        className={
           isUser
-            ? 'bg-[var(--color-brand)] text-white'
-            : 'bg-[#1a1a1a] text-[#ececea]'
-        }`}
+            ? 'max-w-[80%] rounded-2xl bg-muted px-4 py-3 text-[14px] leading-relaxed text-foreground'
+            : 'w-full text-[14px] leading-relaxed text-foreground'
+        }
       >
         {message.content && (
           <div className="whitespace-pre-wrap break-words">

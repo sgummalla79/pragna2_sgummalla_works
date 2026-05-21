@@ -20,27 +20,27 @@ export function ToolCallBadge({ call }: ToolCallBadgeProps) {
       : (call.argsBuffer || '…').trim();
 
   return (
-    <div className="my-2 rounded-md border border-[#2a2a2a] bg-[#171717] px-3 py-2 text-[12px]">
+    <div className="my-2 rounded-md border border-border bg-accent px-3 py-2 text-[12px]">
       <div className="flex items-center gap-2">
-        <span className="font-mono text-[11px] text-[var(--color-brand)]">
+        <span className="font-mono text-[11px] text-brand">
           tool
         </span>
-        <span className="font-mono text-[12px] font-semibold text-[#ececea]">
+        <span className="font-mono text-[12px] font-semibold text-foreground">
           {call.name}
         </span>
         {!call.complete && (
-          <span className="text-[11px] text-[#737373]">running…</span>
+          <span className="text-[11px] text-muted-foreground">running…</span>
         )}
       </div>
-      <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap font-mono text-[11px] text-[#a3a3a3]">
+      <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap font-mono text-[11px] text-foreground">
         {argsPreview}
       </pre>
       {call.result !== undefined && (
-        <div className="mt-2 border-t border-[#2a2a2a] pt-2">
-          <span className="text-[11px] uppercase tracking-wide text-[#737373]">
+        <div className="mt-2 border-t border-border pt-2">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
             result
           </span>
-          <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap font-mono text-[12px] text-[#d4d4d4]">
+          <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap font-mono text-[12px] text-foreground">
             {call.result}
           </pre>
         </div>

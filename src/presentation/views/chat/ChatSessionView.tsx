@@ -13,6 +13,10 @@ import type {
   PersistedMessage,
 } from '@/domain/types/conversation.types';
 import { useChatSession } from './hooks/useChatSession';
+import {
+  consumePendingInitialMessage,
+  hasPendingInitialMessage,
+} from './hooks/initialMessageHandoff';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
 import { ChatHeader } from './components/ChatHeader';
@@ -22,23 +26,42 @@ const DEFAULT_AGENT_NAME = 'default';
 /**
  * Active chat surface.
  *
- * Mounted at both ``/chat/new`` (fresh thread) and ``/chat/:id`` (resume).
- * Renders the hand-rolled AG-UI chat UI when the user has at least one
- * provider and one chat-available model; otherwise shows a contextual
- * setup prompt. Wraps the live chat in :class:`ErrorBoundary` so a runtime
- * failure (network drop, malformed event stream, agent crash) surfaces as
- * the ``CHT_003`` "Chat unavailable" empty state rather than a white page.
+ * Mounted at ``/chat/:id`` only — fresh threads begin life on
+ * :class:`ChatLandingView` (``/chat``), which generates a UUID and
+ * navigates here on the user's first send. Renders the hand-rolled AG-UI
+ * chat UI when the user has at least one provider and one chat-available
+ * model; otherwise shows a contextual setup prompt. Wraps the live chat
+ * in :class:`ErrorBoundary` so a runtime failure (network drop, malformed
+ * event stream, agent crash) surfaces as the ``CHT_003`` "Chat
+ * unavailable" empty state rather than a white page.
  *
  * The layout shell (:class:`ChatView`) owns the sidebar; this view owns
  * the right panel only.
  */
 export default function ChatSessionView() {
   const { id: conversationId } = useParams<{ id: string }>();
+  // Brand-new conversations arrive here mid-handoff from
+  // :class:`ChatLandingView`: the route changed BEFORE the backend
+  // committed the row, so a ``GET .../messages`` would 404 every time.
+  // Snapshot the handoff state at the moment we land on each
+  // conversationId, via ``useMemo`` keyed on the id — this way:
+  //   - Within a single conversation render, the value is stable even
+  //     after the sessionStorage consume runs a tick later (the deps
+  //     haven't changed, so useMemo doesn't recompute).
+  //   - Navigating to a different conversation (e.g. clicking a Recent
+  //     row in the sidebar) re-evaluates against the new id, which is
+  //     critical: React Router REUSES this component instance across
+  //     param changes, so a stale snapshot would otherwise leave the
+  //     messages query disabled and the chat blank.
+  const isBrandNew = useMemo(
+    () => hasPendingInitialMessage(conversationId),
+    [conversationId],
+  );
   const { data: providers = [], isLoading: providersLoading } =
     useLlmProvidersWithRegistrations();
   const { data: conversation } = useConversation(conversationId);
   const { data: persistedMessages, isLoading: messagesLoading } =
-    useConversationMessages(conversationId);
+    useConversationMessages(conversationId, { enabled: !isBrandNew });
 
   if (providersLoading) return <LoadingState />;
 
@@ -57,9 +80,9 @@ export default function ChatSessionView() {
     return <SetupPrompt message={ERRORS.CHT_002.message} />;
   }
 
-  // While resuming, wait for the message history to load so the agent
-  // is hydrated correctly on first mount. /chat/new skips this branch
-  // because messagesLoading is false (the query is disabled).
+  // Wait for the message history to load so the agent is hydrated
+  // correctly on first mount. The conversationId is always defined here
+  // since this view only mounts at /chat/:id.
   if (conversationId && messagesLoading) return <LoadingState />;
 
   return (
@@ -104,7 +127,7 @@ function persistedToAGUIMessage(m: PersistedMessage): Message {
 
 interface ChatSurfaceProps {
   conversationId: string | undefined;
-  conversation: Conversation | undefined;
+  conversation: Conversation | null | undefined;
   persistedMessages: PersistedMessage[];
 }
 
@@ -121,10 +144,11 @@ function ChatSurface({
   conversation,
   persistedMessages,
 }: ChatSurfaceProps) {
-  // Decide the agent's threadId. Resume reuses the conversation id;
-  // /chat/new generates a fresh UUID so the backend will auto-create
-  // the conversation row on the first turn. ``useMemo`` keeps the value
-  // stable across re-renders so the agent isn't recreated unnecessarily.
+  // The agent's threadId is the conversation id from the URL — the
+  // landing view already generated it before navigating here. The
+  // ``?? crypto.randomUUID()`` fallback is defensive only (the route
+  // guarantees an id), kept stable across re-renders via ``useMemo`` so
+  // the agent isn't recreated unnecessarily.
   const threadId = useMemo(
     () => conversationId ?? crypto.randomUUID(),
     [conversationId],
@@ -139,6 +163,31 @@ function ChatSurface({
     DEFAULT_AGENT_NAME,
     { threadId, initialMessages },
   );
+
+  // Landing handoff: if the user just sent a message from ChatLandingView,
+  // the text is sitting in sessionStorage under this conversation's id.
+  // Read + delete it on first mount, then fire the send once the hook is
+  // ready. Removal is the bit that makes refresh safe — a refresh of
+  // /chat/{id} re-mounts but finds nothing, so it just shows history.
+  //
+  // The consume + send is scheduled via ``setTimeout(0)`` so it runs on
+  // the next macrotask. That defers it past React 18 StrictMode's dev
+  // double-mount cycle (mount → cleanup → remount, all synchronous): the
+  // first mount's cleanup cancels the timer before it fires, so the
+  // ``useChatSession`` cleanup never aborts a freshly-started run. In
+  // production (no double-mount) the cycle is one tick longer than a
+  // synchronous send, which is invisible to the user.
+  useEffect(() => {
+    if (!conversationId) return;
+    if (status === 'running') return;
+
+    const timer = window.setTimeout(() => {
+      const pending = consumePendingInitialMessage(conversationId);
+      if (pending) send(pending);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [conversationId, send, status]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const didInitialScroll = useRef(false);
@@ -163,12 +212,25 @@ function ChatSurface({
   }, [messages, status]);
 
   return (
-    <div className="flex h-full flex-col bg-[#0a0a0a]">
+    <div className="flex h-full flex-col bg-background">
       <ChatHeader conversation={conversation} agentName={DEFAULT_AGENT_NAME} />
 
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-6"
+        // ``pb-10`` (40px) gives the last assistant turn meaningful
+        // breathing room above the composer when the user is scrolled
+        // to the bottom of a long conversation. Combined with the
+        // chat input wrapper's own ``pt-2`` and ChatInput's internal
+        // ``py-3`` the visible gap reads as ~60px — enough to clearly
+        // separate the two surfaces without wasting screen real estate.
+        //
+        // ``[scrollbar-gutter:stable]`` reserves scrollbar space at all
+        // times so the message column doesn't shift horizontally when
+        // the scrollbar appears/disappears between conversations. On
+        // platforms with always-visible scrollbars (Windows/Linux) this
+        // also keeps the column aligned with the non-scrolling chat
+        // input wrapper below.
+        className="flex-1 overflow-y-auto px-4 pt-6 pb-10 [scrollbar-gutter:stable]"
         aria-live="polite"
         aria-busy={status === 'running'}
       >
@@ -184,21 +246,41 @@ function ChatSurface({
       </div>
 
       {error && (
-        <div className="border-t border-[#3a1818] bg-[#1d0a0a] px-4 py-2 text-[12px] text-[#fca5a5]">
+        <div className="border-t border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-2 text-[12px] text-[var(--color-error-text)]">
           {error}
         </div>
       )}
 
-      <ChatInput
-        onSend={send}
-        onStop={stop}
-        disabled={status === 'running'}
-        placeholder={
-          status === 'running'
-            ? 'Waiting for response…'
-            : `Ask ${APP_NAME} anything…`
-        }
-      />
+      {/* Mirror the message scroll-area structure exactly so the
+          composer's left/right edges land on the same pixel column as
+          the messages above. The scroll area is
+              <div className="px-4 py-6">
+                <div className="mx-auto max-w-3xl">{messages}</div>
+              </div>
+          so we use the same outer ``px-4`` + inner ``mx-auto max-w-3xl``
+          pair here. ChatInput itself contributes only vertical padding;
+          horizontal containment lives at this layer. */}
+      <div className="px-4 pt-2">
+        {/* Composer column is intentionally a touch wider than the
+            message column above (820px vs ``max-w-3xl`` = 768px). This
+            mirrors the ChatGPT pattern of having the input feel like a
+            broader surface than individual message bubbles, and on
+            platforms where the scroll area's vertical scrollbar takes
+            real estate it visually balances out the off-centre shift
+            of the messages. */}
+        <div className="mx-auto max-w-[820px]">
+          <ChatInput
+            onSend={send}
+            onStop={stop}
+            disabled={status === 'running'}
+            placeholder={
+              status === 'running'
+                ? 'Waiting for response…'
+                : `Ask ${APP_NAME} anything…`
+            }
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -206,8 +288,8 @@ function ChatSurface({
 function EmptyState() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-      <p className="text-[15px] font-semibold text-[#ececea]">{APP_NAME}</p>
-      <p className="text-[13px] text-[#737373]">Start a conversation below.</p>
+      <p className="text-[15px] font-semibold text-foreground">{APP_NAME}</p>
+      <p className="text-[13px] text-muted-foreground">Start a conversation below.</p>
     </div>
   );
 }
@@ -215,7 +297,7 @@ function EmptyState() {
 function LoadingState() {
   return (
     <div className="flex h-full items-center justify-center">
-      <p className="text-[13px] text-[#737373]">Loading…</p>
+      <p className="text-[13px] text-muted-foreground">Loading…</p>
     </div>
   );
 }
@@ -238,11 +320,11 @@ function SetupPrompt({ message }: { message: string }) {
           <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
         </svg>
       </div>
-      <p className="text-[15px] font-semibold text-[#ececea]">Almost ready</p>
-      <p className="text-[13px] text-[#737373] max-w-xs">{message}</p>
+      <p className="text-[15px] font-semibold text-foreground">Almost ready</p>
+      <p className="text-[13px] text-muted-foreground max-w-xs">{message}</p>
       <Link
         to={ROUTES.SETTINGS_PROVIDERS}
-        className="rounded-lg bg-[var(--color-brand)] px-4 py-2 text-[13px] font-semibold text-white no-underline hover:bg-[var(--color-brand-hover)] transition-colors"
+        className="rounded-lg bg-brand px-4 py-2 text-[13px] font-semibold text-white no-underline hover:bg-brand-hover transition-colors"
       >
         Go to Providers →
       </Link>
@@ -253,8 +335,8 @@ function SetupPrompt({ message }: { message: string }) {
 function ChatUnavailable() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-      <p className="text-[15px] font-semibold text-[#ececea]">Chat unavailable</p>
-      <p className="text-[13px] text-[#737373] max-w-xs">{ERRORS.CHT_003.message}</p>
+      <p className="text-[15px] font-semibold text-foreground">Chat unavailable</p>
+      <p className="text-[13px] text-muted-foreground max-w-xs">{ERRORS.CHT_003.message}</p>
     </div>
   );
 }

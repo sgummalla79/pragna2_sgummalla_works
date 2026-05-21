@@ -98,17 +98,17 @@ export default function ProvidersView() {
   return (
     <div className="flex flex-col gap-7">
       <div>
-        <h2 className="text-xl font-bold text-[#ececea]">Providers</h2>
-        <p className="mt-1.5 text-[13px] text-[#737373]">
+        <h2 className="text-xl font-bold text-foreground">Providers</h2>
+        <p className="mt-1.5 text-[13px] text-muted-foreground">
           Connect your LLM providers. Click a tile to manage credentials and models.
         </p>
       </div>
 
       {isLoading && (
-        <p className="text-[13px] text-[#737373]" aria-live="polite">Loading providers…</p>
+        <p className="text-[13px] text-muted-foreground" aria-live="polite">Loading providers…</p>
       )}
       {isError && (
-        <p role="alert" className="text-[13px] text-[#ef4444]">{ERRORS.PRV_005.message}</p>
+        <p role="alert" className="text-[13px] text-[var(--color-error-text)]">{ERRORS.PRV_005.message}</p>
       )}
 
       {!isLoading && !isError && providers.length > 0 && (
@@ -131,8 +131,8 @@ export default function ProvidersView() {
 
       {!isLoading && !isError && providers.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-12 text-center">
-          <p className="text-base font-semibold text-[#ececea]">No providers available</p>
-          <p className="text-[13px] text-[#737373]">Contact your administrator to enable providers.</p>
+          <p className="text-base font-semibold text-foreground">No providers available</p>
+          <p className="text-[13px] text-muted-foreground">Contact your administrator to enable providers.</p>
         </div>
       )}
 

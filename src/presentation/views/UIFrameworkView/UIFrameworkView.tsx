@@ -39,13 +39,13 @@ const DEMO_PROVIDERS: { llmProvider: LlmProvider; connected: boolean }[] = [
  */
 export default function UIFrameworkView() {
   return (
-    <div style={{ background: '#282828', minHeight: '100vh', padding: '40px 48px', display: 'flex', flexDirection: 'column', gap: 56 }}>
+    <div style={{ background: 'var(--color-background)', minHeight: '100vh', padding: '40px 48px', display: 'flex', flexDirection: 'column', gap: 56 }}>
 
       <div>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: '#ececea', margin: '0 0 6px' }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--color-foreground)', margin: '0 0 6px' }}>
           UI Framework
         </h1>
-        <p style={{ fontSize: 13, color: '#737373', margin: 0 }}>
+        <p style={{ fontSize: 13, color: 'var(--color-muted-foreground)', margin: 0 }}>
           All reusable components in one place. Metadata changes — styling never does.
         </p>
       </div>
@@ -82,8 +82,8 @@ export default function UIFrameworkView() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <Label htmlFor="demo-error">Input with error state</Label>
-            <Input id="demo-error" placeholder="Invalid value" className="border-[#ef4444]" />
-            <p role="alert" style={{ fontSize: 12, color: '#ef4444', margin: 0 }}>This field is required.</p>
+            <Input id="demo-error" placeholder="Invalid value" className="border-destructive" />
+            <p role="alert" style={{ fontSize: 12, color: 'var(--color-error-text)', margin: 0 }}>This field is required.</p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <Label htmlFor="demo-textarea">Textarea (multiline)</Label>
@@ -100,7 +100,7 @@ export default function UIFrameworkView() {
 
       {/* ── Provider Tiles ───────────────────────────────────────────────────── */}
       <Section title="Provider Tiles">
-        <p style={{ fontSize: 12, color: '#737373', marginBottom: 16 }}>
+        <p style={{ fontSize: 12, color: 'var(--color-muted-foreground)', marginBottom: 16 }}>
           Green border = connected · Red border = not connected · Copper on hover
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14 }}>
@@ -119,7 +119,7 @@ export default function UIFrameworkView() {
 
       {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
       <Section title="Sidebar Menu Styles">
-        <p style={{ fontSize: 12, color: '#737373', marginBottom: 16 }}>
+        <p style={{ fontSize: 12, color: 'var(--color-muted-foreground)', marginBottom: 16 }}>
           Each menu style is a separate component. Items are passed as config — styling never changes.
         </p>
         <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -153,7 +153,7 @@ export default function UIFrameworkView() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      <h2 style={{ fontSize: 18, fontWeight: 700, color: '#ececea', margin: '0 0 20px' }}>{title}</h2>
+      <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-foreground)', margin: '0 0 20px' }}>{title}</h2>
       {children}
     </section>
   );
@@ -167,11 +167,11 @@ function StyleChip({ label, description }: { label: string; description: string 
         fontSize: 11, fontWeight: 600,
         background: 'rgba(201,112,64,0.12)',
         border: '1.5px solid rgba(201,112,64,0.3)',
-        color: '#c97040', whiteSpace: 'nowrap',
+        color: 'var(--color-brand)', whiteSpace: 'nowrap',
       }}>
         {label}
       </span>
-      <span style={{ fontSize: 12, color: '#737373' }}>{description}</span>
+      <span style={{ fontSize: 12, color: 'var(--color-muted-foreground)' }}>{description}</span>
     </div>
   );
 }

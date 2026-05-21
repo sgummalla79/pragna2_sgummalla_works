@@ -21,13 +21,13 @@ export function ConversationList() {
 
   if (isLoading) {
     return (
-      <div className="px-2.5 py-1.5 text-[12px] text-[#737373]">Loading…</div>
+      <div className="px-2.5 py-1.5 text-[12px] text-muted-foreground">Loading…</div>
     );
   }
 
   if (isError) {
     return (
-      <div className="px-2.5 py-1.5 text-[12px] text-[#fca5a5]">
+      <div className="px-2.5 py-1.5 text-[12px] text-[var(--color-error-text)]">
         Couldn't load conversations.
       </div>
     );
@@ -35,7 +35,7 @@ export function ConversationList() {
 
   if (!conversations || conversations.length === 0) {
     return (
-      <div className="px-2.5 py-1.5 text-[12px] text-[#737373]">
+      <div className="px-2.5 py-1.5 text-[12px] text-muted-foreground">
         No conversations yet
       </div>
     );
@@ -43,7 +43,7 @@ export function ConversationList() {
 
   return (
     <div className="flex flex-col gap-0.5">
-      <div className="px-2.5 pt-3 pb-1 text-[11px] uppercase tracking-wide text-[#737373]">
+      <div className="px-2.5 pt-3 pb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
         Recent
       </div>
       {conversations.map((c) => (

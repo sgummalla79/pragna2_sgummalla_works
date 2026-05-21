@@ -25,7 +25,7 @@ export function SettingsLayout() {
   const pageTitle = SECTION_TITLES[pathname] ?? 'Settings';
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#282828' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--color-background)' }}>
 
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <SettingsSidebar
@@ -43,7 +43,7 @@ export function SettingsLayout() {
           gap: 12,
           padding: '0 16px',
           height: 52,
-          background: '#1a1a1a',
+          background: 'var(--color-muted)',
           borderBottom: '1px solid rgba(255,255,255,0.07)',
           flexShrink: 0,
         }}>
@@ -56,7 +56,7 @@ export function SettingsLayout() {
               cursor: 'pointer',
               padding: 8,
               borderRadius: 6,
-              color: '#ececea',
+              color: 'var(--color-foreground)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -64,7 +64,7 @@ export function SettingsLayout() {
           >
             <HamburgerIcon />
           </button>
-          <span style={{ fontSize: 15, fontWeight: 600, color: '#ececea' }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-foreground)' }}>
             {pageTitle}
           </span>
         </header>

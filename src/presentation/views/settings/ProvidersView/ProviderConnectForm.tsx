@@ -45,7 +45,7 @@ export function ProviderConnectForm({
               value={values[field.key] ?? ''}
               onChange={(e) => onValuesChange(field.key, e.target.value)}
               rows={5}
-              className={error ? 'border-[#ef4444]' : undefined}
+              className={error ? 'border-destructive' : undefined}
             />
           ) : field.secret ? (
             <PasswordInput
@@ -55,7 +55,7 @@ export function ProviderConnectForm({
               value={values[field.key] ?? ''}
               onChange={(e) => onValuesChange(field.key, e.target.value)}
               autoComplete="off"
-              className={error ? 'border-[#ef4444]' : undefined}
+              className={error ? 'border-destructive' : undefined}
             />
           ) : (
             <Input
@@ -64,7 +64,7 @@ export function ProviderConnectForm({
               aria-label={field.label}
               value={values[field.key] ?? ''}
               onChange={(e) => onValuesChange(field.key, e.target.value)}
-              className={error ? 'border-[#ef4444]' : undefined}
+              className={error ? 'border-destructive' : undefined}
             />
           )}
 
@@ -82,7 +82,7 @@ export function ProviderConnectForm({
       ))}
 
       {error && (
-        <p role="alert" className="text-[13px] text-[#ef4444]">
+        <p role="alert" className="text-[13px] text-[var(--color-error-text)]">
           {error}
         </p>
       )}

@@ -131,9 +131,16 @@ export function useChatSession(
   useEffect(() => {
     if (!agent) return undefined;
     toolCallsRef.current = new Map();
-    setMessages([]);
     setStatus('idle');
     setError(null);
+    // Hydrate React state from the agent's seed history. For a brand-new
+    // chat ``agent.messages`` is empty so this resolves to ``[]``; for a
+    // resumed chat it contains the messages we passed in via
+    // ``initialMessages``, which would otherwise stay invisible until the
+    // user typed something (subscriber callbacks only fire during a live
+    // run, never for the seed). Without this call, clicking a recent
+    // conversation in the sidebar produced a blank chat surface.
+    syncMessages();
 
     const subscriber: AgentSubscriber = {
       onRunInitialized: () => {

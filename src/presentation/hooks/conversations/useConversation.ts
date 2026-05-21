@@ -15,23 +15,27 @@ import type { Conversation } from '@/domain/types/conversation.types';
  *      list fetch is one round-trip; the same as a single-fetch would be.
  *   3. Skipping the dedicated endpoint keeps the backend surface narrower.
  *
- * Returns ``undefined`` for ``data`` when the id isn't in the list (the
- * user's session never owned this conversation, or it was just deleted).
- * Callers should fall back to "New conversation" header state in that case.
+ * Returns ``null`` for ``data`` when the id isn't in the list (the
+ * user's session never owned this conversation, OR — the common case
+ * during the landing → session handoff — the row hasn't been persisted
+ * yet because the user is still mid-send). ``null`` rather than
+ * ``undefined`` because TanStack Query rejects ``undefined`` returns
+ * from a queryFn ("Query data cannot be undefined"). Callers should
+ * fall back to "New conversation" header state when ``data`` is nullish.
  */
 export function useConversation(
   conversationId: string | undefined,
-): UseQueryResult<Conversation | undefined> {
+): UseQueryResult<Conversation | null> {
   const { conversationService } = useServices();
 
-  return useQuery<Conversation | undefined>({
+  return useQuery<Conversation | null>({
     queryKey: ['conversations', conversationId ?? '__none__', 'single'],
     queryFn: async () => {
-      if (!conversationId) return undefined;
+      if (!conversationId) return null;
       // Fetch a generous page so most users have their target conversation
       // in the first response without paging.
       const list = await conversationService.list({ limit: 200, offset: 0 });
-      return list.find((c) => c.id === conversationId);
+      return list.find((c) => c.id === conversationId) ?? null;
     },
     enabled: Boolean(conversationId),
     staleTime: 30_000,

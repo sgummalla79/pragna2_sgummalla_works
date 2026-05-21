@@ -41,7 +41,8 @@ interface NavItem {
  *   - AvatarMenu at the bottom
  *
  * Parents can override the "New Chat" handler via :prop:`onNewChat`
- * (default behaviour: navigate to ``/chat/new``).
+ * (default behaviour: navigate to ``/chat``, the landing surface where
+ * a fresh thread starts).
  */
 interface ChatSidebarProps {
   onNewChat?: () => void;
@@ -56,7 +57,7 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
     {
       icon: MessageSquarePlus,
       label: 'New Chat',
-      onClick: onNewChat ?? (() => navigate(`${ROUTES.CHAT}/new`)),
+      onClick: onNewChat ?? (() => navigate(ROUTES.CHAT)),
     },
   ];
 
@@ -64,7 +65,7 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
     <aside
       aria-label="Chat navigation"
       className={cn(
-        'flex flex-col flex-shrink-0 border-r border-[rgba(255,255,255,0.06)]',
+        'flex flex-col flex-shrink-0 border-r border-border',
         'bg-background transition-[width] duration-150 ease-out',
         collapsed ? 'w-14' : 'w-60'
       )}
@@ -78,7 +79,7 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
             row of vertical space versus a separate toggle.
           The whole header has a hover affordance in collapsed mode so
           the click target is obvious. */}
-      <div className="flex h-12 items-center border-b border-[rgba(255,255,255,0.06)] px-2 gap-2">
+      <div className="flex h-12 items-center border-b border-border px-2 gap-2">
         {collapsed ? (
           <button
             type="button"
@@ -88,7 +89,7 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
             title={APP_NAME}
             className={cn(
               'mx-auto flex h-8 w-8 items-center justify-center rounded-md',
-              'hover:bg-[rgba(255,255,255,0.06)] transition-colors',
+              'hover:bg-accent transition-colors',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-ring)]'
             )}
           >
@@ -98,7 +99,7 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
           <>
             <div className="flex flex-1 min-w-0 items-center gap-2 px-2">
               <PragnaLogo className="h-6 w-6 flex-shrink-0" aria-hidden="true" />
-              <span className="truncate font-bold text-base text-[var(--color-brand)]">
+              <span className="truncate font-bold text-base text-brand">
                 {APP_NAME}
               </span>
             </div>
@@ -109,7 +110,7 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
               aria-expanded
               className={cn(
                 'flex h-8 w-8 items-center justify-center rounded-md',
-                'text-[#737373] hover:text-[#ececea] hover:bg-[rgba(255,255,255,0.06)]',
+                'text-muted-foreground hover:text-foreground hover:bg-accent',
                 'transition-colors focus-visible:outline-none focus-visible:ring-2',
                 'focus-visible:ring-[var(--color-brand-ring)]'
               )}
@@ -134,7 +135,7 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
                 aria-label={label}
                 className={cn(
                   'group flex w-full items-center gap-3 px-4 py-3 text-sm font-medium',
-                  'text-muted-foreground transition-colors hover:bg-accent hover:text-[#ececea]',
+                  'text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
                   'focus-visible:outline-none focus-visible:bg-accent',
                   collapsed && 'justify-center px-0',
                 )}
@@ -166,7 +167,7 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
           opens a Radix dropdown containing user identity, settings
           navigation, theme toggle, and sign-out — modelled after
           claude.ai's chat. See [AvatarMenu.tsx](./AvatarMenu.tsx). */}
-      <div className="border-t border-[rgba(255,255,255,0.06)] p-2">
+      <div className="border-t border-border p-2">
         <AvatarMenu collapsed={collapsed} />
       </div>
     </aside>

@@ -78,26 +78,26 @@ export function ConnectedPanel({
   return (
     <div className="flex flex-col gap-5 flex-1 min-h-0">
       {error && (
-        <p role="alert" className="text-[13px] text-[#ef4444]">{error}</p>
+        <p role="alert" className="text-[13px] text-[var(--color-error-text)]">{error}</p>
       )}
 
       {/* Models header + grid-level actions */}
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-bold text-[#ececea]">
+          <span className="text-sm font-bold text-foreground">
             Models
             {models.length > 0 && (
-              <span className="ml-2 text-[11px] font-normal text-[#737373]">
+              <span className="ml-2 text-[11px] font-normal text-muted-foreground">
                 {models.length} discovered
               </span>
             )}
             {isDirty && (
-              <span className="ml-2 text-[11px] font-normal text-[var(--color-brand)]">
+              <span className="ml-2 text-[11px] font-normal text-brand">
                 · {dirtyCount} unsaved {dirtyCount === 1 ? 'change' : 'changes'}
               </span>
             )}
           </span>
-          <span className="text-[11px] text-[#737373]">
+          <span className="text-[11px] text-muted-foreground">
             Click display name to rename · Dots toggle on/off · Save commits all changes at once
           </span>
         </div>

@@ -1,21 +1,22 @@
 # Chat UI Components
 
-Component-by-component reference for the chat surface (`/chat/new`, `/chat/:id`). Each section names a file, what it does, where it's used, and the props it accepts. Cross-reference [UI_DESIGN.md](./UI_DESIGN.md) for colour and spacing tokens.
+Component-by-component reference for the chat surface (`/chat`, `/chat/:id`, `/chat/history`). Each section names a file, what it does, where it's used, and the props it accepts. Cross-reference [UI_DESIGN.md](./UI_DESIGN.md) for colour and spacing tokens.
 
-The chat surface is owned by two top-level views, supported by a hook layer and a small component library:
+The chat surface is owned by three top-level views, supported by a hook layer and a small component library:
 
 ```
 ChatView                                      — layout shell (sidebar + outlet)
 ├── Sidebar                                   — left rail
 │   ├── (brand row)
-│   ├── New Chat                              — link to /chat/new
+│   ├── New Chat                              — link to /chat (the landing)
 │   ├── ConversationList                      — recent conversations
 │   │   └── ConversationListItem  (1 per row)
 │   │       └── RenameConversationDialog (modal)
-│   └── AvatarMenu                            — user / settings / sign out
+│   └── AvatarMenu                            — History / Settings / theme / sign out
 └── <Outlet> renders one of:
-    ├── ConversationsView                     — /chat (index): usage table
-    └── ChatSessionView                       — /chat/new or /chat/:id
+    ├── ChatLandingView                       — /chat (index): greeting + composer
+    ├── ConversationsView                     — /chat/history: usage table
+    └── ChatSessionView                       — /chat/:id
         ├── ChatHeader
         ├── (message list, scrolling)
         │   └── ChatMessage  (1 per turn)
@@ -24,6 +25,15 @@ ChatView                                      — layout shell (sidebar + outlet
             ├── Send button (when idle)
             └── StopButton (when running)
 ```
+
+**Route map**
+
+| Path | View | Notes |
+|---|---|---|
+| `/chat` | `ChatLandingView` | Greeting + centred composer. No conversation row created until the user sends. |
+| `/chat/:id` | `ChatSessionView` | Live chat. Hydrates from persisted history on mount; consumes the landing handoff (if any). |
+| `/chat/history` | `ConversationsView` | Past conversations + per-conversation cost breakdown. |
+| `/chat/new` | redirects to `/chat` | Legacy; kept so stale bookmarks land somewhere useful. |
 
 The hooks layer (`src/presentation/hooks/conversations/` and `src/presentation/views/chat/hooks/`) handles all data fetching, mutations, and AG-UI lifecycle. Components never call `fetch` directly.
 
@@ -71,6 +81,32 @@ The stateful core of the chat. One `HttpAgent` per `(agentName, accessToken, thr
 
 `options.threadId` pins the conversation id so resumed chats keep the same thread. `options.initialMessages` seeds the agent's message list — used to hydrate from persisted history on resume.
 
+### `useGreeting()`
+
+`src/presentation/views/chat/hooks/useGreeting.ts`
+
+Time-of-day phrase + the user's first name, memoised against the auth user's display name and email so the value is stable across renders. Returns `{ text, phrase, firstName }`:
+
+| Local time | `phrase` |
+|---|---|
+| 05:00 – 11:59 | "Good morning" |
+| 12:00 – 16:59 | "Good afternoon" |
+| 17:00 – 20:59 | "Good evening" |
+| 21:00 – 04:59 | "Hello" |
+
+`firstName` falls back to the local part of the user's email if `user.name` is empty. Used exclusively by `ChatLandingView`.
+
+### `initialMessageHandoff` utility
+
+`src/presentation/views/chat/hooks/initialMessageHandoff.ts`
+
+A `sessionStorage`-backed one-shot transit for the user's first message between `ChatLandingView` and `ChatSessionView`. Two exports:
+
+- `INITIAL_MESSAGE_STORAGE_KEY(conversationId)` — namespaced key (`pragna:initial-message:{id}`). Used by the landing to write the seed before navigating.
+- `consumePendingInitialMessage(conversationId)` — read **and immediately remove** in one call. Returns `null` when no handoff is in flight (the common case for resumed conversations) or when `sessionStorage` is unavailable. Removal-on-read is what makes refresh safe — a reload of `/chat/{id}` re-mounts but finds nothing, so the persisted history renders instead of replaying the message.
+
+`sessionStorage` was chosen over React Router state because it's automatically scoped to the tab (a duplicated tab won't see the seed) and because it survives an immediate redirect without the location-state quirks of `replace: true`.
+
 ---
 
 ## Components — Sidebar
@@ -82,7 +118,7 @@ The stateful core of the chat. One `HttpAgent` per `(agentName, accessToken, thr
 The left rail next to the chat surface. Owns its collapse state via `useUiStore.chatPaneCollapsed`. When collapsed, shows only icons; when expanded, shows the "New Chat" button, the `ConversationList`, and the `AvatarMenu`.
 
 **Props:**
-- `onNewChat?: () => void` — override the default click handler (which navigates to `/chat/new`). Useful if a future flow wants to clear ephemeral state before navigating.
+- `onNewChat?: () => void` — override the default click handler (which navigates to `/chat`, the landing surface where a fresh thread begins). Useful if a future flow wants to clear ephemeral state before navigating.
 
 ### `ConversationList.tsx`
 
@@ -113,7 +149,7 @@ A single row in the conversation list.
 **Behaviour:**
 - Whole row is a `<Link>` to `/chat/{conversation.id}`.
 - Pencil icon → opens `RenameConversationDialog`. `preventDefault` + `stopPropagation` keep the row click from firing.
-- Trash icon → wrapped in `ConfirmButton` so a misclick can't delete. If the deleted conversation is the currently-open one, the view navigates back to `/chat/new`.
+- Trash icon → wrapped in `ConfirmButton` so a misclick can't delete. If the deleted conversation is the currently-open one, the view navigates back to `/chat` (the landing).
 
 **Props:**
 - `conversation: Conversation` — the row to render.

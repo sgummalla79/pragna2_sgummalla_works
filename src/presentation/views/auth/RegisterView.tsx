@@ -64,7 +64,7 @@ export default function RegisterView() {
 
       {/* Brand header */}
       <div className="flex flex-col items-center mb-8 select-none">
-        <PragnaLogo className="h-16 w-16 text-[var(--color-brand)] mb-3" aria-hidden="true" />
+        <PragnaLogo className="h-16 w-16 text-brand mb-3" aria-hidden="true" />
         <h1 className="text-2xl font-bold tracking-tight text-foreground">{APP_NAME}</h1>
         <p className="text-sm text-muted-foreground mt-1">Your AI, Your Keys, Your Way</p>
       </div>
@@ -174,7 +174,7 @@ export default function RegisterView() {
 
             <Button
               type="submit"
-              className="w-full h-11 bg-[var(--color-brand)] hover:bg-[var(--color-brand-hover)] text-white font-medium mt-2"
+              className="w-full h-11 bg-brand hover:bg-brand-hover text-white font-medium mt-2"
               disabled={busy}
               aria-busy={loading}
             >
@@ -196,7 +196,7 @@ export default function RegisterView() {
         Already have an account?{' '}
         <Link
           to={ROUTES.LOGIN}
-          className="font-medium text-[var(--color-brand)] hover:text-[var(--color-brand-hover)] hover:underline underline-offset-4 transition-colors"
+          className="font-medium text-brand hover:text-[var(--color-brand-hover)] hover:underline underline-offset-4 transition-colors"
         >
           Sign in
         </Link>

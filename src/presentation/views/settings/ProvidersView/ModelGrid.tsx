@@ -18,7 +18,7 @@ const MODEL_COLUMNS: GridColumn<Model>[] = [
     key: 'modelName',
     header: 'Model',
     render: (m) => (
-      <span className="whitespace-nowrap font-mono text-[13px] text-[#737373]">{m.modelName}</span>
+      <span className="whitespace-nowrap font-mono text-[13px] text-muted-foreground">{m.modelName}</span>
     ),
   },
   {
@@ -35,7 +35,7 @@ const MODEL_COLUMNS: GridColumn<Model>[] = [
     header: '$/1M in',
     align: 'right',
     render: (m) => (
-      <span className="whitespace-nowrap font-mono text-[13px] text-[#737373]">{perMillion(m.costPerInputToken)}</span>
+      <span className="whitespace-nowrap font-mono text-[13px] text-muted-foreground">{perMillion(m.costPerInputToken)}</span>
     ),
   },
   {
@@ -44,7 +44,7 @@ const MODEL_COLUMNS: GridColumn<Model>[] = [
     header: '$/1M out',
     align: 'right',
     render: (m) => (
-      <span className="whitespace-nowrap font-mono text-[13px] text-[#737373]">{perMillion(m.costPerOutputToken)}</span>
+      <span className="whitespace-nowrap font-mono text-[13px] text-muted-foreground">{perMillion(m.costPerOutputToken)}</span>
     ),
   },
   {

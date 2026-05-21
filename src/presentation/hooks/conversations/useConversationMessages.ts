@@ -5,10 +5,24 @@ import type { PersistedMessage } from '@/domain/types/conversation.types';
 const KEY = (id: string | undefined) =>
   ['conversations', id ?? '__none__', 'messages'] as const;
 
+interface UseConversationMessagesOptions {
+  /**
+   * When ``false``, suppress the network fetch entirely (data stays
+   * ``undefined``). The session view passes ``false`` for brand-new
+   * conversations whose row hasn't been persisted yet, to avoid a
+   * structurally-guaranteed 404 polluting the browser console.
+   * Defaults to ``true``.
+   */
+  enabled?: boolean;
+}
+
 /**
  * Fetch the persisted message log for a conversation.
  *
- * Disabled when ``conversationId`` is ``undefined`` (the ``/chat/new`` route).
+ * Disabled when ``conversationId`` is ``undefined`` (callers that aren't on
+ * a ``/chat/:id`` route) OR when ``options.enabled`` is explicitly
+ * ``false`` (brand-new conversation mid-handoff).
+ *
  * History is effectively immutable from the client's perspective: once a
  * turn lands in the table it never rewrites, so ``staleTime: Infinity`` is
  * the right cache policy — we'll only refetch on explicit invalidation.
@@ -20,12 +34,16 @@ const KEY = (id: string | undefined) =>
  *     source of truth during an active session, so this hook only really
  *     matters on resume.
  */
-export function useConversationMessages(conversationId: string | undefined) {
+export function useConversationMessages(
+  conversationId: string | undefined,
+  options: UseConversationMessagesOptions = {},
+) {
   const { conversationService } = useServices();
+  const enabled = (options.enabled ?? true) && Boolean(conversationId);
   return useQuery<PersistedMessage[]>({
     queryKey: KEY(conversationId),
     queryFn: () => conversationService.getMessages(conversationId!),
-    enabled: Boolean(conversationId),
+    enabled,
     staleTime: Infinity,
   });
 }

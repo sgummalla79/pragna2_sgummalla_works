@@ -1,21 +1,109 @@
 @import "tailwindcss";
 
+/* ════════════════════════════════════════════════════════════════════════
+ *  Pragna Theme — shadcn Zinc (light + dark)
+ *  Full reference: docs/THEMES.md
+ *
+ *  Defaults below = DARK. Light mode overrides the same custom properties
+ *  inside [data-theme="light"] further down. The theme toggle lives in
+ *  src/presentation/store/uiStore.ts; it sets data-theme on <html>.
+ *
+ *  Tokens declared inside @theme become Tailwind utilities:
+ *      --color-background  →  bg-background / text-background
+ *      --color-foreground  →  bg-foreground / text-foreground
+ *      ... and so on.
+ *
+ *  NEVER inline hex values in components. Use the semantic utility class
+ *  so the colour flips automatically with the theme toggle.
+ * ════════════════════════════════════════════════════════════════════════ */
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
-  /* ── Pragna Copper brand ─────────────────────────────────────────── */
-  --color-brand:       #c97040;
+  /* ── Brand (constant across themes) ────────────────────────────────── */
+  --color-brand:       #c97040;                  /* Pragna Copper        */
   --color-brand-hover: #b5633a;
   --color-brand-light: rgba(201, 112, 64, 0.12);
   --color-brand-ring:  rgba(201, 112, 64, 0.35);
 
-  /* ── Status tokens (registered for Tailwind utilities) ──────────────
-     Without these inside @theme, classes like bg-destructive /
-     text-destructive-foreground silently emit nothing. The :root block
-     below mirrors the same values for any consumer that reads the raw
-     custom property. */
-  --color-destructive:            #dc2626;
-  --color-destructive-foreground: #fafafa;
+  /* ── Surfaces (DARK default — zinc) ────────────────────────────────── */
+  --color-background:         hsl(240 10% 3.9%); /* zinc-950  #09090B   */
+  --color-foreground:         hsl(0 0% 98%);     /* zinc-50   #FAFAFA   */
+
+  --color-card:               hsl(240 6% 10%);   /* zinc-900  #18181B   */
+  --color-card-foreground:    hsl(0 0% 98%);
+
+  --color-popover:            hsl(240 6% 10%);   /* zinc-900  #18181B   */
+  --color-popover-foreground: hsl(0 0% 98%);
+
+  --color-muted:              hsl(240 4% 16%);   /* zinc-800  #27272A   */
+  --color-muted-foreground:   hsl(240 5% 65%);   /* zinc-400  #A1A1AA   */
+
+  --color-accent:             hsl(240 4% 16%);   /* zinc-800            */
+  --color-accent-foreground:  hsl(0 0% 98%);
+
+  --color-secondary:          hsl(240 4% 16%);   /* zinc-800            */
+  --color-secondary-foreground: hsl(0 0% 98%);
+
+  /* ── Interaction (DARK) ────────────────────────────────────────────── */
+  --color-primary:            hsl(0 0% 98%);     /* zinc-50 (inverse)   */
+  --color-primary-foreground: hsl(240 6% 10%);
+
+  --color-destructive:            hsl(0 62.8% 30.6%); /* zinc dark red  */
+  --color-destructive-foreground: hsl(0 0% 98%);
+
+  /* Soft-destructive trio (DARK) — for inline error banners + helper text.
+     The "destructive" token above is meant for prominent button backgrounds
+     ("Delete forever"); these three are the lighter banner triplet you'd
+     reach for when surfacing a recoverable error inline. */
+  --color-error-bg:     hsl(0 60% 8%);    /* very dark red surface       */
+  --color-error-border: hsl(0 45% 18%);
+  --color-error-text:   hsl(0 95% 82%);   /* light red — readable on bg  */
+
+  /* ── Structure (DARK) ──────────────────────────────────────────────── */
+  --color-border: hsl(240 4% 16%);               /* zinc-800            */
+  --color-input:  hsl(240 4% 16%);
+  --color-ring:   hsl(240 5% 65%);               /* zinc-400            */
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ *  LIGHT mode override
+ *  Activated by <html data-theme="light">. Same token names, lighter values.
+ *  Brand tokens are intentionally NOT overridden — copper sits the same in
+ *  both modes.
+ * ════════════════════════════════════════════════════════════════════════ */
+[data-theme="light"] {
+  --color-background:         hsl(0 0% 100%);    /* white               */
+  --color-foreground:         hsl(240 10% 3.9%); /* zinc-950 text       */
+
+  --color-card:               hsl(0 0% 100%);
+  --color-card-foreground:    hsl(240 10% 3.9%);
+
+  --color-popover:            hsl(0 0% 100%);
+  --color-popover-foreground: hsl(240 10% 3.9%);
+
+  --color-muted:              hsl(240 5% 96%);   /* zinc-100  #F4F4F5   */
+  --color-muted-foreground:   hsl(240 4% 46%);   /* zinc-500  #71717A   */
+
+  --color-accent:             hsl(240 5% 96%);   /* zinc-100            */
+  --color-accent-foreground:  hsl(240 6% 10%);
+
+  --color-secondary:          hsl(240 5% 96%);
+  --color-secondary-foreground: hsl(240 6% 10%);
+
+  --color-primary:            hsl(240 6% 10%);   /* zinc-900            */
+  --color-primary-foreground: hsl(0 0% 98%);
+
+  --color-destructive:            hsl(0 84% 60%);    /* zinc-light red */
+  --color-destructive-foreground: hsl(0 0% 98%);
+
+  /* Soft-destructive trio (LIGHT) */
+  --color-error-bg:     hsl(0 86% 97%);   /* #FEF2F2 — light pink       */
+  --color-error-border: hsl(0 86% 91%);   /* #FECACA                    */
+  --color-error-text:   hsl(0 72% 45%);   /* #C81D1D — dark red on bg   */
+
+  --color-border: hsl(240 6% 90%);               /* zinc-200  #E4E4E7   */
+  --color-input:  hsl(240 6% 90%);
+  --color-ring:   hsl(240 6% 10%);
 }
 
 /* ── Keyframes ───────────────────────────────────────────────────────── */
@@ -25,10 +113,9 @@
 
 /*
  * ── Base layer ────────────────────────────────────────────────────────
- * MUST be inside @layer base so that @layer utilities (Tailwind's p-*, m-*,
- * etc.) can override it. Unlayered CSS beats every @layer rule in the CSS
- * cascade — putting the reset here keeps the correct priority order:
- *   base → components → utilities
+ * Inside @layer base so Tailwind utilities (p-*, m-*, etc.) can override
+ * it. Background + foreground use the semantic tokens — they flip with the
+ * theme automatically.
  */
 @layer base {
   *,
@@ -43,62 +130,20 @@
   body,
   #root {
     height: 100%;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-sans);
   }
 
   body {
-    background-color: #282828;
-    color: hsl(0 0% 96%);
+    background-color: var(--color-background);
+    color: var(--color-foreground);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
   }
 }
 
-/* ── Design tokens ───────────────────────────────────────────────────── */
-/* The app is dark-first. #282828 is the base surface. */
+/* ── Layout constants ────────────────────────────────────────────────── */
 :root {
-  /* Surfaces */
-  --background:          0 0% 16%;    /* #282828 — page canvas         */
-  --foreground:          0 0% 96%;    /* near-white text                */
-
-  --card:                0 0% 20%;    /* #333333 — elevated surface     */
-  --card-foreground:     0 0% 96%;
-
-  --popover:             0 0% 18%;    /* dropdowns / tooltips           */
-  --popover-foreground:  0 0% 96%;
-
-  /* Interaction */
-  --primary:             24.6 65.1% 52%;   /* Pragna Copper              */
-  --primary-foreground:  0 0% 98%;
-
-  --secondary:           0 0% 24%;
-  --secondary-foreground:0 0% 96%;
-
-  --muted:               0 0% 22%;         /* subtle fills               */
-  --muted-foreground:    0 0% 55%;         /* secondary text             */
-
-  --accent:              0 0% 24%;
-  --accent-foreground:   0 0% 96%;
-
-  /* Status */
-  --destructive:         0 72% 51%;
-  --destructive-foreground: 0 0% 98%;
-
-  /* Structure */
-  --border:              0 0% 28%;    /* #474747 — general dividers           */
-  --input:               0 0% 32%;   /* #525252 — input field borders        */
-  --ring:                24.6 65.1% 52%;   /* focus ring — Pragna Copper      */
-
-  /* Sunken surface — used for inputs and dark action buttons inside cards.
-     Much darker than the card surface to create a recessed feel. */
-  --surface-sunken:      0 0% 7%;    /* #111111                              */
-  --surface-sunken-border: 255 255 255 / 0.12; /* rgba white for dark borders */
-
-  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-
   --radius: 0.5rem;
-
-  /* Layout */
   --sidebar-width:           240px;
   --sidebar-width-collapsed:  64px;
 }

@@ -12,6 +12,7 @@ const AuthCallbackView = lazy(() => import('@/presentation/views/auth/AuthCallba
 
 // ── Chat ─────────────────────────────────────────────────────────────────────
 const ChatView          = lazy(() => import('@/presentation/views/chat/ChatView'));
+const ChatLandingView   = lazy(() => import('@/presentation/views/chat/ChatLandingView'));
 const ConversationsView = lazy(() => import('@/presentation/views/chat/ConversationsView'));
 const ChatSessionView   = lazy(() => import('@/presentation/views/chat/ChatSessionView'));
 
@@ -41,8 +42,17 @@ export function AppRoutes() {
           path={ROUTES.CHAT}
           element={<ProtectedRoute><ChatView /></ProtectedRoute>}
         >
-          <Route index element={<ConversationsView />} />
-          <Route path="new" element={<ChatSessionView />} />
+          {/* /chat → landing: personalised greeting + centred composer.
+              Sending a message from here generates a fresh UUID, stashes
+              the text in sessionStorage, and navigates to /chat/{uuid}
+              where ChatSessionView picks up the handoff. */}
+          <Route index element={<ChatLandingView />} />
+          {/* Past conversations + per-conversation cost breakdown. */}
+          <Route path="history" element={<ConversationsView />} />
+          {/* Legacy redirect: /chat/new used to be the active chat
+              surface before the landing existed. Bounce back to the
+              landing so any stale bookmark still lands somewhere useful. */}
+          <Route path="new" element={<Navigate to={ROUTES.CHAT} replace />} />
           {/* Resume a persisted conversation. ChatSessionView reads :id
               via useParams and hydrates the agent with the message log. */}
           <Route path=":id" element={<ChatSessionView />} />

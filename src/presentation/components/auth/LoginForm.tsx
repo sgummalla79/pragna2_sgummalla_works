@@ -56,7 +56,7 @@ export function LoginForm() {
       className="w-full flex flex-col gap-[18px]"
       style={{
         maxWidth: 380,
-        background: '#212121',
+        background: 'var(--color-popover)',
         border: '1px solid rgba(255,255,255,0.09)',
         borderRadius: 16,
         padding: '36px 32px',
@@ -71,7 +71,7 @@ export function LoginForm() {
             fontFamily: 'var(--font-display)',
             fontSize: 32,
             fontWeight: 700,
-            color: '#ececea',
+            color: 'var(--color-foreground)',
             letterSpacing: '-0.5px',
             lineHeight: 1,
           }}
@@ -88,12 +88,12 @@ export function LoginForm() {
             display: 'flex',
             alignItems: 'flex-start',
             gap: 8,
-            background: '#1f0d0d',
-            border: '1px solid #4a1a1a',
+            background: 'var(--color-error-bg)',
+            border: '1px solid var(--color-error-border)',
             borderRadius: 8,
             padding: '10px 12px',
             fontSize: 13,
-            color: '#fca5a5',
+            color: 'var(--color-error-text)',
           }}
         >
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: 1 }} aria-hidden="true">
@@ -141,7 +141,7 @@ export function LoginForm() {
             fontWeight: 600,
             cursor: busy ? 'not-allowed' : 'pointer',
             opacity: busy ? 0.5 : 1,
-            background: '#c97040',
+            background: 'var(--color-brand)',
             color: '#fff',
             display: 'flex',
             alignItems: 'center',
@@ -170,7 +170,7 @@ export function LoginForm() {
       </form>
 
       {/* Divider */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#737373', fontSize: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--color-muted-foreground)', fontSize: 12 }}>
         <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.09)' }} />
         or
         <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.09)' }} />
@@ -179,7 +179,7 @@ export function LoginForm() {
       {/* Social connections */}
       <div className="flex flex-col gap-[8px]">
         {connectionsLoading && (
-          <p style={{ fontSize: 13, color: '#737373', textAlign: 'center', padding: '8px 0' }}>
+          <p style={{ fontSize: 13, color: 'var(--color-muted-foreground)', textAlign: 'center', padding: '8px 0' }}>
             Loading sign-in options…
           </p>
         )}
@@ -196,11 +196,11 @@ export function LoginForm() {
       </div>
 
       {/* Register link */}
-      <p style={{ fontSize: 13, color: '#737373', textAlign: 'center', marginTop: 4 }}>
+      <p style={{ fontSize: 13, color: 'var(--color-muted-foreground)', textAlign: 'center', marginTop: 4 }}>
         No account?{' '}
         <Link
           to={ROUTES.REGISTER}
-          style={{ color: '#c97040', textDecoration: 'none', fontWeight: 500 }}
+          style={{ color: 'var(--color-brand)', textDecoration: 'none', fontWeight: 500 }}
           onMouseEnter={(e) => { (e.target as HTMLAnchorElement).style.textDecoration = 'underline'; }}
           onMouseLeave={(e) => { (e.target as HTMLAnchorElement).style.textDecoration = 'none'; }}
         >

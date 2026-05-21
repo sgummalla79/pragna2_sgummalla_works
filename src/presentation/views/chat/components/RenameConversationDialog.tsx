@@ -66,8 +66,8 @@ export function RenameConversationDialog({
             fixed left-1/2 top-1/2 z-[701] -translate-x-1/2 -translate-y-1/2
             w-[420px] max-w-[calc(100vw-32px)]
             flex flex-col gap-4
-            rounded-[14px] border border-[rgba(255,255,255,0.1)]
-            bg-[#212121] p-6
+            rounded-[14px] border border-border
+            bg-popover p-6
           "
           style={{ boxShadow: '0 24px 60px rgba(0,0,0,0.45)' }}
         >
@@ -75,10 +75,10 @@ export function RenameConversationDialog({
               the Title + Description below — never set those attributes
               manually on Content, it suppresses the auto-detection and
               triggers the "missing title" dev warning. */}
-          <Dialog.Title className="text-base font-bold text-[#ececea] m-0">
+          <Dialog.Title className="text-base font-bold text-foreground m-0">
             Rename conversation
           </Dialog.Title>
-          <Dialog.Description className="text-[13px] text-[#a3a3a3] m-0 leading-relaxed">
+          <Dialog.Description className="text-[13px] text-foreground m-0 leading-relaxed">
             Set a new title for this chat. The change shows up in the
             sidebar immediately.
           </Dialog.Description>
@@ -98,7 +98,7 @@ export function RenameConversationDialog({
               }}
             />
             {rename.isError && (
-              <p role="alert" className="text-[12px] text-[#ef4444] m-0">
+              <p role="alert" className="text-[12px] text-[var(--color-error-text)] m-0">
                 Couldn't save — please try again.
               </p>
             )}

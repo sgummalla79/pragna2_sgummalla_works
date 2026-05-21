@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios';
+import axios, { type AxiosInstance } from 'axios';
 import type { IConversationRepository } from '@/application/ports/IConversationRepository';
 import type {
   Conversation,
@@ -115,10 +115,26 @@ export class ConversationRepository implements IConversationRepository {
   }
 
   async getMessages(conversationId: string): Promise<PersistedMessage[]> {
-    const { data } = await this.http.get<ApiMessageResponse[]>(
-      `/api/conversations/${conversationId}/messages`,
-    );
-    return data.map(mapMessage);
+    // The chat surface routes to ``/chat/{uuid}`` BEFORE the backend has
+    // committed the conversation row (the landing-page handoff sets the
+    // URL synchronously when the user hits send; the row is materialised
+    // by the in-flight ``/pragna`` run). A 404 here therefore means
+    // "the row hasn't landed yet" — equivalent to "no messages yet" for
+    // the chat UI. Returning ``[]`` keeps React Query from surfacing the
+    // expected 404 as a query error. A 404 from a wrong-owner id also
+    // renders as an empty chat, which is acceptable (the user can't see
+    // someone else's history; they just see nothing).
+    try {
+      const { data } = await this.http.get<ApiMessageResponse[]>(
+        `/api/conversations/${conversationId}/messages`,
+      );
+      return data.map(mapMessage);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return [];
+      }
+      throw error;
+    }
   }
 
   async update(

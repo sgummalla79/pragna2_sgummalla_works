@@ -4,9 +4,9 @@
  */
 export default function ProfileView() {
   return (
-    <div style={{ color: '#ececea' }}>
+    <div style={{ color: 'var(--color-foreground)' }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Profile</h1>
-      <p style={{ color: '#737373', fontSize: 14 }}>Account settings coming soon.</p>
+      <p style={{ color: 'var(--color-muted-foreground)', fontSize: 14 }}>Account settings coming soon.</p>
     </div>
   );
 }
