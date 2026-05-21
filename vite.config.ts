@@ -13,8 +13,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:8000',
-      '/pragna': 'http://localhost:8000',
+      '/api': { target: 'http://localhost:8000', changeOrigin: true },
+      // followRedirects handles the /pragna → /pragna/ trailing-slash redirect
+      // that the backend issues, keeping the request server-side and avoiding CORS.
+      '/pragna': { target: 'http://localhost:8000', changeOrigin: true, followRedirects: true },
     },
   },
 });

@@ -1,0 +1,248 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { HttpAgent } from '@ag-ui/client';
+import type { AgentSubscriber, Message } from '@ag-ui/client';
+import { PRAGNA_BASE_URL } from '@/constants/api';
+import { useAuthStore } from '@/presentation/store/authStore';
+import { logger } from '@/infrastructure/logging/logger';
+
+/** A tool call rendered inline under an assistant turn. */
+export interface ChatToolCall {
+  id: string;
+  name: string;
+  /** Cumulative argument JSON snippet as the LLM streams it. */
+  argsBuffer: string;
+  /** Final parsed args once the call completes; ``undefined`` while streaming. */
+  args?: Record<string, unknown>;
+  /** Tool result, if the server emitted a ToolCallResultEvent. */
+  result?: string;
+  /** True once we've seen the matching ToolCallEndEvent. */
+  complete: boolean;
+}
+
+/** UI-shaped message — the canonical state the chat view renders. */
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'tool' | 'system';
+  content: string;
+  /** Assistant-only: any tool calls the LLM emitted during the turn. */
+  toolCalls?: ChatToolCall[];
+}
+
+export type ChatStatus = 'idle' | 'running' | 'error';
+
+export interface ChatSessionApi {
+  /** Current turn state. Reflects the underlying ``HttpAgent.messages`` 1:1. */
+  messages: ChatMessage[];
+  /** Current run status. ``error`` flips back to ``idle`` on the next send. */
+  status: ChatStatus;
+  /** Last error message when ``status === 'error'``; ``null`` otherwise. */
+  error: string | null;
+  /** Append a user turn and run the agent. No-op while a run is in flight. */
+  send: (text: string) => void;
+  /** Abort the current run. Safe to call when no run is active. */
+  stop: () => void;
+}
+
+/**
+ * Stateful hook that wires a single :class:`HttpAgent` to React state.
+ *
+ * Lifetime:
+ *   - One HttpAgent per ``(agentName, accessToken)`` pair, recreated on
+ *     change. Reusing the instance preserves ``threadId`` so the backend
+ *     can run conversation history through its checkpointer.
+ *   - The subscriber is installed once at agent creation and mirrors
+ *     ``HttpAgent.messages`` into local state on every event.
+ *
+ * Concurrency: ``send`` is a no-op while a run is in flight. The user must
+ * either wait or call ``stop`` first. ``stop`` aborts via the agent's
+ * internal ``AbortController`` and re-enables ``send``.
+ */
+export function useChatSession(agentName: string): ChatSessionApi {
+  const accessToken = useAuthStore((s) => s.accessToken);
+
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [status, setStatus] = useState<ChatStatus>('idle');
+  const [error, setError] = useState<string | null>(null);
+
+  // toolCallId → ChatToolCall, accumulated across the run so partial-args
+  // events can update the right call regardless of arrival interleaving.
+  const toolCallsRef = useRef<Map<string, ChatToolCall>>(new Map());
+
+  const agent = useMemo<HttpAgent | null>(() => {
+    if (!accessToken) return null;
+    return new HttpAgent({
+      url: `${PRAGNA_BASE_URL}/agents/${encodeURIComponent(agentName)}`,
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }, [accessToken, agentName]);
+
+  // Sync agent.messages → React state. Called from every relevant subscriber
+  // callback so the UI is always a snapshot of the canonical AbstractAgent
+  // state. Calling setMessages with a fresh array reference forces a
+  // re-render; React bails out internally if shallow contents match.
+  const syncMessages = useCallback(() => {
+    if (!agent) return;
+    const mirrored = agent.messages.map((m: Message) => toChatMessage(m, toolCallsRef.current));
+    setMessages(mirrored);
+  }, [agent]);
+
+  useEffect(() => {
+    if (!agent) return undefined;
+    toolCallsRef.current = new Map();
+    setMessages([]);
+    setStatus('idle');
+    setError(null);
+
+    const subscriber: AgentSubscriber = {
+      onRunInitialized: () => {
+        setStatus('running');
+        setError(null);
+      },
+      onRunFailed: ({ error: e }) => {
+        setStatus('error');
+        setError(e.message || 'Run failed');
+        logger.fromError('CHT_004:run_failed', e);
+      },
+      onRunFinalized: () => {
+        setStatus((prev) => (prev === 'error' ? prev : 'idle'));
+      },
+      onTextMessageStartEvent: () => {
+        syncMessages();
+      },
+      onTextMessageContentEvent: () => {
+        syncMessages();
+      },
+      onTextMessageEndEvent: () => {
+        syncMessages();
+      },
+      onToolCallStartEvent: ({ event }) => {
+        toolCallsRef.current.set(event.toolCallId, {
+          id: event.toolCallId,
+          name: event.toolCallName,
+          argsBuffer: '',
+          complete: false,
+        });
+        syncMessages();
+      },
+      onToolCallArgsEvent: ({ event, toolCallBuffer, partialToolCallArgs }) => {
+        const existing = toolCallsRef.current.get(event.toolCallId);
+        if (existing) {
+          toolCallsRef.current.set(event.toolCallId, {
+            ...existing,
+            argsBuffer: toolCallBuffer,
+            args: partialToolCallArgs as Record<string, unknown>,
+          });
+          syncMessages();
+        }
+      },
+      onToolCallEndEvent: ({ event, toolCallArgs }) => {
+        const existing = toolCallsRef.current.get(event.toolCallId);
+        if (existing) {
+          toolCallsRef.current.set(event.toolCallId, {
+            ...existing,
+            args: toolCallArgs as Record<string, unknown>,
+            complete: true,
+          });
+          syncMessages();
+        }
+      },
+      onToolCallResultEvent: ({ event }) => {
+        const existing = toolCallsRef.current.get(event.toolCallId);
+        if (existing) {
+          toolCallsRef.current.set(event.toolCallId, {
+            ...existing,
+            result: event.content ?? '',
+          });
+        }
+        syncMessages();
+      },
+    };
+
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => {
+      unsubscribe();
+      agent.abortRun();
+    };
+  }, [agent, syncMessages]);
+
+  const send = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!agent || !trimmed) return;
+      if (status === 'running') return;
+
+      agent.messages.push({
+        id: randomId(),
+        role: 'user',
+        content: trimmed,
+      });
+      syncMessages();
+
+      agent.runAgent({}).catch((e: unknown) => {
+        // runAgent rejects when the subscriber chain throws; the
+        // onRunFailed handler already updated state in that case. Log
+        // here for any unhandled rejection path.
+        if (e instanceof Error && e.name === 'AbortError') return;
+        logger.fromError(
+          'CHT_004:run_rejected',
+          e instanceof Error ? e : new Error(String(e)),
+        );
+      });
+    },
+    [agent, status, syncMessages],
+  );
+
+  const stop = useCallback(() => {
+    if (agent && status === 'running') {
+      agent.abortRun();
+      setStatus('idle');
+    }
+  }, [agent, status]);
+
+  return { messages, status, error, send, stop };
+}
+
+/**
+ * Translate an ``HttpAgent.messages`` entry into the UI's :class:`ChatMessage`
+ * shape, attaching any tool calls we've accumulated in the running map.
+ */
+function toChatMessage(
+  m: Message,
+  toolCalls: Map<string, ChatToolCall>,
+): ChatMessage {
+  if (m.role === 'assistant') {
+    const calls = m.toolCalls
+      ?.map((tc) => toolCalls.get(tc.id))
+      .filter((tc): tc is ChatToolCall => Boolean(tc));
+    return {
+      id: m.id,
+      role: 'assistant',
+      content: m.content ?? '',
+      toolCalls: calls && calls.length > 0 ? calls : undefined,
+    };
+  }
+  if (m.role === 'tool') {
+    return {
+      id: m.id,
+      role: 'tool',
+      content: m.content ?? '',
+    };
+  }
+  if (m.role === 'system' || m.role === 'developer') {
+    return { id: m.id, role: 'system', content: m.content ?? '' };
+  }
+  return {
+    id: m.id,
+    role: 'user',
+    content: typeof m.content === 'string' ? m.content : '',
+  };
+}
+
+function randomId(): string {
+  // ``crypto.randomUUID`` is on every modern browser and jsdom; the fallback
+  // exists only to keep TypeScript happy in environments without it.
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}

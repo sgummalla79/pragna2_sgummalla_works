@@ -13,6 +13,7 @@ const AuthCallbackView = lazy(() => import('@/presentation/views/auth/AuthCallba
 // ── Chat ─────────────────────────────────────────────────────────────────────
 const ChatView          = lazy(() => import('@/presentation/views/chat/ChatView'));
 const ConversationsView = lazy(() => import('@/presentation/views/chat/ConversationsView'));
+const ChatSessionView   = lazy(() => import('@/presentation/views/chat/ChatSessionView'));
 
 // ── Settings sections ────────────────────────────────────────────────────────
 const ProvidersView    = lazy(() => import('@/presentation/views/settings/ProvidersView/ProvidersView'));
@@ -41,6 +42,7 @@ export function AppRoutes() {
           element={<ProtectedRoute><ChatView /></ProtectedRoute>}
         >
           <Route index element={<ConversationsView />} />
+          <Route path="new" element={<ChatSessionView />} />
         </Route>
 
         {/* ── Settings (2-panel layout with sidebar) ── */}

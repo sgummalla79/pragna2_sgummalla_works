@@ -3,8 +3,10 @@ import {
   MessagesSquare,
   PanelLeftClose,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import PragnaLogo from '@/assets/logo.svg?react';
 import { APP_NAME } from '@/constants/api';
+import { ROUTES } from '@/constants/routes';
 import { useUiStore } from '@/presentation/store/uiStore';
 import { cn } from '@/lib/utils';
 import { AvatarMenu } from './AvatarMenu';
@@ -38,6 +40,7 @@ interface ChatSidebarProps {
 export function Sidebar({ onNewChat, onChats }: ChatSidebarProps) {
   const collapsed = useUiStore((s) => s.chatPaneCollapsed);
   const toggle = useUiStore((s) => s.toggleChatPane);
+  const navigate = useNavigate();
 
   const items: NavItem[] = [
     {
@@ -46,7 +49,7 @@ export function Sidebar({ onNewChat, onChats }: ChatSidebarProps) {
       // TODO: wire to "start a fresh CopilotChat session" once the
       //       runtime exposes a reset hook. For now: parent-supplied
       //       handler or no-op.
-      onClick: onNewChat ?? (() => {}),
+      onClick: onNewChat ?? (() => navigate(`${ROUTES.CHAT}/new`)),
     },
     {
       icon: MessagesSquare,

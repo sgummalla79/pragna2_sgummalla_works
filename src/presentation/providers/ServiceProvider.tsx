@@ -10,6 +10,7 @@ import { AgentTypeRepository } from '@/infrastructure/repositories/AgentTypeRepo
 import { FlowRepository } from '@/infrastructure/repositories/FlowRepository';
 import { SkillRepository } from '@/infrastructure/repositories/SkillRepository';
 import { ConversationRepository } from '@/infrastructure/repositories/ConversationRepository';
+import { AgentRepository } from '@/infrastructure/repositories/AgentRepository';
 import { AuthService } from '@/application/services/AuthService';
 import { LlmProviderService } from '@/application/services/LlmProviderService';
 import { ProviderService } from '@/application/services/ProviderService';
@@ -17,6 +18,7 @@ import { ModelService } from '@/application/services/ModelService';
 import { FlowService } from '@/application/services/FlowService';
 import { SkillService } from '@/application/services/SkillService';
 import { ConversationService } from '@/application/services/ConversationService';
+import { AgentService } from '@/application/services/AgentService';
 import { useAuthStore } from '@/presentation/store/authStore';
 import { ServiceContext } from './ServiceContext';
 
@@ -40,6 +42,7 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
     const flowRepo           = new FlowRepository(axiosClient);
     const skillRepo          = new SkillRepository(axiosClient);
     const conversationRepo   = new ConversationRepository(axiosClient);
+    const agentRepo          = new AgentRepository(axiosClient);
 
     return {
       agentTypeRepository: agentTypeRepo,
@@ -50,6 +53,7 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
       flowService:         new FlowService(flowRepo),
       skillService:        new SkillService(skillRepo),
       conversationService: new ConversationService(conversationRepo),
+      agentService:        new AgentService(agentRepo),
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

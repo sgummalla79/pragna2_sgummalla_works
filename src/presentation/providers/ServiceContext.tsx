@@ -6,6 +6,7 @@ import type { ModelService } from '@/application/services/ModelService';
 import type { FlowService } from '@/application/services/FlowService';
 import type { SkillService } from '@/application/services/SkillService';
 import type { ConversationService } from '@/application/services/ConversationService';
+import type { AgentService } from '@/application/services/AgentService';
 
 export interface Services {
   authService: AuthService;
@@ -15,6 +16,7 @@ export interface Services {
   flowService: FlowService;
   skillService: SkillService;
   conversationService: ConversationService;
+  agentService: AgentService;
 }
 
 export const ServiceContext = createContext<Services | null>(null);

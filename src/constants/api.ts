@@ -2,8 +2,12 @@
 export const API_BASE_URL: string =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8000';
 
-export const COPILOTKIT_RUNTIME_URL: string =
-  (import.meta.env.VITE_COPILOTKIT_URL as string | undefined) ?? `${API_BASE_URL}/pragna`;
+// Base path for the AG-UI native chat surface (GET /pragna/agents,
+// POST /pragna/agents/{name}). Use a relative path in dev so requests go
+// through the Vite proxy (avoids CORS). In production set
+// VITE_PRAGNA_BASE_URL to the full backend URL.
+export const PRAGNA_BASE_URL: string =
+  (import.meta.env.VITE_PRAGNA_BASE_URL as string | undefined) ?? '/pragna';
 
 
 export const LOG_LEVEL: string =
