@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
+import { MessagesSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -10,8 +10,14 @@ interface Props {
 }
 
 /**
- * Navigation item that takes the user back to a parent route. Reads
- * from palette tokens; the chevron uses `currentColor`.
+ * Navigation item that takes the user back to a parent route.
+ *
+ * Icon: lucide's `MessagesSquare` (two stacked chat bubbles) rather
+ * than a plain chevron. The settings sidebar's only "back" item
+ * points at `/chat`, so the icon literally depicts the destination —
+ * it reads better in collapsed mode than a generic arrow. The
+ * "Back to Chat" tooltip (when collapsed) and label (when expanded)
+ * still carry the "back" semantic.
  */
 export function SidebarBackItem({ to, label, collapsed = false }: Props) {
   return (
@@ -25,7 +31,7 @@ export function SidebarBackItem({ to, label, collapsed = false }: Props) {
         collapsed ? 'h-10 w-10 justify-center mx-auto' : 'gap-2.5 px-3.5 py-2.5 min-h-11',
       )}
     >
-      <ChevronLeft size={16} strokeWidth={2.5} className="flex-shrink-0" aria-hidden="true" />
+      <MessagesSquare size={collapsed ? 18 : 16} className="flex-shrink-0" aria-hidden="true" />
       {!collapsed && label}
     </Link>
   );
