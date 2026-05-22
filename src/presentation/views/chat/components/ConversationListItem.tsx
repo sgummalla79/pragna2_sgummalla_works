@@ -4,7 +4,9 @@ import { MessageSquare, Pencil, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/constants/routes';
 import { ConfirmButton } from '@/presentation/components/ui/ConfirmButton';
+import { useConversationUsage } from '@/presentation/hooks/conversations/useConversations';
 import { useDeleteConversation } from '@/presentation/hooks/conversations/useConversationMutations';
+import { formatUsd } from '@/domain/utils/formatCost';
 import type { Conversation } from '@/domain/types/conversation.types';
 import { RenameConversationDialog } from './RenameConversationDialog';
 
@@ -50,6 +52,15 @@ export function ConversationListItem({ conversation }: ConversationListItemProps
 
   const displayTitle = conversation.title ?? 'Untitled chat';
 
+  // R4 #4: per-conversation total USD shown in the sidebar. Reuses the
+  // existing /usage endpoint via React Query so each row only fires
+  // once per cache window (60s staleTime). We render nothing when the
+  // cost is zero or still loading — keeps brand-new conversations
+  // from showing a noisy "$0.00" chip.
+  const { data: usage } = useConversationUsage(conversation.id);
+  const totalCost = usage ? parseFloat(usage.totalCostUsd) : 0;
+  const showCost = totalCost > 0;
+
   return (
     <>
       <Link
@@ -65,30 +76,45 @@ export function ConversationListItem({ conversation }: ConversationListItemProps
         <MessageSquare size={14} aria-hidden className="shrink-0 opacity-60" />
         <span className="flex-1 truncate">{displayTitle}</span>
 
-        <span
-          className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
-          onClick={(e) => e.preventDefault()} // safety net against accidental link nav
-        >
-          <button
-            type="button"
-            onClick={handleRenameClick}
-            aria-label="Rename conversation"
-            className="rounded p-1 hover:bg-accent text-foreground hover:text-foreground"
+        {/* Right slot — cross-fades between cost chip (idle) and the
+            rename/delete action icons (hover). Both occupy the same
+            position via `relative` + `absolute`, so the title width
+            doesn't jitter when the row enters hover. */}
+        <span className="relative shrink-0 inline-flex items-center justify-end min-w-[3rem] h-5">
+          {showCost && (
+            <span
+              className="text-[11px] text-muted-foreground tabular-nums opacity-100 group-hover:opacity-0 transition-opacity"
+              title={`Total cost so far: ${formatUsd(totalCost)}`}
+              aria-label={`Total cost ${formatUsd(totalCost)}`}
+            >
+              {formatUsd(totalCost)}
+            </span>
+          )}
+          <span
+            className="absolute right-0 inset-y-0 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+            onClick={(e) => e.preventDefault()} // safety net against accidental link nav
           >
-            <Pencil size={12} />
-          </button>
-          <ConfirmButton
-            size="xs"
-            variant="ghost"
-            className="!min-h-0 !min-w-0 !p-1 !h-auto !w-auto rounded text-foreground hover:text-destructive hover:bg-accent"
-            aria-label="Delete conversation"
-            confirmTitle="Delete this conversation?"
-            confirmDescription="This permanently removes the chat and its message history. This action cannot be undone."
-            confirmLabel="Delete"
-            onConfirm={handleDelete}
-          >
-            <Trash2 size={12} />
-          </ConfirmButton>
+            <button
+              type="button"
+              onClick={handleRenameClick}
+              aria-label="Rename conversation"
+              className="rounded p-1 hover:bg-accent text-foreground hover:text-foreground"
+            >
+              <Pencil size={12} />
+            </button>
+            <ConfirmButton
+              size="xs"
+              variant="ghost"
+              className="!min-h-0 !min-w-0 !p-1 !h-auto !w-auto rounded text-foreground hover:text-destructive hover:bg-accent"
+              aria-label="Delete conversation"
+              confirmTitle="Delete this conversation?"
+              confirmDescription="This permanently removes the chat and its message history. This action cannot be undone."
+              confirmLabel="Delete"
+              onConfirm={handleDelete}
+            >
+              <Trash2 size={12} />
+            </ConfirmButton>
+          </span>
         </span>
       </Link>
 
