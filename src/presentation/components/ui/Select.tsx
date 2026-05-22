@@ -46,10 +46,16 @@ const SelectTrigger = React.forwardRef<
     className={cn(
       'flex h-11 w-full items-center justify-between rounded-lg',
       // Matches Input.tsx — `bg-input` fill, `--color-border` edge,
-      // `--color-ring` halo on focus. All three form primitives now
-      // exercise the same token set so theme swaps land consistently.
+      // `--color-ring` halo on focus, `text-card-foreground` for the
+      // chosen value. All three form primitives stay in lock-step so
+      // theme swaps land consistently.
       'border border-border bg-input px-[13px] py-[10px]',
-      'text-[14px] text-foreground',
+      'text-[14px] text-card-foreground',
+      // Bold the chosen value; placeholder stays normal weight. Radix
+      // sets `data-placeholder` on the trigger when SelectValue is showing
+      // its placeholder, so the `data-[placeholder]:font-normal` variant
+      // overrides the default semibold whenever no value is picked.
+      'font-semibold data-[placeholder]:font-normal',
       'placeholder:text-muted-foreground',
       'transition-colors duration-150',
       'focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/40',

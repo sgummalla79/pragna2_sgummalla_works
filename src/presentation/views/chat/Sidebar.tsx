@@ -81,7 +81,7 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
             row of vertical space versus a separate toggle.
           The whole header has a hover affordance in collapsed mode so
           the click target is obvious. */}
-      <div className="flex h-12 items-center border-b border-border px-2 gap-2">
+      <div className="flex h-12 items-center px-2 gap-2">
         {collapsed ? (
           <button
             type="button"

@@ -13,11 +13,13 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     <textarea
       ref={ref}
       className={cn(
-        // Matches Input.tsx — `bg-input` fill, --color-border for the
-        // edge, --color-ring on focus. Keeps the form palette coherent
-        // (input + textarea + select trigger all read the same tokens).
+        // Matches Input.tsx — `bg-input` fill, `--color-border` edge,
+        // `--color-ring` focus halo, `text-card-foreground` for typed
+        // content (brighter than `text-foreground` so values stand out
+        // against the field fill).
         'w-full resize-y rounded-lg border border-border px-[13px] py-[10px]',
-        'bg-input text-[14px] text-foreground outline-none',
+        'bg-input text-[14px] text-card-foreground outline-none',
+        '[&:not(:placeholder-shown)]:font-semibold',
         'placeholder:text-muted-foreground',
         'transition-colors duration-150',
         'focus:border-primary focus:ring-2 focus:ring-ring/40',

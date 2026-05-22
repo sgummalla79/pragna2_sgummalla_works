@@ -21,9 +21,11 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
           className={cn(
             // Matches Input.tsx exactly so password fields and text
             // fields land on the same palette tokens (`bg-input` fill,
-            // `--color-border` edge, `--color-ring` focus halo).
+            // `--color-border` edge, `--color-ring` focus halo,
+            // `text-card-foreground` typed-value colour).
             'w-full rounded-lg border border-border px-[13px] py-[10px] pr-10',
-            'bg-input text-[14px] text-foreground outline-none',
+            'bg-input text-[14px] text-card-foreground outline-none',
+            '[&:not(:placeholder-shown)]:font-semibold',
             'placeholder:text-muted-foreground',
             'transition-colors duration-150',
             'focus:border-primary focus:ring-2 focus:ring-ring/40',

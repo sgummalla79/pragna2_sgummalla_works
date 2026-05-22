@@ -27,9 +27,13 @@ export function ChatMessage({ message }: ChatMessageProps) {
     >
       <div
         className={
+          // 16px body copy (matches claude.ai / chatgpt convention) so
+          // long responses read comfortably. text-card-foreground for
+          // the brighter ~98% lightness token — see the chat-text
+          // brightness rationale on the previous commit.
           isUser
-            ? 'max-w-[80%] rounded-2xl bg-muted px-4 py-3 text-[14px] leading-relaxed text-foreground'
-            : 'w-full text-[14px] leading-relaxed text-foreground'
+            ? 'max-w-[80%] rounded-2xl bg-muted px-4 py-3 text-[18px] leading-relaxed text-card-foreground'
+            : 'w-full text-[18px] leading-relaxed text-card-foreground'
         }
       >
         {message.content && (

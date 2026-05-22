@@ -86,13 +86,16 @@ export default function ChatLandingView() {
   return (
     <div className="flex h-full flex-col bg-background">
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
-        {/* Greeting row — logo + time-of-day phrase + first name.
-            Hidden while bootstrapping the provider list so we don't flash
-            an incomplete greeting before the gating banners show up. */}
+        {/* Greeting — logo + time-of-day phrase on one row, centered as
+            a unit on the same axis as the composer below. The wrapping
+            column's `items-center` keeps the block's X-centre aligned
+            with the composer's X-centre. Hidden while bootstrapping the
+            provider list so we don't flash an incomplete greeting before
+            the gating banners show up. */}
         {!isLoading && (
           <div className="flex items-center gap-4 mb-12 select-none">
             <PragnaLogo className="h-10 w-10 flex-shrink-0" aria-hidden="true" />
-            <h1 className="text-[32px] sm:text-[40px] font-serif font-semibold text-foreground m-0 leading-none">
+            <h1 className="text-[32px] sm:text-[40px] font-serif font-semibold text-card-foreground m-0 leading-none">
               {greeting.text}
             </h1>
           </div>

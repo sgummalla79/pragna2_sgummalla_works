@@ -110,7 +110,7 @@ export function ChatInput({
           'focus-within:border-input',
         )}
       >
-        {children && <div className="px-3 pt-3">{children}</div>}
+        {children && <div className="px-4 pt-3">{children}</div>}
 
         <textarea
           ref={textareaRef}
@@ -126,14 +126,20 @@ export function ChatInput({
           aria-label="Chat input"
           className={cn(
             'block w-full resize-none border-0 bg-transparent outline-none',
-            'px-5 pt-4 pb-2 text-[15px] leading-6 text-foreground',
+            // Compact inner padding so the placeholder hugs the top
+            // edge of the composer. pt-2 (8px) + line-height(24) +
+            // pb-2 (8px) = 40px content; min-h-11 (44px) leaves a
+            // sliver of breathing room above the button row without
+            // floating the placeholder.
+            'px-4 pt-2 pb-2 text-[15px] leading-6 text-card-foreground',
+            '[&:not(:placeholder-shown)]:font-semibold',
             'placeholder:text-muted-foreground',
-            'min-h-[56px]',
+            'min-h-11',
             'disabled:cursor-not-allowed disabled:opacity-60',
           )}
         />
 
-        <div className="flex items-center justify-end px-3 pb-3 pt-1">
+        <div className="flex items-center justify-end px-4 pb-3 pt-1">
           {showStop ? (
             <button
               type="button"
