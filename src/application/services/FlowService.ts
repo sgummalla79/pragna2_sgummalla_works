@@ -1,10 +1,11 @@
-import type { IFlowRepository } from '@/application/ports/IFlowRepository';
+import type { IFlowRepository, SaveFromYamlResult } from '@/application/ports/IFlowRepository';
 import type {
   AddEdgePayload,
   AddNodePayload,
   CreateFlowPayload,
   Flow,
 } from '@/domain/types/flow.types';
+import type { YamlValidationResult } from '@/domain/types/flowYaml.types';
 
 export class FlowService {
   constructor(private readonly flowRepository: IFlowRepository) {}
@@ -31,5 +32,13 @@ export class FlowService {
 
   delete(id: string): Promise<void> {
     return this.flowRepository.delete(id);
+  }
+
+  validateYaml(definition: string): Promise<YamlValidationResult> {
+    return this.flowRepository.validateYaml(definition);
+  }
+
+  saveFromYaml(definition: string): Promise<SaveFromYamlResult> {
+    return this.flowRepository.saveFromYaml(definition);
   }
 }

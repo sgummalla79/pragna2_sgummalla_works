@@ -1,5 +1,5 @@
 import type { AxiosInstance } from 'axios';
-import type { IFlowRepository } from '@/application/ports/IFlowRepository';
+import type { IFlowRepository, SaveFromYamlResult } from '@/application/ports/IFlowRepository';
 import type {
   AddEdgePayload,
   AddNodePayload,
@@ -9,6 +9,7 @@ import type {
   FlowEdge,
   FlowNode,
 } from '@/domain/types/flow.types';
+import type { YamlValidationResult } from '@/domain/types/flowYaml.types';
 import { EDGE_CONDITIONS } from '@/constants/edgeConditions';
 
 /** R3.5+ wire shape — flow_nodes are pure topology (node_id + user_agent_id);
@@ -112,5 +113,26 @@ export class FlowRepository implements IFlowRepository {
 
   async delete(id: string): Promise<void> {
     await this.http.delete(`/api/flows/${id}`);
+  }
+
+  // ── YAML-authored flows (R3.6+) ──────────────────────────────────────
+
+  async validateYaml(definition: string): Promise<YamlValidationResult> {
+    const { data } = await this.http.post<YamlValidationResult>(
+      '/api/flows/validate-yaml',
+      { definition },
+    );
+    return data;
+  }
+
+  async saveFromYaml(definition: string): Promise<SaveFromYamlResult> {
+    const response = await this.http.post<ApiFlowResponse>(
+      '/api/flows/from-yaml',
+      { definition },
+    );
+    return {
+      flow: mapFlow(response.data),
+      created: response.status === 201,
+    };
   }
 }

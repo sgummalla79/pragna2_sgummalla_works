@@ -67,3 +67,27 @@ export function useDeleteFlow() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: FLOWS_KEY }),
   });
 }
+
+/** R3.6+: validate a YAML flow document. Server always returns 200; the
+ *  body carries `valid` + structured `errors[]` for inline rendering. */
+export function useValidateFlowYaml() {
+  const { flowService } = useServices();
+  return useMutation({
+    mutationFn: (definition: string) => flowService.validateYaml(definition),
+  });
+}
+
+/** R3.6+: persist a YAML-authored flow. 201 on create, 200 on update,
+ *  422 with structured errors on validation failure (caller unwraps via
+ *  AxiosError.response.data.detail). */
+export function useSaveFlowFromYaml() {
+  const { flowService } = useServices();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (definition: string) => flowService.saveFromYaml(definition),
+    onSuccess: ({ flow }) => {
+      queryClient.invalidateQueries({ queryKey: FLOWS_KEY });
+      queryClient.invalidateQueries({ queryKey: flowKey(flow.id) });
+    },
+  });
+}

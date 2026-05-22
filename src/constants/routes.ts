@@ -14,7 +14,9 @@ export const ROUTES = {
   // inline via the bulk PATCH endpoint).
   SETTINGS:           '/settings',
   SETTINGS_PROVIDERS: '/settings/providers',
-  SETTINGS_FLOWS:     '/settings/flows',
+  SETTINGS_FLOWS:           '/settings/flows',
+  SETTINGS_FLOW_EDITOR_NEW: '/settings/flows/new',
+  SETTINGS_FLOW_EDITOR:     '/settings/flows/:flowId/edit',
   SETTINGS_SKILLS:    '/settings/skills',
   SETTINGS_PROFILE:   '/settings/profile',
 
