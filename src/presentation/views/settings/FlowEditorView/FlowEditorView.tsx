@@ -222,7 +222,7 @@ function EditorInner({ flowId }: EditorProps) {
         </div>
 
         {/* Read-only reactflow preview */}
-        <div className="min-h-0 bg-[#0a0a0a]">
+        <div className="min-h-0 bg-background">
           {nodes.length === 0 ? (
             <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
               {yamlText.trim()
@@ -245,7 +245,9 @@ function EditorInner({ flowId }: EditorProps) {
               edgesUpdatable={false}
               proOptions={{ hideAttribution: true }}
             >
-              <Background gap={20} color="#1f1f1f" />
+              {/* Background dots read from --color-border so they fade
+                  with the active palette instead of staying near-black. */}
+              <Background gap={20} color="var(--color-border)" />
               <Controls showInteractive={false} />
             </ReactFlow>
           )}

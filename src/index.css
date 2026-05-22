@@ -1,108 +1,91 @@
 @import "tailwindcss";
 
 /* ════════════════════════════════════════════════════════════════════════
- *  Pragna Theme — shadcn/ui Copper (light + dark)
- *  Full reference: docs/THEMES.md
+ *  Pragna Theme — runtime palette system (TweakCN-compatible)
  *
- *  Idiom matches shadcn/ui v2: ``--primary`` carries the brand accent
- *  (copper), neutrals come from a warm-tuned zinc-ish base, and every
- *  token is declared in oklch — the perceptually-uniform colour space
- *  shadcn moved to in 2025. That lets ``primary/10``/``primary/90``
- *  opacity utilities (e.g. ``hover:bg-primary/90``) read consistently
- *  across both modes.
+ *  How this works:
  *
- *  Defaults below = DARK. Light mode overrides the same custom properties
- *  inside [data-theme="light"] further down. The theme toggle lives in
- *  src/presentation/store/uiStore.ts; it sets data-theme on <html>.
+ *  1. The ``@theme`` block below declares every CSS variable Tailwind
+ *     v4 needs to generate utilities (``bg-background``, ``text-primary``,
+ *     etc.). Values here are the **dark Claude palette** — they're the
+ *     SSR / no-JS / first-paint baseline.
+ *
+ *  2. At runtime, :file:`src/themes/tweakcn.ts` writes inline style
+ *     properties on ``<html>`` based on the active palette + mode.
+ *     Those overrides win via CSS cascade specificity — Tailwind
+ *     utilities pick up the new values instantly. Switching palettes
+ *     or toggling light/dark just rewrites those inline properties.
+ *
+ *  3. Adding a new theme: paste any TweakCN JSON via
+ *     Settings → Appearance → "Install from TweakCN". It's stored in
+ *     localStorage and selectable from the palette grid. No CSS edits
+ *     required. See :file:`src/themes/README.md`.
  *
  *  Tokens declared inside @theme become Tailwind utilities:
  *      --color-background  →  bg-background
  *      --color-primary     →  bg-primary / text-primary
- *      ... and so on.
+ *      ... etc.
  * ════════════════════════════════════════════════════════════════════════ */
 @theme {
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 
-  /* ── Surfaces (DARK default) ───────────────────────────────────────── */
-  --color-background:         oklch(0.145 0.004 285);
-  --color-foreground:         oklch(0.985 0 0);
+  /* ── Surfaces (dark Claude defaults; runtime override flips them) ── */
+  --color-background:         oklch(0.2679 0.0036 106.6427);
+  --color-foreground:         oklch(0.8074 0.0142 93.0137);
 
-  --color-card:               oklch(0.21 0.006 285);
-  --color-card-foreground:    oklch(0.985 0 0);
+  --color-card:               oklch(0.2679 0.0036 106.6427);
+  --color-card-foreground:    oklch(0.9818 0.0054 95.0986);
 
-  --color-popover:            oklch(0.21 0.006 285);
-  --color-popover-foreground: oklch(0.985 0 0);
+  --color-popover:            oklch(0.3085 0.0035 106.6039);
+  --color-popover-foreground: oklch(0.9211 0.0040 106.4781);
 
-  --color-muted:              oklch(0.274 0.006 286);
-  --color-muted-foreground:   oklch(0.705 0.015 286);
+  --color-muted:              oklch(0.2213 0.0038 106.7070);
+  --color-muted-foreground:   oklch(0.7713 0.0169 99.0657);
 
-  --color-accent:             oklch(0.274 0.006 286);
-  --color-accent-foreground:  oklch(0.985 0 0);
+  --color-accent:             oklch(0.2130 0.0078 95.4245);
+  --color-accent-foreground:  oklch(0.9663 0.0080 98.8792);
 
-  --color-secondary:          oklch(0.274 0.006 286);
-  --color-secondary-foreground: oklch(0.985 0 0);
+  --color-secondary:          oklch(0.9818 0.0054 95.0986);
+  --color-secondary-foreground: oklch(0.3085 0.0035 106.6039);
 
-  /* ── Brand accent — Copper (DARK) ─────────────────────────────────────
-     Slightly higher lightness than the light-mode primary so the copper
-     stays readable on the near-black background. */
-  --color-primary:            oklch(0.7 0.13 47);
-  --color-primary-foreground: oklch(0.21 0.006 285);
+  --color-primary:            oklch(0.6724 0.1308 38.7559);
+  --color-primary-foreground: oklch(1.0000 0 0);
 
-  /* ── Destructive (DARK) ────────────────────────────────────────────── */
-  --color-destructive:            oklch(0.704 0.191 22);
-  --color-destructive-foreground: oklch(0.985 0 0);
+  --color-destructive:            oklch(0.6368 0.2078 25.3313);
+  --color-destructive-foreground: oklch(1.0000 0 0);
 
-  /* Soft-destructive trio (DARK) — for inline error banners + helper text.
-     ``destructive`` above is meant for prominent button backgrounds; these
-     three are the lighter banner triplet used inline. */
-  --color-error-bg:     oklch(0.2 0.04 25);
+  /* App-specific inline-banner triplet. Not part of TweakCN/shadcn —
+     authors are expected to keep them on a red axis regardless of
+     palette so error banners stay legible. */
+  --color-error-bg:     oklch(0.20 0.04 25);
   --color-error-border: oklch(0.32 0.07 25);
   --color-error-text:   oklch(0.82 0.12 25);
 
-  /* ── Structure (DARK) ──────────────────────────────────────────────── */
-  --color-border: oklch(1 0 0 / 0.1);
-  --color-input:  oklch(1 0 0 / 0.15);
-  --color-ring:   oklch(0.7 0.13 47); /* copper, matches primary */
-}
+  --color-border: oklch(0.3618 0.0101 106.8928);
+  --color-input:  oklch(0.4336 0.0113 100.2195);
+  --color-ring:   oklch(0.6724 0.1308 38.7559);
 
-/* ════════════════════════════════════════════════════════════════════════
- *  LIGHT mode override
- *  Activated by <html data-theme="light">.
- * ════════════════════════════════════════════════════════════════════════ */
-[data-theme="light"] {
-  --color-background:         oklch(1 0 0);
-  --color-foreground:         oklch(0.21 0.006 285);
+  --color-chart-1: oklch(0.5583 0.1276 42.9956);
+  --color-chart-2: oklch(0.6898 0.1581 290.4107);
+  --color-chart-3: oklch(0.2130 0.0078 95.4245);
+  --color-chart-4: oklch(0.3074 0.0516 289.3230);
+  --color-chart-5: oklch(0.5608 0.1348 42.0584);
 
-  --color-card:               oklch(1 0 0);
-  --color-card-foreground:    oklch(0.21 0.006 285);
-
-  --color-popover:            oklch(1 0 0);
-  --color-popover-foreground: oklch(0.21 0.006 285);
-
-  --color-muted:              oklch(0.967 0.001 286);
-  --color-muted-foreground:   oklch(0.552 0.016 285);
-
-  --color-accent:             oklch(0.967 0.001 286);
-  --color-accent-foreground:  oklch(0.21 0.006 285);
-
-  --color-secondary:          oklch(0.967 0.001 286);
-  --color-secondary-foreground: oklch(0.21 0.006 285);
-
-  /* Copper (LIGHT) — drop the lightness a touch so the accent has bite
-     against white surfaces but isn't so dark it feels muddy. */
-  --color-primary:            oklch(0.62 0.135 47);
-  --color-primary-foreground: oklch(0.985 0 0);
-
-  --color-destructive:            oklch(0.577 0.245 27);
-  --color-destructive-foreground: oklch(0.985 0 0);
-
-  --color-error-bg:     oklch(0.97 0.02 25);
-  --color-error-border: oklch(0.9 0.06 25);
-  --color-error-text:   oklch(0.5 0.18 25);
-
-  --color-border: oklch(0.92 0.004 286);
-  --color-input:  oklch(0.92 0.004 286);
-  --color-ring:   oklch(0.62 0.135 47);
+  --color-sidebar:                    oklch(0.2357 0.0024 67.7077);
+  --color-sidebar-foreground:         oklch(0.8074 0.0142 93.0137);
+  --color-sidebar-primary:            oklch(0.3250 0 0);
+  --color-sidebar-primary-foreground: oklch(0.9881 0 0);
+  --color-sidebar-accent:             oklch(0.1680 0.0020 106.6177);
+  --color-sidebar-accent-foreground:  oklch(0.8074 0.0142 93.0137);
+  --color-sidebar-border:             oklch(0.9401 0 0);
+  --color-sidebar-ring:               oklch(0.7731 0 0);
 }
 
 /* ── Keyframes ───────────────────────────────────────────────────────── */
@@ -113,8 +96,8 @@
 /*
  * ── Base layer ────────────────────────────────────────────────────────
  * Inside @layer base so Tailwind utilities (p-*, m-*, etc.) can override
- * it. Background + foreground use the semantic tokens — they flip with the
- * theme automatically.
+ * it. Background + foreground use the semantic tokens — they flip with
+ * the palette + mode automatically.
  */
 @layer base {
   *,

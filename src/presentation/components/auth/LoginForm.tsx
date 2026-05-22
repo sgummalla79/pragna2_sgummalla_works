@@ -142,7 +142,7 @@ export function LoginForm() {
             cursor: busy ? 'not-allowed' : 'pointer',
             opacity: busy ? 0.5 : 1,
             background: 'var(--color-primary)',
-            color: '#fff',
+            color: 'var(--color-primary-foreground)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -154,8 +154,8 @@ export function LoginForm() {
               <span
                 style={{
                   width: 14, height: 14, borderRadius: '50%',
-                  border: '2px solid rgba(255,255,255,0.3)',
-                  borderTopColor: '#fff',
+                  border: '2px solid color-mix(in oklab, var(--color-primary-foreground) 30%, transparent)',
+                  borderTopColor: 'var(--color-primary-foreground)',
                   animation: 'spin 0.6s linear infinite',
                   display: 'inline-block',
                 }}

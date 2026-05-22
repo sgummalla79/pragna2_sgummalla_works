@@ -12,8 +12,9 @@ export const ROUTES = {
   // Models do not have a top-level page — they are managed inside the
   // provider modal on /settings/providers (auto-discovered + edited
   // inline via the bulk PATCH endpoint).
-  SETTINGS:           '/settings',
-  SETTINGS_PROVIDERS: '/settings/providers',
+  SETTINGS:             '/settings',
+  SETTINGS_APPEARANCE:  '/settings/appearance',
+  SETTINGS_PROVIDERS:   '/settings/providers',
   SETTINGS_AGENTS:    '/settings/agents',
   SETTINGS_FLOWS:           '/settings/flows',
   SETTINGS_FLOW_EDITOR_NEW: '/settings/flows/new',

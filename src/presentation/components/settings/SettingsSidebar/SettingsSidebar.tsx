@@ -18,6 +18,7 @@ const SETTINGS_NAV: SidebarItemConfig[] = [
   { type: 'nav', to: ROUTES.SETTINGS_FLOWS,  icon: <FlowsIcon />,  label: 'Flows' },
   { type: 'nav', to: ROUTES.SETTINGS_SKILLS, icon: <SkillsIcon />, label: 'Skills' },
   { type: 'section', label: 'Account' },
+  { type: 'nav', to: ROUTES.SETTINGS_APPEARANCE, icon: <AppearanceIcon />, label: 'Appearance' },
   { type: 'nav', to: ROUTES.SETTINGS_PROFILE, icon: <ProfileIcon />, label: 'Profile' },
 ];
 
@@ -77,6 +78,18 @@ function SkillsIcon() {
       <path d="M12 2a10 10 0 1 0 10 10" />
       <path d="M12 8v4l3 3" />
       <path d="M22 2 16 8" /><path d="M17 2h5v5" />
+    </svg>
+  );
+}
+
+function AppearanceIcon() {
+  // Half-moon "theme" glyph — distinct from the Sun/Moon used in the
+  // mode toggle button so the nav row reads as a section, not a control.
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 3a9 9 0 0 1 0 18 6 6 0 0 0 0-12 6 6 0 0 1 0-6z" fill="currentColor" />
     </svg>
   );
 }

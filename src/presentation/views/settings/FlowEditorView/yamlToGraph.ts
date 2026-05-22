@@ -108,10 +108,13 @@ export function yamlToGraph(yamlText: string): YamlGraph {
       type: 'default',
       sourcePosition: 'bottom' as Node['sourcePosition'],
       targetPosition: 'top' as Node['targetPosition'],
+      // Read from --color-* tokens so the canvas follows palette swaps.
+      // (Earlier versions used `--muted` without the prefix — that
+      // doesn't match our Tailwind v4 naming, so it always fell back.)
       style: {
-        background: 'var(--muted, #1f1f1f)',
-        color: 'var(--muted-foreground, #a3a3a3)',
-        border: '1px dashed #3a3a3a',
+        background: 'var(--color-muted)',
+        color: 'var(--color-muted-foreground)',
+        border: '1px dashed var(--color-border)',
         borderRadius: 8,
         padding: '8px 12px',
         fontSize: 12,
@@ -129,9 +132,9 @@ export function yamlToGraph(yamlText: string): YamlGraph {
       sourcePosition: 'bottom' as Node['sourcePosition'],
       targetPosition: 'top' as Node['targetPosition'],
       style: {
-        background: 'var(--card, #171717)',
-        color: 'var(--card-foreground, #ececea)',
-        border: '1px solid #2a2a2a',
+        background: 'var(--color-card)',
+        color: 'var(--color-card-foreground)',
+        border: '1px solid var(--color-border)',
         borderRadius: 10,
         padding: '8px 12px',
         fontSize: 12,
@@ -168,9 +171,12 @@ export function yamlToGraph(yamlText: string): YamlGraph {
           // nodes when the graph is dense.
           type: 'smoothstep',
           label: e.condition && e.condition !== 'default' ? e.condition : undefined,
-          labelStyle: { fill: '#a3a3a3', fontSize: 10 },
-          labelBgStyle: { fill: '#0d0d0d' },
-          style: { stroke: '#3a3a3a', strokeWidth: 1.5 },
+          // SVG `fill` / `stroke` need real CSS color strings — we read
+          // the same tokens the rest of the canvas uses so palette swaps
+          // flow through edge styling too.
+          labelStyle: { fill: 'var(--color-muted-foreground)', fontSize: 10 },
+          labelBgStyle: { fill: 'var(--color-popover)' },
+          style: { stroke: 'var(--color-border)', strokeWidth: 1.5 },
         });
       }
     }
