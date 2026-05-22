@@ -14,6 +14,7 @@ const SETTINGS_NAV: SidebarItemConfig[] = [
   { type: 'section', label: 'AI Setup' },
   { type: 'nav', to: ROUTES.SETTINGS_PROVIDERS, icon: <ProvidersIcon />, label: 'Providers' },
   { type: 'section', label: 'Workflows' },
+  { type: 'nav', to: ROUTES.SETTINGS_AGENTS, icon: <AgentsIcon />, label: 'Agents' },
   { type: 'nav', to: ROUTES.SETTINGS_FLOWS,  icon: <FlowsIcon />,  label: 'Flows' },
   { type: 'nav', to: ROUTES.SETTINGS_SKILLS, icon: <SkillsIcon />, label: 'Skills' },
   { type: 'section', label: 'Account' },
@@ -39,6 +40,22 @@ function ProvidersIcon() {
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
+  );
+}
+
+function AgentsIcon() {
+  // Bot silhouette — visually distinct from FlowsIcon (graph) so the eye
+  // can sort the two related-but-different rows at a glance.
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="8" width="18" height="12" rx="2" />
+      <path d="M12 4v4" />
+      <circle cx="12" cy="3" r="1" />
+      <circle cx="8.5" cy="13" r="1" />
+      <circle cx="15.5" cy="13" r="1" />
+      <path d="M9 17h6" />
     </svg>
   );
 }

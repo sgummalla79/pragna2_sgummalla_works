@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml as yamlLang } from '@codemirror/lang-yaml';
@@ -6,8 +6,8 @@ import ReactFlow, {
   Background,
   Controls,
   ReactFlowProvider,
-  type Edge,
-  type Node,
+  useEdgesState,
+  useNodesState,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { AlertCircle, ArrowLeft, CheckCircle2, Save } from 'lucide-react';
@@ -64,10 +64,19 @@ function EditorInner({ flowId }: EditorProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flowId, existingFlow]);
 
-  // Client-side YAML → graph projection drives the read-only canvas.
-  // Recomputed on every keystroke; cheap because dagre runs over a handful
-  // of nodes and yamlToGraph is tolerant of half-typed input.
-  const graph = useMemo(() => yamlToGraph(yamlText), [yamlText]);
+  // Reactflow's controlled state. We sync from the YAML on every text
+  // change (replacing the graph), but between edits the user is free to
+  // drag nodes around — onNodesChange writes back here so positions
+  // persist within the editing session. (Persisting across reloads
+  // would need writing positions into flow.metadata; deferred to R6.)
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  useEffect(() => {
+    const graph = yamlToGraph(yamlText);
+    setNodes(graph.nodes);
+    setEdges(graph.edges);
+  }, [yamlText, setNodes, setEdges]);
 
   async function handleValidate() {
     setBanner(null);
@@ -214,7 +223,7 @@ function EditorInner({ flowId }: EditorProps) {
 
         {/* Read-only reactflow preview */}
         <div className="min-h-0 bg-[#0a0a0a]">
-          {graph.nodes.length === 0 ? (
+          {nodes.length === 0 ? (
             <div className="flex h-full items-center justify-center p-8 text-sm text-muted-foreground">
               {yamlText.trim()
                 ? 'Add nodes under flow.nodes[] to see the graph.'
@@ -222,12 +231,18 @@ function EditorInner({ flowId }: EditorProps) {
             </div>
           ) : (
             <ReactFlow
-              nodes={graph.nodes as Node[]}
-              edges={graph.edges as Edge[]}
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
               fitView
-              nodesDraggable={false}
+              // Nodes are draggable for readability tweaks. We deliberately
+              // leave edge authoring off (`nodesConnectable`, `edgesUpdatable`)
+              // — edges are written in YAML, so letting the canvas mutate
+              // them would break the YAML-as-source-of-truth contract.
+              nodesDraggable
               nodesConnectable={false}
-              elementsSelectable={false}
+              edgesUpdatable={false}
               proOptions={{ hideAttribution: true }}
             >
               <Background gap={20} color="#1f1f1f" />

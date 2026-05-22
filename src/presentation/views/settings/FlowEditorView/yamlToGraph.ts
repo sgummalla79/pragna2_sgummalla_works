@@ -162,6 +162,11 @@ export function yamlToGraph(yamlText: string): YamlGraph {
           id: `e_${edgeCounter++}`,
           source: src,
           target: dst,
+          // smoothstep routes orthogonally around the node boxes — easier
+          // to read than the default bezier when dagre packs nodes
+          // tightly. Default bezier sometimes slices through unrelated
+          // nodes when the graph is dense.
+          type: 'smoothstep',
           label: e.condition && e.condition !== 'default' ? e.condition : undefined,
           labelStyle: { fill: '#a3a3a3', fontSize: 10 },
           labelBgStyle: { fill: '#0d0d0d' },

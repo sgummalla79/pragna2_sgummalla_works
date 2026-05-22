@@ -7,6 +7,7 @@ import { ROUTES } from '@/constants/routes';
 /** Maps a settings path to a human-readable title for the mobile top bar. */
 const SECTION_TITLES: Record<string, string> = {
   [ROUTES.SETTINGS_PROVIDERS]: 'Providers',
+  [ROUTES.SETTINGS_AGENTS]:    'Agents',
   [ROUTES.SETTINGS_FLOWS]:     'Flows',
   [ROUTES.SETTINGS_SKILLS]:    'Skills',
   [ROUTES.SETTINGS_PROFILE]:   'Profile',
