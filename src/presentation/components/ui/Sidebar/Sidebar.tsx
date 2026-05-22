@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +27,14 @@ interface Props {
   /** Toggle handler. Must be set together with `collapsed` for the
    *  toggle control to render. */
   onCollapseToggle?: () => void;
+  /** Icon rendered inside the toggle button. Used identically in both
+   *  expanded and collapsed states — the direction of the action is
+   *  carried by the `aria-label` / `title`. Defaults to lucide's
+   *  PanelLeftClose / PanelLeftOpen pair (the conventional collapse
+   *  affordance). Callers can pass a section-themed icon
+   *  (e.g. a gear for Settings) when they'd rather identify the
+   *  section than show a generic collapse glyph. */
+  toggleIcon?: ReactNode;
 }
 
 /** Width of the sidebar in icon-only mode (matches chat sidebar). */
@@ -60,6 +69,7 @@ export function Sidebar({
   headerTitle,
   collapsed = false,
   onCollapseToggle,
+  toggleIcon,
 }: Props) {
   const panelId = label.replace(/\s+/g, '-').toLowerCase();
   const showCollapseControl = Boolean(onCollapseToggle);
@@ -113,11 +123,12 @@ export function Sidebar({
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
               )}
             >
-              {collapsed ? (
-                <PanelLeftOpen size={18} aria-hidden="true" />
-              ) : (
-                <PanelLeftClose size={18} aria-hidden="true" />
-              )}
+              {toggleIcon ??
+                (collapsed ? (
+                  <PanelLeftOpen size={18} aria-hidden="true" />
+                ) : (
+                  <PanelLeftClose size={18} aria-hidden="true" />
+                ))}
             </button>
           </div>
         )}

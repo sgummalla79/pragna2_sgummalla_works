@@ -1,3 +1,5 @@
+import { Settings as SettingsIcon } from 'lucide-react';
+
 import { Sidebar } from '@/presentation/components/ui/Sidebar/Sidebar';
 import { ROUTES } from '@/constants/routes';
 import { useUiStore } from '@/presentation/store/uiStore';
@@ -39,6 +41,9 @@ export function SettingsSidebar({ isOpen, onClose }: Props) {
       items={SETTINGS_NAV}
       collapsed={collapsed}
       onCollapseToggle={toggle}
+      // Gear identifies the section; the click still toggles collapse
+      // (the action direction is carried by aria-label / title).
+      toggleIcon={<SettingsIcon size={18} aria-hidden="true" />}
     />
   );
 }
