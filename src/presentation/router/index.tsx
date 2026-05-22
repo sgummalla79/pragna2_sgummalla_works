@@ -20,6 +20,7 @@ const ChatSessionView   = lazy(() => import('@/presentation/views/chat/ChatSessi
 const AppearanceView   = lazy(() => import('@/presentation/views/settings/AppearanceView/AppearanceView'));
 const ProvidersView    = lazy(() => import('@/presentation/views/settings/ProvidersView/ProvidersView'));
 const AgentsView       = lazy(() => import('@/presentation/views/settings/AgentsView/AgentsView'));
+const AgentEditorView  = lazy(() => import('@/presentation/views/settings/AgentsView/AgentEditorView'));
 const FlowBuilderView  = lazy(() => import('@/presentation/views/settings/FlowBuilderView/FlowBuilderView'));
 const FlowEditorView   = lazy(() => import('@/presentation/views/settings/FlowEditorView/FlowEditorView'));
 const SkillsView       = lazy(() => import('@/presentation/views/settings/SkillsView/SkillsView'));
@@ -69,8 +70,10 @@ export function AppRoutes() {
           {/* /settings → redirect to providers */}
           <Route index element={<Navigate to={ROUTES.SETTINGS_PROVIDERS} replace />} />
           <Route path={ROUTES.SETTINGS_PROVIDERS}  element={<ProvidersView />} />
-          <Route path={ROUTES.SETTINGS_APPEARANCE} element={<AppearanceView />} />
-          <Route path={ROUTES.SETTINGS_AGENTS}     element={<AgentsView />} />
+          <Route path={ROUTES.SETTINGS_APPEARANCE}        element={<AppearanceView />} />
+          <Route path={ROUTES.SETTINGS_AGENTS}            element={<AgentsView />} />
+          <Route path={ROUTES.SETTINGS_AGENT_EDITOR_NEW}  element={<AgentEditorView />} />
+          <Route path={ROUTES.SETTINGS_AGENT_EDITOR}      element={<AgentEditorView />} />
           <Route path={ROUTES.SETTINGS_FLOWS}           element={<FlowBuilderView />} />
           <Route path={ROUTES.SETTINGS_FLOW_EDITOR_NEW} element={<FlowEditorView />} />
           <Route path={ROUTES.SETTINGS_FLOW_EDITOR}     element={<FlowEditorView />} />

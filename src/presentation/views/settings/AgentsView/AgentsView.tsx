@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Bot, Pencil, Plus, Trash2 } from 'lucide-react';
 import { isAxiosError } from 'axios';
 
@@ -8,36 +9,28 @@ import { Card, CardContent } from '@/presentation/components/ui/Card';
 import { useUserAgents, useDeleteUserAgent } from '@/presentation/hooks/userAgents/useUserAgents';
 import { useModels } from '@/presentation/hooks/models/useModels';
 import type { UserAgent } from '@/domain/types/userAgent.types';
-import { AgentFormDialog } from './AgentFormDialog';
+import { ROUTES } from '@/constants/routes';
 
 /**
- * Settings → Agents. Lists the user's reusable agent definitions and
- * lets them be created / edited / deleted. Flows reference these by
- * `apiName` inside the YAML editor.
+ * Settings → Agents. Lists reusable agent definitions. Create + edit
+ * happen on a dedicated full-page route (:file:`AgentEditorView.tsx`)
+ * so long fields (system prompt textarea, chip inputs) have room to
+ * breathe. Delete is inline with a confirm + 409 handling.
  */
 export default function AgentsView() {
   const { data: agents = [], isLoading } = useUserAgents();
   const { data: models = [] } = useModels();
   const deleteAgent = useDeleteUserAgent();
 
-  const [editing, setEditing] = useState<UserAgent | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Resolve userModelId → model.displayName once for the whole list.
   const modelById = useMemo(
     () => new Map(models.map((m) => [m.id, m])),
     [models],
   );
 
-  function handleCreate() {
-    setEditing(null);
-    setDialogOpen(true);
-  }
-
-  function handleEdit(agent: UserAgent) {
-    setEditing(agent);
-    setDialogOpen(true);
+  function editPath(id: string): string {
+    return ROUTES.SETTINGS_AGENT_EDITOR.replace(':agentId', id);
   }
 
   async function handleDelete(agent: UserAgent) {
@@ -68,9 +61,11 @@ export default function AgentsView() {
             Reusable agent definitions. Reference them from your flow YAML by their api_name.
           </p>
         </div>
-        <Button onClick={handleCreate} size="sm">
-          <Plus size={16} aria-hidden="true" />
-          New agent
+        <Button asChild size="sm">
+          <Link to={ROUTES.SETTINGS_AGENT_EDITOR_NEW}>
+            <Plus size={16} aria-hidden="true" />
+            New agent
+          </Link>
         </Button>
       </div>
 
@@ -98,10 +93,9 @@ export default function AgentsView() {
                 <Card>
                   <CardContent className="py-4">
                     <div className="flex items-start justify-between gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(a)}
-                        className="flex-1 text-left"
+                      <Link
+                        to={editPath(a.id)}
+                        className="flex-1 text-foreground no-underline hover:opacity-80"
                       >
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <p className="font-medium">{a.displayName}</p>
@@ -128,15 +122,17 @@ export default function AgentsView() {
                             ))
                           )}
                         </div>
-                      </button>
+                      </Link>
                       <div className="flex items-center gap-1">
                         <Button
+                          asChild
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleEdit(a)}
                           aria-label={`Edit ${a.displayName}`}
                         >
-                          <Pencil size={16} aria-hidden="true" />
+                          <Link to={editPath(a.id)}>
+                            <Pencil size={16} aria-hidden="true" />
+                          </Link>
                         </Button>
                         <Button
                           variant="ghost"
@@ -155,15 +151,6 @@ export default function AgentsView() {
           })}
         </ul>
       )}
-
-      <AgentFormDialog
-        agent={editing}
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) setEditing(null);
-        }}
-      />
     </div>
   );
 }

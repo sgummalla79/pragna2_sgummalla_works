@@ -278,6 +278,13 @@ export function applyPalette(palette: Palette, mode: ThemeMode): void {
 
   root.dataset.palette = palette.id;
   root.dataset.theme = mode;
+
+  // Tell the browser which system theme to use for native chrome
+  // (`<select>` popups, scrollbars, form-control accents). Without
+  // this, a dark app shows white-bordered native popups; a light app
+  // shows dark scrollbars. Matching `color-scheme` to our mode lets
+  // the browser pick sensible defaults for the things we can't style.
+  root.style.colorScheme = mode;
 }
 
 /** Remove every inline `--color-*` / `--font-*` / `--radius` etc.

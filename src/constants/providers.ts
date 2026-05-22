@@ -1,22 +1,20 @@
 import type { CredentialKind } from '@/domain/types/provider.types';
 
 // ── Visual design ─────────────────────────────────────────────────────────────
-// Styling hints only — the list of supported providers comes from GET /api/llm-providers.
+// Brand surface colours used to live here as hardcoded hex values
+// (Anthropic copper, OpenAI black, etc.). Removed — every surface now
+// reads from the active palette so the provider grid follows theme
+// swaps. The actual brand identity is preserved via the SVG logo
+// (see :file:`src/assets/logos/*.svg`); the colour-letter fallback
+// below is just a neutral placeholder for providers without a logo.
 
-export const PROVIDER_COLORS: Record<string, { bg: string; fg: string }> = {
-  anthropic:  { bg: '#CC785C', fg: '#fff' },
-  openai:     { bg: '#0d0d0d', fg: '#fff' },
-  google:     { bg: '#4285F4', fg: '#fff' },
-  groq:       { bg: '#F55036', fg: '#fff' },
-  mistral:    { bg: '#FF7000', fg: '#fff' },
-  perplexity: { bg: '#1a1a2e', fg: '#20d9d2' },
-  bedrock:    { bg: '#FF9900', fg: '#fff' },
-  vertexai:   { bg: '#4285F4', fg: '#fff' },
-};
-
-/** Returns brand colour for a known provider, or a neutral fallback. */
-export function providerColor(name: string): { bg: string; fg: string } {
-  return PROVIDER_COLORS[name] ?? { bg: '#333', fg: '#ececea' };
+/** Returns palette-driven colour pair for the logo-fallback tile.
+ *  Uses CSS variable names so the result flips with the active theme
+ *  + palette. */
+export function providerColor(_name: string): { bg: string; fg: string } {
+  // Underscore-prefixed param kept so call sites don't break; once
+  // every caller migrates to the className-based variant we can drop it.
+  return { bg: 'var(--color-muted)', fg: 'var(--color-muted-foreground)' };
 }
 
 /** Returns the letter initial for a provider logo fallback. */
