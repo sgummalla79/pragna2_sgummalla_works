@@ -66,8 +66,7 @@ export function ProviderModal({
       <Dialog.Portal>
         {/* Backdrop */}
         <Dialog.Overlay
-          className="fixed inset-0 z-[600] bg-black/55"
-          style={{ backdropFilter: 'blur(4px)' }}
+          className="fixed inset-0 z-[600] bg-foreground/40 backdrop-blur-sm"
         />
 
         {/* Modal panel — centered, matches Vue ps-modal */}
@@ -107,7 +106,7 @@ export function ProviderModal({
                 </Dialog.Title>
                 {userProvider && (
                   <span
-                    className="inline-flex items-center gap-1 rounded-full border border-green-500/30 bg-green-500/[0.08] px-2 py-0.5 text-[11px] font-semibold text-green-500"
+                    className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
                     aria-label="Connected"
                   >
                     <span aria-hidden="true">✓</span>
@@ -152,7 +151,7 @@ export function ProviderModal({
 
             <div className="flex flex-shrink-0 items-center gap-2">
               <Dialog.Close
-                className="rounded-md px-1.5 py-0.5 text-base text-muted-foreground border-none bg-transparent cursor-pointer transition-colors duration-150 hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
+                className="rounded-md px-1.5 py-0.5 text-base text-muted-foreground border-0 bg-transparent cursor-pointer transition-colors duration-150 hover:text-accent-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="Close"
               >
                 ✕

@@ -155,17 +155,33 @@ function PaletteCard({
       <Card
         className={
           active
-            ? 'border-primary ring-2 ring-primary/30 cursor-pointer'
-            : 'cursor-pointer hover:border-primary/50'
+            ? 'relative border-primary ring-2 ring-primary/30 cursor-pointer'
+            : 'relative cursor-pointer hover:border-primary/50'
         }
       >
+        {/* Remove sits absolute so installed tiles match bundled tile heights
+            exactly — the action footer used to add ~36px to installed cards. */}
+        {!palette.bundled && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onUninstall(); }}
+            aria-label={`Remove ${palette.label}`}
+            title={`Remove ${palette.label}`}
+            className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
+          >
+            <Trash2 size={13} aria-hidden="true" />
+          </button>
+        )}
+
         <CardContent className="py-4">
           <button
             type="button"
             onClick={onActivate}
             className="w-full text-left"
           >
-            <div className="flex items-start justify-between gap-2 mb-3">
+            {/* Reserve room on the right for the absolute Remove button so
+                long labels don't slip underneath it. */}
+            <div className="flex items-start justify-between gap-2 mb-3 pr-8">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-medium truncate">{palette.label}</p>
@@ -182,11 +198,14 @@ function PaletteCard({
                 <p className="font-mono text-[11px] text-muted-foreground truncate">
                   {palette.id}
                 </p>
-                {palette.description && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {palette.description}
-                  </p>
-                )}
+                {/* Always render the description slot so bundled tiles
+                    (which carry a one-liner) and pasted-from-TweakCN tiles
+                    (which usually don't) have matching heights. min-h
+                    reserves ~2 lines of text-xs; line-clamp keeps any long
+                    description from blowing past the swatch row. */}
+                <p className="text-xs text-muted-foreground mt-0.5 min-h-[2.25rem] line-clamp-2">
+                  {palette.description ?? ' '}
+                </p>
               </div>
             </div>
 
@@ -205,20 +224,6 @@ function PaletteCard({
               </span>
             </div>
           </button>
-
-          {!palette.bundled && (
-            <div className="flex justify-end mt-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onUninstall}
-                aria-label={`Remove ${palette.label}`}
-              >
-                <Trash2 size={13} aria-hidden="true" />
-                Remove
-              </Button>
-            </div>
-          )}
         </CardContent>
       </Card>
     </li>

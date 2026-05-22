@@ -1,26 +1,15 @@
 interface Props {
   label: string;
-  /** When true, render a thin divider in place of the label — section
-   *  headers don't fit in icon-only width, but the visual break still
-   *  helps users see grouping. */
-  collapsed?: boolean;
 }
 
 /**
  * Non-clickable group header that labels a cluster of nav items.
- * Expanded: small uppercase caption. Collapsed: thin horizontal rule.
+ * Only used in the expanded sidebar — the collapsed rail drops section
+ * breaks entirely (icons are distinct enough to read without them).
  */
-export function SidebarSection({ label, collapsed = false }: Props) {
-  if (collapsed) {
-    return (
-      <hr
-        aria-label={label}
-        className="mx-2 my-2 h-px border-0 bg-border"
-      />
-    );
-  }
+export function SidebarSection({ label }: Props) {
   return (
-    <p className="select-none px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground/70">
+    <p className="select-none px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-[0.08em] text-sidebar-foreground/55">
       {label}
     </p>
   );

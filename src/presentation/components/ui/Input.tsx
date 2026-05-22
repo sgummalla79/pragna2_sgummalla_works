@@ -14,11 +14,15 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       ref={ref}
       disabled={disabled}
       className={cn(
-        'w-full rounded-lg border-[1.5px] border-input px-[13px] py-[10px]',
-        'bg-transparent text-[14px] text-foreground outline-none',
+        // `bg-input` is the fill (newer shadcn convention — TweakCN
+        // themes treat --input as the field surface, not just a border
+        // color). Border uses --color-border, focus surfaces via a
+        // ring on --color-ring so every theme token gets exercised.
+        'w-full rounded-lg border border-border px-[13px] py-[10px]',
+        'bg-input text-[14px] text-foreground outline-none',
         'placeholder:text-muted-foreground',
         'transition-colors duration-150',
-        'focus:border-primary',
+        'focus:border-primary focus:ring-2 focus:ring-ring/40',
         'disabled:cursor-not-allowed disabled:opacity-50',
         className
       )}

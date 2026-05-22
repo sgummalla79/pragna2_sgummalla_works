@@ -1,4 +1,5 @@
 import type { SocialConnection } from '@/domain/types/auth.types';
+import { cn } from '@/lib/utils';
 
 interface Props {
   connection: SocialConnection;
@@ -9,8 +10,12 @@ interface Props {
 
 /**
  * Social provider sign-in button.
- * Themed via semantic tokens so all interactive elements on the login
- * card share the same visual language (see docs/THEMES.md).
+ *
+ * Button chrome (surface, border, text, spinner) reads palette tokens
+ * exclusively — no hex / rgba anywhere. The provider icon SVGs in
+ * :func:`ProviderIcon` deliberately keep their brand colours
+ * (Google's 4-colour G, Facebook blue, LinkedIn blue, Microsoft's
+ * 4-tile mark) since those are trademark identity, not app chrome.
  */
 export function SocialLoginButton({ connection, loading, disabled, onClick }: Props) {
   return (
@@ -19,36 +24,19 @@ export function SocialLoginButton({ connection, loading, disabled, onClick }: Pr
       onClick={onClick}
       disabled={disabled}
       aria-busy={loading}
-      style={{
-        width: '100%',
-        padding: '10px 16px',
-        borderRadius: 8,
-        fontSize: 14,
-        fontWeight: 600,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.5 : 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 10,
-        background: 'var(--color-background)',
-        color: 'var(--color-foreground)',
-        border: '1.5px solid rgba(255,255,255,0.12)',
-        transition: 'border-color 0.15s',
-      }}
-      onMouseEnter={(e) => { if (!disabled) (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.3)'; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.12)'; }}
+      className={cn(
+        'flex w-full items-center justify-center gap-2.5 rounded-lg px-4 py-2.5',
+        'text-[14px] font-semibold transition-colors duration-150',
+        'border border-border bg-input text-foreground',
+        'hover:bg-accent hover:text-accent-foreground hover:border-primary/30',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+        'disabled:cursor-not-allowed disabled:opacity-50',
+      )}
     >
-      <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+      <span className="flex flex-shrink-0 items-center">
         {loading ? (
           <span
-            style={{
-              width: 16, height: 16, borderRadius: '50%',
-              border: '2px solid rgba(255,255,255,0.2)',
-              borderTopColor: 'var(--color-foreground)',
-              animation: 'spin 0.6s linear infinite',
-              display: 'inline-block',
-            }}
+            className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground"
             aria-hidden="true"
           />
         ) : (

@@ -58,8 +58,7 @@ export function RenameConversationDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay
-          className="fixed inset-0 z-[700] bg-black/60"
-          style={{ backdropFilter: 'blur(4px)' }}
+          className="fixed inset-0 z-[700] bg-foreground/40 backdrop-blur-sm"
         />
         <Dialog.Content
           className="

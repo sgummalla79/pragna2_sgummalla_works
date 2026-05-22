@@ -19,11 +19,14 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
           type={visible ? 'text' : 'password'}
           disabled={disabled}
           className={cn(
-            'w-full rounded-lg border-[1.5px] border-input px-[13px] py-[10px] pr-10',
-            'bg-transparent text-[14px] text-foreground outline-none',
+            // Matches Input.tsx exactly so password fields and text
+            // fields land on the same palette tokens (`bg-input` fill,
+            // `--color-border` edge, `--color-ring` focus halo).
+            'w-full rounded-lg border border-border px-[13px] py-[10px] pr-10',
+            'bg-input text-[14px] text-foreground outline-none',
             'placeholder:text-muted-foreground',
             'transition-colors duration-150',
-            'focus:border-primary',
+            'focus:border-primary focus:ring-2 focus:ring-ring/40',
             'disabled:cursor-not-allowed disabled:opacity-50',
             className
           )}

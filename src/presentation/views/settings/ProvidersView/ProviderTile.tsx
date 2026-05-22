@@ -53,9 +53,9 @@ export function ProviderTile({
       onMouseLeave={() => setHovered(false)}
       className={cn(
         'relative w-40 h-40 flex flex-col gap-2 rounded-2xl border-[1.5px] cursor-pointer select-none',
-        'pt-4 px-3.5 pb-3 bg-background',
+        'pt-4 px-3.5 pb-3 bg-card',
         'transition-[border-color,box-shadow] duration-[180ms]',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         // Border weight signals "is this provider connected" via the
         // palette: primary for connected (positive), destructive for
         // disconnected. Hover bumps the alpha + adds a soft shadow tinted
@@ -80,17 +80,20 @@ export function ProviderTile({
           className={cn(
             'absolute top-2.5 right-2.5 inline-flex items-center gap-1 rounded-full',
             'px-2 py-[3px] text-[10px] font-semibold border transition-colors duration-150',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             'disabled:opacity-50 disabled:cursor-not-allowed',
+            // Both states drive off palette tokens — primary (on) and
+            // muted (off, semantic "disabled but recoverable"). No
+            // hardcoded violet/green/red anywhere.
             providerEnabled
               ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
-              : 'bg-violet-500/10 text-violet-400 border-violet-500/25 hover:bg-violet-500/20'
+              : 'bg-muted text-muted-foreground border-border hover:bg-accent hover:text-accent-foreground',
           )}
         >
           <span
             className={cn(
               'h-1.5 w-1.5 rounded-full flex-shrink-0',
-              providerEnabled ? 'bg-primary-foreground' : 'bg-violet-400'
+              providerEnabled ? 'bg-primary-foreground' : 'bg-muted-foreground'
             )}
             aria-hidden="true"
           />
@@ -125,14 +128,16 @@ export function ProviderTile({
         </span>
       </div>
 
-      {/* Connected badge — bottom */}
+      {/* Connected badge — bottom. Connected = primary tint (positive,
+          matches the border treatment above); Not-connected = destructive
+          tint (matches the disconnected border). Pure palette tokens. */}
       <div className="flex items-center">
         <span
           className={cn(
             'inline-flex items-center gap-1.5 rounded-full px-2 py-[2px] text-[10px] font-semibold border flex-shrink-0',
             connected
-              ? 'bg-green-500/10 text-green-400 border-green-500/30'
-              : 'bg-red-500/10 text-red-400 border-red-500/25'
+              ? 'bg-primary/10 text-primary border-primary/30'
+              : 'bg-destructive/10 text-destructive border-destructive/30',
           )}
         >
           {connected ? 'Connected ✓' : 'Not connected'}

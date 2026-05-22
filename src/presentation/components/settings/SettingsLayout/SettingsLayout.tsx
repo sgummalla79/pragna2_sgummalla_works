@@ -58,8 +58,13 @@ export function SettingsLayout() {
           </span>
         </header>
 
-        {/* Content area */}
-        <main className="flex-1 overflow-y-auto">
+        {/* Content area.
+            `text-card-foreground` exposes every settings page to the
+            brighter `--card-foreground` token (~98% lightness) instead
+            of the page-default `--foreground` (~80%). Labels stay
+            colour-less so they inherit this. See
+            docs/THEME_OVERRIDES.md (#2) for the full rationale. */}
+        <main className="flex-1 overflow-y-auto text-card-foreground">
           <Outlet />
         </main>
       </div>

@@ -41,7 +41,7 @@ export function ChipInput({ id, values, onChange, placeholder, label }: Props) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5 min-h-[2.75rem]">
+    <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-input px-2 py-1.5 min-h-[2.75rem]">
       {values.map((v) => (
         <Badge key={v} variant="secondary" className="gap-1 pr-1">
           <span className="font-mono text-[11px]">{v}</span>

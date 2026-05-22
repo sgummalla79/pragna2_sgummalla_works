@@ -65,8 +65,10 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
     <aside
       aria-label="Chat navigation"
       className={cn(
+        // Sidebar surface uses sidebar-* tokens. Border deliberately
+        // stays on `border-border` — see docs/THEME_OVERRIDES.md (#1).
         'flex flex-col flex-shrink-0 border-r border-border',
-        'bg-background transition-[width] duration-150 ease-out',
+        'bg-sidebar text-sidebar-foreground transition-[width] duration-150 ease-out',
         collapsed ? 'w-14' : 'w-60'
       )}
     >
@@ -89,17 +91,17 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
             title={APP_NAME}
             className={cn(
               'mx-auto flex h-8 w-8 items-center justify-center rounded-md',
-              'hover:bg-accent transition-colors',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]'
+              'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-sidebar-ring)]'
             )}
           >
             <PragnaLogo className="h-6 w-6" aria-hidden="true" />
           </button>
         ) : (
           <>
-            <div className="flex flex-1 min-w-0 items-center gap-2 px-2">
+            <div className="flex flex-1 min-w-0 items-center gap-3 px-2">
               <PragnaLogo className="h-6 w-6 flex-shrink-0" aria-hidden="true" />
-              <span className="truncate font-bold text-base text-primary">
+              <span className="truncate font-bold text-xl text-card-foreground">
                 {APP_NAME}
               </span>
             </div>
@@ -110,9 +112,9 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
               aria-expanded
               className={cn(
                 'flex h-8 w-8 items-center justify-center rounded-md',
-                'text-muted-foreground hover:text-foreground hover:bg-accent',
+                'text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent',
                 'transition-colors focus-visible:outline-none focus-visible:ring-2',
-                'focus-visible:ring-[var(--color-ring)]'
+                'focus-visible:ring-[var(--color-sidebar-ring)]'
               )}
             >
               <PanelLeftClose size={18} />
@@ -135,8 +137,8 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
                 aria-label={label}
                 className={cn(
                   'group flex w-full items-center gap-3 px-4 py-3 text-sm font-medium',
-                  'text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
-                  'focus-visible:outline-none focus-visible:bg-accent',
+                  'text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  'focus-visible:outline-none focus-visible:bg-sidebar-accent',
                   collapsed && 'justify-center px-0',
                 )}
               >

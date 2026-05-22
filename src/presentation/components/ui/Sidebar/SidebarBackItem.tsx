@@ -26,8 +26,8 @@ export function SidebarBackItem({ to, label, collapsed = false }: Props) {
       title={collapsed ? label : undefined}
       aria-label={collapsed ? label : undefined}
       className={cn(
-        'flex items-center rounded-lg text-sm font-medium text-foreground no-underline',
-        'transition-colors duration-150 hover:bg-accent',
+        'flex items-center rounded-lg text-sm font-medium text-sidebar-foreground no-underline',
+        'transition-colors duration-150 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
         collapsed ? 'h-10 w-10 justify-center mx-auto' : 'gap-2.5 px-3.5 py-2.5 min-h-11',
       )}
     >

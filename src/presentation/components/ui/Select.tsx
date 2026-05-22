@@ -45,11 +45,14 @@ const SelectTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       'flex h-11 w-full items-center justify-between rounded-lg',
-      'border-[1.5px] border-input bg-transparent px-[13px] py-[10px]',
+      // Matches Input.tsx — `bg-input` fill, `--color-border` edge,
+      // `--color-ring` halo on focus. All three form primitives now
+      // exercise the same token set so theme swaps land consistently.
+      'border border-border bg-input px-[13px] py-[10px]',
       'text-[14px] text-foreground',
       'placeholder:text-muted-foreground',
       'transition-colors duration-150',
-      'focus:outline-none focus:border-primary',
+      'focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/40',
       'disabled:cursor-not-allowed disabled:opacity-50',
       // `[&>span]:line-clamp-1` keeps the chosen value from wrapping
       // into a second line when the option label is long.

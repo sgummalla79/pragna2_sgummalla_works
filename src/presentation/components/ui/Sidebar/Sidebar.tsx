@@ -93,7 +93,12 @@ export function Sidebar({
           'pragna-sidebar',
           `pragna-sidebar--${isOpen ? 'open' : 'closed'}`,
           'flex flex-col flex-shrink-0',
-          'bg-background text-foreground border-r border-border',
+          // Sidebar surface uses sidebar-* tokens (theme intent for the
+          // rail). Border deliberately uses `border-border` instead of
+          // `border-sidebar-border` — see docs/THEME_OVERRIDES.md
+          // (#1: many TweakCN themes ship a near-white sidebar-border
+          // which looks like a stark stripe in dark mode).
+          'bg-sidebar text-sidebar-foreground border-r border-border',
           'transition-[width] duration-150 ease-out',
         )}
         style={{ width: effectiveWidth, minWidth: effectiveWidth }}
@@ -106,7 +111,7 @@ export function Sidebar({
             )}
           >
             {!collapsed && headerTitle && (
-              <span className="flex-1 truncate px-2 text-[13px] font-semibold text-foreground">
+              <span className="flex-1 truncate px-2 text-[13px] font-semibold text-sidebar-foreground">
                 {headerTitle}
               </span>
             )}
@@ -118,9 +123,9 @@ export function Sidebar({
               title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               className={cn(
                 'flex h-8 w-8 items-center justify-center rounded-md',
-                'text-muted-foreground hover:text-foreground hover:bg-accent',
+                'text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent',
                 'transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-sidebar-ring)]',
               )}
             >
               {toggleIcon ??
@@ -135,6 +140,14 @@ export function Sidebar({
 
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 px-3 py-4">
           {items.map((item, index) => {
+            // Dividers and section headers are skipped wholesale in
+            // collapsed mode — the icons are distinct enough that
+            // category breaks don't earn their pixels at icon-only
+            // width, and stacked rules just look like noise.
+            if (collapsed && (item.type === 'divider' || item.type === 'section')) {
+              return null;
+            }
+
             switch (item.type) {
               case 'back':
                 return (
@@ -146,13 +159,7 @@ export function Sidebar({
                   />
                 );
               case 'section':
-                return (
-                  <SidebarSection
-                    key={index}
-                    label={item.label}
-                    collapsed={collapsed}
-                  />
-                );
+                return <SidebarSection key={index} label={item.label} />;
               case 'nav':
                 return (
                   <SidebarNavItem
