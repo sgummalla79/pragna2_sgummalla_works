@@ -96,7 +96,7 @@ export default function ProvidersView() {
   const modalModels        = activeUserProvider?.models ?? [];
 
   return (
-    <div className="flex flex-col gap-7">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto flex flex-col gap-7">
       <div>
         <h2 className="text-xl font-bold text-foreground">Providers</h2>
         <p className="mt-1.5 text-[13px] text-muted-foreground">
