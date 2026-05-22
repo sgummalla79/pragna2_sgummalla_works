@@ -21,11 +21,14 @@ interface Props {
  * Items are driven entirely by the `items` config array — the Sidebar does
  * not know about specific routes or content. Each item type delegates
  * rendering to its dedicated component (SidebarBackItem, SidebarNavItem, etc.)
- * so that styling is never mixed with data.
+ * so styling is never mixed with data.
  *
  * Desktop (≥ 1024px): positioned statically as a fixed-width panel.
- * Mobile  (< 1024px): full-height drawer that slides in from the left.
- *                     A semi-transparent backdrop covers the rest of the screen.
+ * Mobile  (< 1024px): full-height drawer that slides in from the left,
+ *                     dimmed backdrop behind it.
+ *
+ * Every surface (background, foreground, border) reads from the active
+ * palette via Tailwind tokens.
  */
 export function Sidebar({
   items,
@@ -43,26 +46,27 @@ export function Sidebar({
         <div
           onClick={onClose}
           aria-hidden="true"
-          className="pragna-sidebar-backdrop fixed inset-0 z-40 bg-black/55"
+          className="pragna-sidebar-backdrop fixed inset-0 z-40 bg-foreground/40 lg:hidden"
         />
       )}
 
-      {/* Sidebar panel */}
+      {/* Sidebar panel.
+       *
+       * Positioned `fixed` on mobile (sliding drawer) and `lg:static` on
+       * desktop (column in the flex shell). The slide transform is the
+       * only piece of CSS that needs custom rules — Tailwind doesn't ship
+       * a "slide-in-from-left at < lg" primitive, so we keep a tiny
+       * scoped style block that only governs the transform animation.
+       * Colours all come from palette tokens. */}
       <aside
         id={panelId}
         aria-label={label}
-        className={`pragna-sidebar pragna-sidebar--${isOpen ? 'open' : 'closed'}`}
-        style={{
-          width,
-          minWidth: width,
-          background: 'var(--color-background)',
-          color: 'var(--color-foreground)',
-          borderRight: '1px solid var(--color-border)',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '16px 12px',
-          gap: 4,
-        }}
+        className={`
+          pragna-sidebar pragna-sidebar--${isOpen ? 'open' : 'closed'}
+          flex flex-col gap-1 px-3 py-4
+          bg-background text-foreground border-r border-border
+        `}
+        style={{ width, minWidth: width }}
       >
         {items.map((item, index) => {
           switch (item.type) {
@@ -78,7 +82,7 @@ export function Sidebar({
         })}
       </aside>
 
-      {/* Responsive behaviour */}
+      {/* Slide-in transform — only piece of custom CSS; no colour rules. */}
       <style>{`
         .pragna-sidebar {
           position: fixed;
@@ -97,7 +101,6 @@ export function Sidebar({
             height: auto !important;
             min-height: 100vh;
           }
-          .pragna-sidebar-backdrop { display: none !important; }
         }
       `}</style>
     </>

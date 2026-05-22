@@ -56,13 +56,17 @@ export function ProviderTile({
         'pt-4 px-3.5 pb-3 bg-background',
         'transition-[border-color,box-shadow] duration-[180ms]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
+        // Border weight signals "is this provider connected" via the
+        // palette: primary for connected (positive), destructive for
+        // disconnected. Hover bumps the alpha + adds a soft shadow tinted
+        // by the same token. Following palette only — no hardcoded hex.
         hovered
           ? connected
-            ? 'border-[rgba(34,197,94,0.85)] shadow-[0_4px_16px_rgba(34,197,94,0.12)]'
-            : 'border-[rgba(239,68,68,0.85)] shadow-[0_4px_16px_rgba(239,68,68,0.12)]'
+            ? 'border-primary/85 shadow-[0_4px_16px_color-mix(in_oklab,var(--color-primary)_12%,transparent)]'
+            : 'border-destructive/85 shadow-[0_4px_16px_color-mix(in_oklab,var(--color-destructive)_12%,transparent)]'
           : connected
-          ? 'border-[rgba(34,197,94,0.4)]'
-          : 'border-[rgba(239,68,68,0.4)]'
+          ? 'border-primary/40'
+          : 'border-destructive/40'
       )}
     >
       {/* Enable/disable toggle pill — top-right, only when connected */}

@@ -66,9 +66,8 @@ export function ConfirmButton({
             w-[420px] max-w-[calc(100vw-32px)]
             flex flex-col gap-4
             rounded-[14px] border border-border
-            bg-popover p-6
+            bg-popover p-6 shadow-2xl
           "
-          style={{ boxShadow: '0 24px 60px rgba(0,0,0,0.45)' }}
         >
           <div className="flex flex-col gap-1.5">
             <Dialog.Title className="text-base font-bold text-foreground m-0">

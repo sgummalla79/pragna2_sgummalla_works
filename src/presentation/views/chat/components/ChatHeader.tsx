@@ -47,7 +47,7 @@ export function ChatHeader({ conversation, agentName }: ChatHeaderProps) {
   //
   // ``relative z-10`` keeps the shadow stack above the scroll column.
   return (
-    <div className="relative z-10 flex h-12 items-center gap-3 bg-background px-4 shadow-[inset_0_-1px_0_var(--color-border),0_2px_4px_rgba(0,0,0,0.15),0_12px_32px_-8px_rgba(0,0,0,0.25)]">
+    <div className="relative z-10 flex h-12 items-center gap-3 bg-background px-4 border-b border-border shadow-md">
       <span className="text-[14px] font-semibold text-foreground truncate">
         {title}
       </span>

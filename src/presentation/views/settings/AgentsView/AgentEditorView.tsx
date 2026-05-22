@@ -6,6 +6,13 @@ import { isAxiosError } from 'axios';
 import { Button } from '@/presentation/components/ui/Button';
 import { Input } from '@/presentation/components/ui/Input';
 import { Label } from '@/presentation/components/ui/Label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/presentation/components/ui/Select';
 import { Textarea } from '@/presentation/components/ui/Textarea';
 import {
   useCreateUserAgent,
@@ -262,17 +269,19 @@ export default function AgentEditorView() {
 
             <div className="space-y-1.5">
               <Label htmlFor="agent-model">Model</Label>
-              <select
-                id="agent-model"
+              <Select
                 value={form.userModelId}
-                onChange={(e) => setForm({ ...form, userModelId: e.target.value })}
-                className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                onValueChange={(v) => setForm({ ...form, userModelId: v })}
               >
-                <option value="">— pick a model —</option>
-                {flowEligibleModels.map((m) => (
-                  <option key={m.id} value={m.id}>{m.displayName}</option>
-                ))}
-              </select>
+                <SelectTrigger id="agent-model">
+                  <SelectValue placeholder="— pick a model —" />
+                </SelectTrigger>
+                <SelectContent>
+                  {flowEligibleModels.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {flowEligibleModels.length === 0 && (
                 <p className="text-[11px] text-muted-foreground">
                   No models are enabled for Flows. Open Settings → Providers and toggle "Available for flows" on a model.

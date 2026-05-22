@@ -9,6 +9,13 @@ import { Input } from '@/presentation/components/ui/Input';
 import { Label } from '@/presentation/components/ui/Label';
 import { Badge } from '@/presentation/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/presentation/components/ui/Card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/presentation/components/ui/Select';
 
 export default function SkillsView() {
   const { data: skills = [], isLoading } = useSkills();
@@ -62,15 +69,18 @@ export default function SkillsView() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="skill-type">Type</Label>
-                <select
-                  id="skill-type"
+                <Select
                   value={skillType}
-                  onChange={(e) => setSkillType(e.target.value as SkillType)}
-                  className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  onValueChange={(v) => setSkillType(v as SkillType)}
                 >
-                  <option value={SKILL_TYPE_FUNCTION}>{SKILL_TYPE_LABELS[SKILL_TYPE_FUNCTION]}</option>
-                  <option value={SKILL_TYPE_AGENT}>{SKILL_TYPE_LABELS[SKILL_TYPE_AGENT]}</option>
-                </select>
+                  <SelectTrigger id="skill-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SKILL_TYPE_FUNCTION}>{SKILL_TYPE_LABELS[SKILL_TYPE_FUNCTION]}</SelectItem>
+                    <SelectItem value={SKILL_TYPE_AGENT}>{SKILL_TYPE_LABELS[SKILL_TYPE_AGENT]}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="skill-description">Description (shown to LLM)</Label>
@@ -79,17 +89,20 @@ export default function SkillsView() {
               {models.length > 0 && (
                 <div className="space-y-2">
                   <Label htmlFor="skill-model">Model (optional)</Label>
-                  <select
-                    id="skill-model"
-                    value={userModelId}
-                    onChange={(e) => setUserModelId(e.target.value)}
-                    className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  <Select
+                    value={userModelId || '__none__'}
+                    onValueChange={(v) => setUserModelId(v === '__none__' ? '' : v)}
                   >
-                    <option value="">None</option>
-                    {models.map((m) => (
-                      <option key={m.id} value={m.id}>{m.displayName}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger id="skill-model">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None</SelectItem>
+                      {models.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
             </div>

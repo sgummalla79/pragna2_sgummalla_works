@@ -87,9 +87,8 @@ export function ImportThemeDialog({ open, onOpenChange }: ImportThemeDialogProps
             max-h-[calc(100vh-48px)] overflow-y-auto
             flex flex-col gap-4
             rounded-[14px] border border-border
-            bg-popover p-6
+            bg-popover p-6 shadow-2xl
           "
-          style={{ boxShadow: '0 24px 60px rgba(0,0,0,0.45)' }}
         >
           <Dialog.Title className="text-base font-bold text-foreground m-0">
             Install a TweakCN theme

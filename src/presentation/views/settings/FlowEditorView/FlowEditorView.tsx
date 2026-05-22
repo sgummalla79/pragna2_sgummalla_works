@@ -17,6 +17,7 @@ import { useFlow, useSaveFlowFromYaml, useValidateFlowYaml } from '@/presentatio
 import type { YamlError } from '@/domain/types/flowYaml.types';
 import { Button } from '@/presentation/components/ui/Button';
 import { Card, CardContent } from '@/presentation/components/ui/Card';
+import { useUiStore } from '@/presentation/store/uiStore';
 import { ROUTES } from '@/constants/routes';
 import { STARTER_FLOW_YAML } from './starterYaml';
 import { yamlToGraph } from './yamlToGraph';
@@ -43,6 +44,9 @@ function EditorInner({ flowId }: EditorProps) {
   // The CodeMirror document. Seeded once from the loaded flow (when editing)
   // or from the starter template (when creating).
   const [yamlText, setYamlText] = useState<string>('');
+  // CodeMirror's theme follows the app's light/dark mode so the
+  // editor doesn't render as a dark slab on a cream background.
+  const mode = useUiStore((s) => s.theme);
   // Server-side errors from the most recent Validate or Save attempt.
   const [errors, setErrors] = useState<YamlError[]>([]);
   // Banner for the most recent action — distinct from `errors` (which can
@@ -209,7 +213,7 @@ function EditorInner({ flowId }: EditorProps) {
             value={yamlText}
             extensions={[yamlLang()]}
             onChange={(value) => setYamlText(value)}
-            theme="dark"
+            theme={mode}
             basicSetup={{
               lineNumbers: true,
               foldGutter: true,

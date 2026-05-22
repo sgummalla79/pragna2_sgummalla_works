@@ -77,9 +77,8 @@ export function ProviderModal({
             w-[1100px] max-w-[calc(100vw-32px)] max-h-[90vh] overflow-hidden
             flex flex-col gap-[18px]
             rounded-[18px] border border-border
-            bg-popover p-7
+            bg-popover p-7 shadow-2xl
           "
-          style={{ boxShadow: '0 24px 60px rgba(0,0,0,0.45)' }}
           aria-describedby={undefined}
         >
           {/* Header — fixed, does not scroll */}

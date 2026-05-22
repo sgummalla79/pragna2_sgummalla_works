@@ -81,7 +81,7 @@ export function AgentPicker({ value }: AgentPickerProps) {
           sideOffset={6}
           className={cn(
             'z-[700] min-w-[200px] rounded-lg border border-border',
-            'bg-popover p-1 shadow-[0_20px_60px_rgba(0,0,0,0.45)]',
+            'bg-popover p-1 shadow-2xl',
             'focus:outline-none',
           )}
         >

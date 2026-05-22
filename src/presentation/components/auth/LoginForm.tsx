@@ -1,19 +1,23 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
+import { AlertCircle } from 'lucide-react';
+
 import PragnaLogo from '@/assets/logo.svg?react';
 import { APP_NAME } from '@/constants/api';
 import { ERRORS } from '@/constants/errors';
 import { ROUTES } from '@/constants/routes';
-import { Link } from 'react-router-dom';
 import { useAuth } from '@/presentation/hooks/auth/useAuth';
 import { useAuth0Connections } from '@/presentation/hooks/auth/useAuth0Connections';
 import { SocialLoginButton } from '@/presentation/views/auth/SocialLoginButton';
+import { Button } from '@/presentation/components/ui/Button';
 import { Input } from '@/presentation/components/ui/Input';
 import { PasswordInput } from '@/presentation/components/ui/PasswordInput';
 
 /**
- * Self-contained login card.
- * Contains everything — brand header, form, divider, social connections.
- * Parent (LoginView) is a plain centring shell.
+ * Self-contained login card. Brand header + form + social options +
+ * register link. Every surface (background, border, text, hover) reads
+ * from the active palette via Tailwind tokens — no inline colour
+ * styles, no JS-driven hover handlers.
  */
 export function LoginForm() {
   const { login, initiateSocialLogin } = useAuth();
@@ -52,61 +56,28 @@ export function LoginForm() {
   }
 
   return (
-    <div
-      className="w-full flex flex-col gap-[18px]"
-      style={{
-        maxWidth: 380,
-        background: 'var(--color-popover)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 16,
-        padding: '36px 32px',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.45)',
-      }}
-    >
+    <div className="w-full max-w-[380px] flex flex-col gap-[18px] rounded-2xl border border-border bg-popover text-popover-foreground p-9 shadow-2xl">
       {/* Brand — logo + app name */}
-      <div className="flex flex-col items-center gap-[10px] pb-2">
+      <div className="flex flex-col items-center gap-2.5 pb-2">
         <PragnaLogo className="h-16 w-16" aria-hidden="true" />
-        <span
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: 32,
-            fontWeight: 700,
-            color: 'var(--color-foreground)',
-            letterSpacing: '-0.5px',
-            lineHeight: 1,
-          }}
-        >
+        <span className="text-[32px] font-bold leading-none tracking-tight text-foreground">
           {APP_NAME}
         </span>
       </div>
 
-      {/* Error */}
+      {/* Error banner */}
       {error && (
         <div
           role="alert"
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 8,
-            background: 'var(--color-error-bg)',
-            border: '1px solid var(--color-error-border)',
-            borderRadius: 8,
-            padding: '10px 12px',
-            fontSize: 13,
-            color: 'var(--color-error-text)',
-          }}
+          className="flex items-start gap-2 rounded-lg border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2.5 text-[13px] text-[var(--color-error-text)]"
         >
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: 1 }} aria-hidden="true">
-            <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M8 5v3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <circle cx="8" cy="11" r=".75" fill="currentColor" />
-          </svg>
+          <AlertCircle size={14} className="mt-[1px] flex-shrink-0" aria-hidden="true" />
           {error}
         </div>
       )}
 
       {/* Email / password form */}
-      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-[10px]">
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-2.5">
         <Input
           type="email"
           autoComplete="email"
@@ -128,58 +99,37 @@ export function LoginForm() {
           disabled={busy}
         />
 
-        <button
+        <Button
           type="submit"
           disabled={busy}
           aria-busy={loading}
-          style={{
-            width: '100%',
-            padding: '10px 16px',
-            borderRadius: 8,
-            border: 'none',
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: busy ? 'not-allowed' : 'pointer',
-            opacity: busy ? 0.5 : 1,
-            background: 'var(--color-primary)',
-            color: 'var(--color-primary-foreground)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-          }}
+          className="w-full mt-1"
         >
           {loading ? (
             <>
               <span
-                style={{
-                  width: 14, height: 14, borderRadius: '50%',
-                  border: '2px solid color-mix(in oklab, var(--color-primary-foreground) 30%, transparent)',
-                  borderTopColor: 'var(--color-primary-foreground)',
-                  animation: 'spin 0.6s linear infinite',
-                  display: 'inline-block',
-                }}
                 aria-hidden="true"
+                className="inline-block h-3.5 w-3.5 rounded-full border-2 border-[color-mix(in_oklab,var(--color-primary-foreground)_30%,transparent)] border-t-primary-foreground animate-spin"
               />
               Signing in…
             </>
           ) : (
             'Sign in'
           )}
-        </button>
+        </Button>
       </form>
 
       {/* Divider */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--color-muted-foreground)', fontSize: 12 }}>
-        <span style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+      <div className="flex items-center gap-2.5 text-[12px] text-muted-foreground">
+        <span className="flex-1 h-px bg-border" />
         or
-        <span style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+        <span className="flex-1 h-px bg-border" />
       </div>
 
       {/* Social connections */}
-      <div className="flex flex-col gap-[8px]">
+      <div className="flex flex-col gap-2">
         {connectionsLoading && (
-          <p style={{ fontSize: 13, color: 'var(--color-muted-foreground)', textAlign: 'center', padding: '8px 0' }}>
+          <p className="text-center text-[13px] text-muted-foreground py-2">
             Loading sign-in options…
           </p>
         )}
@@ -196,13 +146,11 @@ export function LoginForm() {
       </div>
 
       {/* Register link */}
-      <p style={{ fontSize: 13, color: 'var(--color-muted-foreground)', textAlign: 'center', marginTop: 4 }}>
+      <p className="text-center text-[13px] text-muted-foreground mt-1">
         No account?{' '}
         <Link
           to={ROUTES.REGISTER}
-          style={{ color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 500 }}
-          onMouseEnter={(e) => { (e.target as HTMLAnchorElement).style.textDecoration = 'underline'; }}
-          onMouseLeave={(e) => { (e.target as HTMLAnchorElement).style.textDecoration = 'none'; }}
+          className="font-medium text-primary no-underline hover:underline"
         >
           Create one
         </Link>
