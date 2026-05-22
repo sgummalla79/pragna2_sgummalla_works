@@ -18,6 +18,8 @@ function makeModel(overrides: Partial<Model> = {}): Model {
     availableForFlows:  false,
     archived:           false,
     metadata:           {},
+    supportsVision:     false,
+    supportsPdf:        false,
     ...overrides,
   };
 }

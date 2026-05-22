@@ -3,22 +3,24 @@ import { axiosClient } from '@/infrastructure/http/axiosClient';
 import { applyAuthInterceptor } from '@/infrastructure/http/authInterceptor';
 import { applyCorrelationInterceptor } from '@/infrastructure/http/correlationInterceptor';
 import { Auth0Repository } from '@/infrastructure/auth0/Auth0Repository';
-import { LlmProviderRepository } from '@/infrastructure/repositories/LlmProviderRepository';
-import { ProviderRepository } from '@/infrastructure/repositories/ProviderRepository';
-import { ModelRepository } from '@/infrastructure/repositories/ModelRepository';
-import { FlowRepository } from '@/infrastructure/repositories/FlowRepository';
-import { SkillRepository } from '@/infrastructure/repositories/SkillRepository';
-import { ConversationRepository } from '@/infrastructure/repositories/ConversationRepository';
 import { AgentRepository } from '@/infrastructure/repositories/AgentRepository';
+import { AttachmentRepository } from '@/infrastructure/repositories/AttachmentRepository';
+import { ConversationRepository } from '@/infrastructure/repositories/ConversationRepository';
+import { FlowRepository } from '@/infrastructure/repositories/FlowRepository';
+import { LlmProviderRepository } from '@/infrastructure/repositories/LlmProviderRepository';
+import { ModelRepository } from '@/infrastructure/repositories/ModelRepository';
+import { ProviderRepository } from '@/infrastructure/repositories/ProviderRepository';
+import { SkillRepository } from '@/infrastructure/repositories/SkillRepository';
 import { UserAgentRepository } from '@/infrastructure/repositories/UserAgentRepository';
-import { AuthService } from '@/application/services/AuthService';
-import { LlmProviderService } from '@/application/services/LlmProviderService';
-import { ProviderService } from '@/application/services/ProviderService';
-import { ModelService } from '@/application/services/ModelService';
-import { FlowService } from '@/application/services/FlowService';
-import { SkillService } from '@/application/services/SkillService';
-import { ConversationService } from '@/application/services/ConversationService';
 import { AgentService } from '@/application/services/AgentService';
+import { AttachmentService } from '@/application/services/AttachmentService';
+import { AuthService } from '@/application/services/AuthService';
+import { ConversationService } from '@/application/services/ConversationService';
+import { FlowService } from '@/application/services/FlowService';
+import { LlmProviderService } from '@/application/services/LlmProviderService';
+import { ModelService } from '@/application/services/ModelService';
+import { ProviderService } from '@/application/services/ProviderService';
+import { SkillService } from '@/application/services/SkillService';
 import { UserAgentService } from '@/application/services/UserAgentService';
 import { useAuthStore } from '@/presentation/store/authStore';
 import { ServiceContext } from './ServiceContext';
@@ -44,6 +46,7 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
     const conversationRepo   = new ConversationRepository(axiosClient);
     const agentRepo          = new AgentRepository(axiosClient);
     const userAgentRepo      = new UserAgentRepository(axiosClient);
+    const attachmentRepo     = new AttachmentRepository(axiosClient);
 
     return {
       authService:         new AuthService(authRepo),
@@ -55,6 +58,7 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
       conversationService: new ConversationService(conversationRepo),
       agentService:        new AgentService(agentRepo),
       userAgentService:    new UserAgentService(userAgentRepo),
+      attachmentService:   new AttachmentService(attachmentRepo),
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

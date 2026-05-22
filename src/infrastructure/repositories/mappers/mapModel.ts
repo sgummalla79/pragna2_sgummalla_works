@@ -18,6 +18,9 @@ export interface ApiModelResponse {
   available_for_flows: boolean;
   archived: boolean;
   metadata: Record<string, unknown>;
+  /** R5. Default `false` for backwards-compat with older response shapes. */
+  supports_vision?: boolean;
+  supports_pdf?: boolean;
 }
 
 /** Maps a raw API ModelResponse to the domain Model type. */
@@ -34,5 +37,7 @@ export function mapModel(raw: ApiModelResponse): Model {
     availableForFlows:  raw.available_for_flows,
     archived:           raw.archived,
     metadata:           raw.metadata ?? {},
+    supportsVision:     raw.supports_vision ?? false,
+    supportsPdf:        raw.supports_pdf ?? false,
   };
 }

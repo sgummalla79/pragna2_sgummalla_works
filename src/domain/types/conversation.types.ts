@@ -1,3 +1,5 @@
+import type { Attachment } from './attachment.types';
+
 export interface Conversation {
   id: string;
   flowId: string | null;
@@ -57,6 +59,9 @@ export interface PersistedMessage {
    * uses this to render "by <model>" against each assistant message.
    */
   userModelId: string | null;
+  /** R5. Files attached to this user turn. Empty for non-user turns
+   *  or for turns sent without attachments. */
+  attachments: Attachment[];
   messageIndex: number;
   createdAt: string;
   modifiedAt: string;

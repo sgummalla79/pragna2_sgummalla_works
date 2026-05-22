@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import type { ChatMessage as ChatMessageType } from '@/presentation/views/chat/hooks/useChatSession';
+import type { Attachment } from '@/domain/types/attachment.types';
 import { Button } from '@/presentation/components/ui/Button';
 import { Textarea } from '@/presentation/components/ui/Textarea';
+import { useServices } from '@/presentation/providers/ServiceContext';
+import { AttachmentChip } from './AttachmentChip';
 import { MessageActions } from './MessageActions';
 import { ModelBadge } from './ModelBadge';
 import { ToolCallBadge } from './ToolCallBadge';
@@ -48,6 +51,13 @@ interface ChatMessageProps {
    * chevron is suppressed.
    */
   availableModels?: Array<{ id: string; displayName: string }>;
+  /**
+   * R5. Attachments persisted alongside this user message. Empty for
+   * non-user turns or for turns sent without attachments. Rendered
+   * as a chip row below the bubble (clickable for image preview /
+   * download).
+   */
+  attachments?: Attachment[];
 }
 
 /**
@@ -67,7 +77,9 @@ export function ChatMessage({
   handlers,
   branchEnabled = true,
   availableModels,
+  attachments = [],
 }: ChatMessageProps) {
+  const { attachmentService } = useServices();
   // Inline-edit state is local to the user-turn bubble. Save calls the
   // parent handler (which truncates + re-submits); Cancel restores the
   // original content.
@@ -151,6 +163,36 @@ export function ChatMessage({
                 : 'w-full text-[18px] leading-relaxed text-card-foreground'
             }
           >
+            {/* R5: attachment chips above the message text on user
+                turns. Inline image thumbnails (clicking opens the
+                file in a new tab via the backend's content route);
+                other files as filename chips with the same link
+                behaviour. Expired attachments render with a struck-
+                through filename style. */}
+            {isUser && attachments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {attachments.map((a) => (
+                  <a
+                    key={a.id}
+                    href={a.expired ? undefined : attachmentService.contentUrl(a.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={a.expired ? 'pointer-events-none' : ''}
+                  >
+                    <AttachmentChip
+                      filename={
+                        a.expired ? `[expired] ${a.filename}` : a.filename
+                      }
+                      contentType={a.contentType}
+                      errored={a.expired}
+                      previewUrl={
+                        a.expired ? undefined : attachmentService.contentUrl(a.id)
+                      }
+                    />
+                  </a>
+                ))}
+              </div>
+            )}
             {message.content && (
               <div className="whitespace-pre-wrap break-words">
                 {message.content}

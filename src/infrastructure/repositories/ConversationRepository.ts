@@ -8,6 +8,18 @@ import type {
   UsageRecord,
 } from '@/domain/types/conversation.types';
 import type { PaginatedParams } from '@/domain/types/common.types';
+import { mapAttachment } from './AttachmentRepository';
+
+interface ApiAttachmentResponse {
+  id: string;
+  conversation_id: string | null;
+  message_id: string | null;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  uploaded_at: string;
+  expired: boolean;
+}
 
 interface ApiConversationResponse {
   id: string;
@@ -49,6 +61,7 @@ interface ApiMessageResponse {
       }>
     | null;
   user_model_id: string | null;
+  attachments: ApiAttachmentResponse[];
   message_index: number;
   created_at: string;
   modified_at: string;
@@ -84,6 +97,7 @@ function mapMessage(raw: ApiMessageResponse): PersistedMessage {
     content: raw.content,
     toolCalls: raw.tool_calls,
     userModelId: raw.user_model_id,
+    attachments: (raw.attachments || []).map(mapAttachment),
     messageIndex: raw.message_index,
     createdAt: raw.created_at,
     modifiedAt: raw.modified_at,

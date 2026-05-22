@@ -7,24 +7,77 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { ArrowUp, Square } from 'lucide-react';
+import { ArrowUp, Paperclip, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSkills } from '@/presentation/hooks/skills/useSkills';
+import { useUploadAttachment } from '@/presentation/hooks/attachments/useUploadAttachment';
 import type { Skill } from '@/domain/types/skill.types';
+import type { Attachment } from '@/domain/types/attachment.types';
+import { AttachmentChip } from './AttachmentChip';
 import { SlashCommandPopover } from './SlashCommandPopover';
 
 /** Max number of suggestions shown in the slash-command popover at once. */
 const SLASH_MAX_ITEMS = 8;
 
+/** R5 — content types the paperclip's accept= attribute filters to.
+ *  Should mirror ATTACHMENT_ALLOWED_MIME_TYPES on the backend. */
+const ATTACHMENT_ACCEPT = [
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+  'image/gif',
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'text/csv',
+  '.md',
+  '.csv',
+].join(',');
+
+/** Local-only state for one in-flight or staged upload. */
+interface PendingAttachment {
+  /** Stable client id (also used as React key). */
+  clientKey: string;
+  filename: string;
+  contentType: string;
+  /** Object URL for image preview (revoked on unstage). */
+  previewUrl?: string;
+  /** Server attachment after upload completes; null while uploading. */
+  attachment: Attachment | null;
+  uploading: boolean;
+  errored?: boolean;
+}
+
 interface ChatInputProps {
-  /** Called when the user submits a non-empty turn. */
-  onSend: (text: string) => void;
+  /**
+   * Called when the user submits a non-empty turn. ``attachmentIds`` is
+   * the list of staged attachment IDs that have completed upload — pass
+   * them through to the pragna stream's ``forwarded_props``.
+   */
+  onSend: (text: string, attachmentIds: string[]) => void;
   /** Called when the user clicks Stop. Only rendered when ``disabled``. */
   onStop?: () => void;
   /** True while the parent run is in flight. */
   disabled?: boolean;
   /** Placeholder copy; injected so the view can localise per agent. */
   placeholder?: string;
+  /**
+   * R5. The conversation_id under which attachments upload. Passed to
+   * ``POST /api/conversations/{id}/attachments``. Can refer to a
+   * not-yet-existing conversation (landing-page uploads); the backend
+   * defers the conversation_id link to send-time. Omit / null to hide
+   * the paperclip entirely (e.g. on the unauth chat).
+   */
+  conversationId?: string | null;
+  /**
+   * R5. Capability hint for the active chat model. When ``vision`` is
+   * false, image uploads are blocked client-side; when ``pdf`` is
+   * false, PDFs are blocked. Text uploads always allowed. Both default
+   * to ``true`` so older callers that don't pass capabilities keep
+   * working — the backend is the authoritative gate.
+   */
+  modelCapabilities?: { vision: boolean; pdf: boolean };
   /**
    * Optional inline-attached content rendered ABOVE the textarea, inside
    * the rounded composer container. Use this for setup banners, file
@@ -61,10 +114,104 @@ export function ChatInput({
   onStop,
   disabled = false,
   placeholder = 'Send a message…',
+  conversationId,
+  modelCapabilities = { vision: true, pdf: true },
   children,
 }: ChatInputProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── R5: attachment staging ──────────────────────────────────────────
+  const [pending, setPending] = useState<PendingAttachment[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const uploadMutation = useUploadAttachment();
+  const attachmentsEnabled = Boolean(conversationId);
+
+  const stageFiles = useCallback(
+    (files: FileList | File[]) => {
+      if (!attachmentsEnabled || !conversationId) return;
+      Array.from(files).forEach((file) => {
+        const isImage = file.type.startsWith('image/');
+        const isPdf = file.type === 'application/pdf';
+        // Client-side capability check. The backend is the authoritative
+        // gate (and produces a clearer error), but bouncing the file
+        // here saves the upload round-trip when we know it'll fail.
+        if (isImage && !modelCapabilities.vision) {
+          // eslint-disable-next-line no-alert
+          window.alert(
+            `Current model can't see images. Switch to a vision-capable model to attach ${file.name}.`,
+          );
+          return;
+        }
+        if (isPdf && !modelCapabilities.pdf) {
+          // eslint-disable-next-line no-alert
+          window.alert(
+            `Current model can't read PDFs. Switch to a PDF-capable model to attach ${file.name}.`,
+          );
+          return;
+        }
+        const clientKey = `${file.name}-${file.size}-${Date.now()}-${Math.random()}`;
+        const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
+        setPending((cur) => [
+          ...cur,
+          {
+            clientKey,
+            filename: file.name,
+            contentType: file.type,
+            previewUrl,
+            attachment: null,
+            uploading: true,
+          },
+        ]);
+        uploadMutation.mutate(
+          { conversationId, file },
+          {
+            onSuccess: (attachment) => {
+              setPending((cur) =>
+                cur.map((p) =>
+                  p.clientKey === clientKey
+                    ? { ...p, attachment, uploading: false }
+                    : p,
+                ),
+              );
+            },
+            onError: () => {
+              setPending((cur) =>
+                cur.map((p) =>
+                  p.clientKey === clientKey
+                    ? { ...p, uploading: false, errored: true }
+                    : p,
+                ),
+              );
+            },
+          },
+        );
+      });
+    },
+    [attachmentsEnabled, conversationId, modelCapabilities, uploadMutation],
+  );
+
+  const removePending = useCallback((clientKey: string) => {
+    setPending((cur) => {
+      const target = cur.find((p) => p.clientKey === clientKey);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return cur.filter((p) => p.clientKey !== clientKey);
+    });
+  }, []);
+
+  // Revoke object URLs on unmount so the browser doesn't leak them
+  // when the user navigates away with attachments still staged.
+  useEffect(() => {
+    return () => {
+      setPending((cur) => {
+        cur.forEach((p) => {
+          if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+        });
+        return cur;
+      });
+    };
+  }, []);
 
   // ── R4 #2: slash-command discovery ──────────────────────────────────
   // Track an active `/` at the current cursor position (must be the
@@ -138,12 +285,25 @@ export function ChatInput({
     [value, slashStart, slashQuery],
   );
 
+  // Wait for any in-flight uploads before allowing send — partial
+  // batches would result in the user seeing fewer attachments than
+  // they staged.
+  const uploadsInFlight = pending.some((p) => p.uploading);
+  const readyAttachmentIds = pending
+    .filter((p) => p.attachment && !p.errored)
+    .map((p) => p.attachment!.id);
+
   const submit = useCallback(() => {
     const trimmed = value.trim();
-    if (!trimmed || disabled) return;
-    onSend(trimmed);
+    if (!trimmed || disabled || uploadsInFlight) return;
+    onSend(trimmed, readyAttachmentIds);
     setValue('');
-  }, [value, disabled, onSend]);
+    // Revoke preview URLs + clear staging on successful send.
+    pending.forEach((p) => {
+      if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+    });
+    setPending([]);
+  }, [value, disabled, uploadsInFlight, onSend, readyAttachmentIds, pending]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -201,7 +361,7 @@ export function ChatInput({
 
   const hasText = value.trim().length > 0;
   const showStop = disabled && Boolean(onStop);
-  const canSend = hasText && !disabled;
+  const canSend = hasText && !disabled && !uploadsInFlight;
 
   // Vertical padding only; horizontal containment + screen-edge
   // padding are owned by the parent so the composer can be aligned
@@ -217,7 +377,36 @@ export function ChatInput({
           'relative rounded-3xl border border-border bg-card shadow-sm',
           'transition-colors',
           'focus-within:border-input',
+          // R5: drop-target affordance.
+          dragging && attachmentsEnabled && 'ring-2 ring-primary ring-offset-1',
         )}
+        onDragEnter={(e) => {
+          if (!attachmentsEnabled) return;
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={(e) => {
+          // dragLeave fires for every child element; only clear when
+          // we actually leave the composer container.
+          if (
+            e.currentTarget.contains(e.relatedTarget as Node | null)
+          ) {
+            return;
+          }
+          setDragging(false);
+        }}
+        onDragOver={(e) => {
+          if (!attachmentsEnabled) return;
+          e.preventDefault();
+        }}
+        onDrop={(e) => {
+          if (!attachmentsEnabled) return;
+          e.preventDefault();
+          setDragging(false);
+          if (e.dataTransfer.files?.length) {
+            stageFiles(e.dataTransfer.files);
+          }
+        }}
       >
         {slashOpen && filteredSkills.length > 0 && (
           <SlashCommandPopover
@@ -228,6 +417,23 @@ export function ChatInput({
           />
         )}
         {children && <div className="px-4 pt-3">{children}</div>}
+
+        {/* R5: staged-attachments row, only shown when there's at least one. */}
+        {pending.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-4 pt-3">
+            {pending.map((p) => (
+              <AttachmentChip
+                key={p.clientKey}
+                filename={p.filename}
+                contentType={p.contentType}
+                uploading={p.uploading}
+                errored={p.errored}
+                previewUrl={p.previewUrl}
+                onRemove={() => removePending(p.clientKey)}
+              />
+            ))}
+          </div>
+        )}
 
         <textarea
           ref={textareaRef}
@@ -256,7 +462,42 @@ export function ChatInput({
           )}
         />
 
-        <div className="flex items-center justify-end px-4 pb-3 pt-1">
+        <div className="flex items-center justify-between px-4 pb-3 pt-1">
+          {/* R5: paperclip + hidden file input. Hidden entirely when
+              attachments aren't available for this composer mount. */}
+          {attachmentsEnabled ? (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={ATTACHMENT_ACCEPT}
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) stageFiles(e.target.files);
+                  // Allow re-picking the same file in succession.
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                aria-label="Attach file"
+                title="Attach file (images, PDF, .txt/.md/.csv)"
+                className={cn(
+                  'flex h-9 w-9 items-center justify-center rounded-full',
+                  'text-muted-foreground hover:text-foreground hover:bg-accent',
+                  'transition-colors',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
+                )}
+              >
+                <Paperclip size={16} aria-hidden="true" />
+              </button>
+            </>
+          ) : (
+            <span />
+          )}
+
           {showStop ? (
             <button
               type="button"

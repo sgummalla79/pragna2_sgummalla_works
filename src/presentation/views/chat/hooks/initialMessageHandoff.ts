@@ -35,14 +35,19 @@ export interface PendingInitialMessage {
   text: string;
   /** Agent name to invoke. ``"default"`` for free chat. */
   agent: string;
+  /** R5. Attachment IDs uploaded against the new conversation. The
+   *  session view passes these through ``forwarded_props`` on the
+   *  first send so the backend can resolve + inject them server-side. */
+  attachmentIds?: string[];
 }
 
 /**
  * Parse a stored handoff payload.
  *
- * The payload is JSON-encoded ``{text, agent}``. We also accept a bare
- * string for backward-compatibility with anything stashed before the
- * agent field existed — those default to the ``"default"`` agent.
+ * The payload is JSON-encoded ``{text, agent, attachmentIds?}``. We also
+ * accept a bare string for backward-compatibility with anything
+ * stashed before the agent field existed — those default to the
+ * ``"default"`` agent with no attachments.
  */
 function parseStored(raw: string): PendingInitialMessage {
   try {
@@ -54,6 +59,11 @@ function parseStored(raw: string): PendingInitialMessage {
           typeof parsed.agent === 'string' && parsed.agent.length > 0
             ? parsed.agent
             : DEFAULT_AGENT,
+        attachmentIds: Array.isArray(parsed.attachmentIds)
+          ? parsed.attachmentIds.filter(
+              (id: unknown) => typeof id === 'string',
+            )
+          : undefined,
       };
     }
   } catch {
