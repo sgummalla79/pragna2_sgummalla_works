@@ -40,4 +40,12 @@ export class ConversationService {
   delete(conversationId: string): Promise<void> {
     return this.conversationRepository.delete(conversationId);
   }
+
+  truncateFrom(conversationId: string, messageId: string): Promise<void> {
+    return this.conversationRepository.truncateFrom(conversationId, messageId);
+  }
+
+  branch(conversationId: string, messageId: string): Promise<Conversation> {
+    return this.conversationRepository.branch(conversationId, messageId);
+  }
 }

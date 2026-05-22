@@ -158,6 +158,17 @@ export function useChatSession(
         // backend auto-created on first turn so it appears in the sidebar
         // immediately (title may still be null at this point).
         qc.invalidateQueries({ queryKey: ['conversations'] });
+        // R4 #0: refetch the persisted message log for this conversation
+        // so each assistant turn picks up its `user_model_id` attribution.
+        // Mid-stream messages render with the conversation's preferred
+        // model as a fallback; this invalidation upgrades them to the
+        // authoritative server-stamped value (which matters when the
+        // user used a per-turn ?user_model_id override).
+        if (threadId) {
+          qc.invalidateQueries({
+            queryKey: ['conversations', threadId, 'messages'],
+          });
+        }
         // Second invalidation: rides past the backend's fire-and-forget
         // auto-title flow so the sidebar refreshes once the title is in
         // place. Cheap query; the cost is one extra request per turn.

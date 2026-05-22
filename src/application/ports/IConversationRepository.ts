@@ -20,4 +20,18 @@ export interface IConversationRepository {
   ): Promise<Conversation>;
   /** Hard-delete; FK cascade removes messages + usage records. */
   delete(conversationId: string): Promise<void>;
+  /**
+   * R4 #1. Delete the chosen message and every message after it.
+   * Powers Regenerate (truncate the assistant turn → re-run the prior
+   * user message) and Edit (truncate the user turn → re-submit with
+   * edited text).
+   */
+  truncateFrom(conversationId: string, messageId: string): Promise<void>;
+  /**
+   * R4 #1. Fork the conversation at the chosen message; the new
+   * conversation contains every turn up to and including the chosen
+   * message. Returns the new conversation so the caller can navigate
+   * to `/chat/{returned.id}`.
+   */
+  branch(conversationId: string, messageId: string): Promise<Conversation>;
 }

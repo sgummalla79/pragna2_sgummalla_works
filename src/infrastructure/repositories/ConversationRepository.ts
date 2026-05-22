@@ -48,6 +48,7 @@ interface ApiMessageResponse {
         result?: string;
       }>
     | null;
+  user_model_id: string | null;
   message_index: number;
   created_at: string;
   modified_at: string;
@@ -82,6 +83,7 @@ function mapMessage(raw: ApiMessageResponse): PersistedMessage {
     role: raw.role,
     content: raw.content,
     toolCalls: raw.tool_calls,
+    userModelId: raw.user_model_id,
     messageIndex: raw.message_index,
     createdAt: raw.created_at,
     modifiedAt: raw.modified_at,
@@ -154,5 +156,20 @@ export class ConversationRepository implements IConversationRepository {
 
   async delete(conversationId: string): Promise<void> {
     await this.http.delete(`/api/conversations/${conversationId}`);
+  }
+
+  async truncateFrom(conversationId: string, messageId: string): Promise<void> {
+    await this.http.post(
+      `/api/conversations/${conversationId}/messages/truncate-from`,
+      { message_id: messageId },
+    );
+  }
+
+  async branch(conversationId: string, messageId: string): Promise<Conversation> {
+    const { data } = await this.http.post<ApiConversationResponse>(
+      `/api/conversations/${conversationId}/branch`,
+      { message_id: messageId },
+    );
+    return mapConversation(data);
   }
 }

@@ -204,6 +204,21 @@ function ChatSurface({
     [persistedMessages],
   );
 
+  // R4 #0. Per-message attribution map (message_id → user_model_id)
+  // built from the persisted server state. Mid-stream turns won't have
+  // entries here; we fall back to `conversation.userModelId` when
+  // rendering so live turns still show a "by <model>" badge. Once the
+  // turn finishes streaming and the messages query re-fetches (see the
+  // invalidation hook in useChatSession.onRunFinalized), the map gains
+  // the authoritative attribution and the badge updates.
+  const userModelIdByMessage = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const m of persistedMessages) {
+      map.set(m.id, m.userModelId);
+    }
+    return map;
+  }, [persistedMessages]);
+
   const { messages, status, error, send, stop } = useChatSession(
     agentName,
     { threadId, initialMessages },
@@ -284,7 +299,15 @@ function ChatSurface({
         ) : (
           <div className="mx-auto flex max-w-3xl flex-col gap-4">
             {messages.map((m) => (
-              <ChatMessage key={m.id} message={m} />
+              <ChatMessage
+                key={m.id}
+                message={m}
+                userModelId={
+                  userModelIdByMessage.get(m.id) ??
+                  conversation?.userModelId ??
+                  null
+                }
+              />
             ))}
           </div>
         )}

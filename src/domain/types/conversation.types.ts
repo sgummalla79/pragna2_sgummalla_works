@@ -50,6 +50,13 @@ export interface PersistedMessage {
         result?: string;
       }>
     | null;
+  /**
+   * R4 #0. For assistant turns, the `user_model` that produced this
+   * content. `null` for user / tool / system turns AND for historical
+   * assistant turns predating backend migration 0010. The chat UI
+   * uses this to render "by <model>" against each assistant message.
+   */
+  userModelId: string | null;
   messageIndex: number;
   createdAt: string;
   modifiedAt: string;
