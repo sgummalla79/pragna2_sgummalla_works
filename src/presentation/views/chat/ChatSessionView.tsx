@@ -226,6 +226,20 @@ function ChatSurface({
     return map;
   }, [persistedMessages]);
 
+  // R5: per-message attachments map, same pattern as the model-id
+  // lookup above. Empty for non-user turns / turns sent without
+  // attachments. The chat-message renderer takes the list and shows
+  // a chip row beneath the user-turn bubble.
+  const attachmentsByMessage = useMemo(() => {
+    const map = new Map<string, typeof persistedMessages[0]['attachments']>();
+    for (const m of persistedMessages) {
+      if (m.attachments && m.attachments.length > 0) {
+        map.set(m.id, m.attachments);
+      }
+    }
+    return map;
+  }, [persistedMessages]);
+
   const { messages, status, error, send, sendWithModel, stop } = useChatSession(
     agentName,
     { threadId, initialMessages },
@@ -246,6 +260,20 @@ function ChatSurface({
       .filter((m) => m.enabled && !m.archived && m.availableForChat)
       .map((m) => ({ id: m.id, displayName: m.displayName }));
   }, [prefs.regenWithModelEnabled, agentName, allModels]);
+
+  // R5 Phase 6: capability flags for the active model. The composer
+  // uses these to disable image uploads when the model lacks vision,
+  // and PDF uploads when the model lacks PDF support. Defaults to
+  // permissive (true/true) when we don't yet know — the backend is
+  // the authoritative gate.
+  const modelCapabilities = useMemo(() => {
+    if (!allModels || !conversation?.userModelId) {
+      return { vision: true, pdf: true };
+    }
+    const active = allModels.find((m) => m.id === conversation.userModelId);
+    if (!active) return { vision: true, pdf: true };
+    return { vision: active.supportsVision, pdf: active.supportsPdf };
+  }, [allModels, conversation?.userModelId]);
 
   // ── R4 #1 message-actions wiring ────────────────────────────────────
   // Regenerate, Copy, Edit, Branch are composable on top of the existing
@@ -449,6 +477,7 @@ function ChatSurface({
                   conversation?.userModelId ??
                   null
                 }
+                attachments={attachmentsByMessage.get(m.id) ?? []}
                 handlers={handlers}
                 availableModels={availableModels}
                 branchEnabled={prefs.branchEnabled}
@@ -487,6 +516,7 @@ function ChatSurface({
             onStop={stop}
             disabled={status === 'running'}
             conversationId={conversationId}
+            modelCapabilities={modelCapabilities}
             placeholder={
               status === 'running'
                 ? 'Waiting for response…'
