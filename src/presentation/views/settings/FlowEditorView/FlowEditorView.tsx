@@ -252,7 +252,11 @@ function EditorInner({ flowId }: EditorProps) {
               {/* Background dots read from --color-border so they fade
                   with the active palette instead of staying near-black. */}
               <Background gap={20} color="var(--color-border)" />
-              <Controls showInteractive={false} />
+              {/* Canvas zoom / fit-view controls. Placed on the right
+                  so they don't sit underneath the YAML editor's split
+                  pane and feel disconnected — matches the Figma / Miro
+                  convention of canvas controls in the bottom-right. */}
+              <Controls position="bottom-right" showInteractive={false} />
             </ReactFlow>
           )}
         </div>
