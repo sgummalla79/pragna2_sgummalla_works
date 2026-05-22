@@ -13,7 +13,12 @@ import 'reactflow/dist/style.css';
 import { AlertCircle, ArrowLeft, CheckCircle2, Save } from 'lucide-react';
 import { isAxiosError } from 'axios';
 
-import { useFlow, useSaveFlowFromYaml, useValidateFlowYaml } from '@/presentation/hooks/flows/useFlows';
+import {
+  useFlow,
+  useSaveFlowFromYaml,
+  useSaveFlowFromYamlById,
+  useValidateFlowYaml,
+} from '@/presentation/hooks/flows/useFlows';
 import type { YamlError } from '@/domain/types/flowYaml.types';
 import { Button } from '@/presentation/components/ui/Button';
 import { Card, CardContent } from '@/presentation/components/ui/Card';
@@ -30,6 +35,19 @@ function extractSaveErrors(err: unknown): YamlError[] {
   return Array.isArray(detail) ? (detail as YamlError[]) : [];
 }
 
+/** Recognise a 409 from the by-id save endpoint. Surfaces as a single
+ *  inline error pointing at `api_name` so the editor highlights the
+ *  offending key. */
+function extractCollisionError(err: unknown): YamlError | null {
+  if (!isAxiosError(err) || err.response?.status !== 409) return null;
+  const detail = err.response.data?.detail;
+  const message =
+    typeof detail === 'string'
+      ? detail
+      : 'An existing flow already uses that api_name. Choose a different name.';
+  return { path: 'api_name', message };
+}
+
 interface EditorProps {
   /** Defined when editing an existing flow. Undefined for /settings/flows/new. */
   flowId?: string;
@@ -40,6 +58,8 @@ function EditorInner({ flowId }: EditorProps) {
   const { data: existingFlow, isLoading } = useFlow(flowId ?? '');
   const validateMutation = useValidateFlowYaml();
   const saveMutation = useSaveFlowFromYaml();
+  const saveByIdMutation = useSaveFlowFromYamlById();
+  const isSaving = saveMutation.isPending || saveByIdMutation.isPending;
 
   // The CodeMirror document. Seeded once from the loaded flow (when editing)
   // or from the starter template (when creating).
@@ -102,7 +122,12 @@ function EditorInner({ flowId }: EditorProps) {
     setBanner(null);
     setErrors([]);
     try {
-      const { flow, created } = await saveMutation.mutateAsync(yamlText);
+      // Edit mode (`flowId` set) uses the by-id endpoint so api_name rename
+      // updates the existing row instead of upserting under a new name.
+      // Create mode keeps the legacy upsert-by-api_name flow.
+      const { flow, created } = flowId
+        ? await saveByIdMutation.mutateAsync({ flowId, definition: yamlText })
+        : await saveMutation.mutateAsync(yamlText);
       setBanner({
         kind: 'ok',
         text: created ? `Created "${flow.displayName}".` : `Saved "${flow.displayName}".`,
@@ -115,9 +140,13 @@ function EditorInner({ flowId }: EditorProps) {
       }
     } catch (err) {
       const saveErrors = extractSaveErrors(err);
+      const collision = extractCollisionError(err);
       if (saveErrors.length > 0) {
         setErrors(saveErrors);
         setBanner({ kind: 'err', text: `Save rejected — ${saveErrors.length} issue(s).` });
+      } else if (collision) {
+        setErrors([collision]);
+        setBanner({ kind: 'err', text: 'Rename rejected — api_name already in use.' });
       } else {
         setBanner({ kind: 'err', text: 'Save failed unexpectedly.' });
       }
@@ -161,10 +190,10 @@ function EditorInner({ flowId }: EditorProps) {
           <Button
             size="sm"
             onClick={handleSave}
-            disabled={saveMutation.isPending || !yamlText.trim()}
+            disabled={isSaving || !yamlText.trim()}
           >
             <Save size={14} aria-hidden="true" />
-            {saveMutation.isPending ? 'Saving…' : 'Save'}
+            {isSaving ? 'Saving…' : 'Save'}
           </Button>
         </div>
       </div>
@@ -177,7 +206,7 @@ function EditorInner({ flowId }: EditorProps) {
               role="status"
               className={
                 banner.kind === 'ok'
-                  ? 'flex items-center gap-2 text-sm text-emerald-400'
+                  ? 'flex items-center gap-2 text-sm text-primary'
                   : 'flex items-center gap-2 text-sm text-destructive'
               }
             >

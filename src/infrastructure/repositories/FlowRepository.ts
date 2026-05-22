@@ -135,4 +135,16 @@ export class FlowRepository implements IFlowRepository {
       created: response.status === 201,
     };
   }
+
+  async saveFromYamlById(
+    flowId: string,
+    definition: string,
+  ): Promise<SaveFromYamlResult> {
+    const response = await this.http.put<ApiFlowResponse>(
+      `/api/flows/${flowId}/from-yaml`,
+      { definition },
+    );
+    // By-id save is always an update — 200 OK, never 201.
+    return { flow: mapFlow(response.data), created: false };
+  }
 }

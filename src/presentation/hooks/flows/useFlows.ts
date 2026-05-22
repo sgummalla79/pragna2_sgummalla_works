@@ -91,3 +91,19 @@ export function useSaveFlowFromYaml() {
     },
   });
 }
+
+/** R3.7+: persist a YAML-authored flow by **id**. Supports renaming the
+ *  flow's `api_name` in place. 404 if the id isn't owned, 409 on rename
+ *  collision, 422 with structured errors on validation failure. */
+export function useSaveFlowFromYamlById() {
+  const { flowService } = useServices();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ flowId, definition }: { flowId: string; definition: string }) =>
+      flowService.saveFromYamlById(flowId, definition),
+    onSuccess: ({ flow }) => {
+      queryClient.invalidateQueries({ queryKey: FLOWS_KEY });
+      queryClient.invalidateQueries({ queryKey: flowKey(flow.id) });
+    },
+  });
+}

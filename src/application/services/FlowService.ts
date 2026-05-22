@@ -41,4 +41,8 @@ export class FlowService {
   saveFromYaml(definition: string): Promise<SaveFromYamlResult> {
     return this.flowRepository.saveFromYaml(definition);
   }
+
+  saveFromYamlById(flowId: string, definition: string): Promise<SaveFromYamlResult> {
+    return this.flowRepository.saveFromYamlById(flowId, definition);
+  }
 }

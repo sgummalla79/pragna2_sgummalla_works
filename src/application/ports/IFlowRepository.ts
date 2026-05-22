@@ -23,4 +23,10 @@ export interface IFlowRepository {
 
   /** R3.6+: persist a YAML-authored flow. Idempotent by `flow.api_name`. */
   saveFromYaml(definition: string): Promise<SaveFromYamlResult>;
+
+  /** R3.7+: persist a YAML-authored flow by **id**. Supports renaming the
+   *  flow's `api_name` in place — the row identified by `flowId` is updated
+   *  regardless of what `api_name` the YAML carries. Surfaces `409` when
+   *  the new `api_name` collides with a different flow owned by the user. */
+  saveFromYamlById(flowId: string, definition: string): Promise<SaveFromYamlResult>;
 }

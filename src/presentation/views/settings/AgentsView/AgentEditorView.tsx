@@ -226,116 +226,127 @@ export default function AgentEditorView() {
       </div>
 
       {/* ── Form ───────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto p-4 md:p-8 space-y-6">
+      {/* Two-column form on lg+ : left rail = all metadata fields, right
+          rail = system-prompt textarea that flexes to fill the viewport
+          height. Page doesn't scroll on desktop — the prompt is the
+          "biggest" thing and it grows to use whatever vertical room is
+          available. Below lg the layout falls back to a single column
+          with the parent main allowed to scroll. */}
+      <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
+        <div className="h-full max-w-7xl mx-auto p-4 md:p-8">
+          <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          <section className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="agent-api-name">API name</Label>
-                <Input
-                  id="agent-api-name"
-                  placeholder="researcher"
-                  value={form.apiName}
-                  onChange={(e) => setForm({ ...form, apiName: e.target.value })}
-                  disabled={isEdit}
-                  aria-describedby="agent-api-name-hint"
-                />
-                <p id="agent-api-name-hint" className="text-[11px] text-muted-foreground">
-                  URL-safe, unique. Used in YAML as{' '}
-                  <code className="font-mono">agent: {form.apiName || 'researcher'}</code>.
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="agent-display-name">Display name</Label>
-                <Input
-                  id="agent-display-name"
-                  placeholder="Researcher"
-                  value={form.displayName}
-                  onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-                />
-              </div>
-            </div>
+            {/* ── Left: metadata ───────────────────────────────────────── */}
+            <div className="space-y-6 lg:overflow-y-auto lg:pr-2 lg:min-h-0">
+              <section className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="agent-api-name">API name</Label>
+                    <Input
+                      id="agent-api-name"
+                      placeholder="researcher"
+                      value={form.apiName}
+                      onChange={(e) => setForm({ ...form, apiName: e.target.value })}
+                      aria-describedby="agent-api-name-hint"
+                    />
+                    <p id="agent-api-name-hint" className="text-[11px] text-muted-foreground">
+                      URL-safe, unique. Used in YAML as{' '}
+                      <code className="font-mono">agent: {form.apiName || 'researcher'}</code>.
+                      {isEdit && ' Running flows keep working (they bind to the id); flow YAML that still spells the old name will fail next time it is saved — update those flows after renaming.'}
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="agent-display-name">Display name</Label>
+                    <Input
+                      id="agent-display-name"
+                      placeholder="Researcher"
+                      value={form.displayName}
+                      onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+                    />
+                  </div>
+                </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="agent-description">Description (optional)</Label>
-              <Input
-                id="agent-description"
-                placeholder="Generates the primary draft."
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="agent-description">Description (optional)</Label>
+                  <Input
+                    id="agent-description"
+                    placeholder="Generates the primary draft."
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  />
+                </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="agent-model">Model</Label>
-              <Select
-                value={form.userModelId}
-                onValueChange={(v) => setForm({ ...form, userModelId: v })}
-              >
-                <SelectTrigger id="agent-model">
-                  <SelectValue placeholder="— pick a model —" />
-                </SelectTrigger>
-                <SelectContent>
-                  {flowEligibleModels.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {flowEligibleModels.length === 0 && (
-                <p className="text-[11px] text-muted-foreground">
-                  No models are enabled for Flows. Open Settings → Providers and toggle "Available for flows" on a model.
+                <div className="space-y-1.5">
+                  <Label htmlFor="agent-model">Model</Label>
+                  <Select
+                    value={form.userModelId}
+                    onValueChange={(v) => setForm({ ...form, userModelId: v })}
+                  >
+                    <SelectTrigger id="agent-model">
+                      <SelectValue placeholder="— pick a model —" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {flowEligibleModels.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {flowEligibleModels.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground">
+                      No models are enabled for Flows. Open Settings → Providers and toggle "Available for flows" on a model.
+                    </p>
+                  )}
+                </div>
+              </section>
+
+              <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="agent-emits">Emit labels</Label>
+                  <ChipInput
+                    id="agent-emits"
+                    label="emit"
+                    values={form.emits}
+                    onChange={(emits) => setForm({ ...form, emits })}
+                    placeholder="passed, failed (Enter to add)"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Routing labels the agent may emit via <code>{'<<emit:NAME>>'}</code>. Empty = leaf node.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="agent-tools">Tools (optional)</Label>
+                  <ChipInput
+                    id="agent-tools"
+                    label="tool"
+                    values={form.tools}
+                    onChange={(tools) => setForm({ ...form, tools })}
+                    placeholder="skill api_names (Enter to add)"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Skill <code>api_name</code>s the agent may invoke. R5 will plumb MCP servers through here.
+                  </p>
+                </div>
+              </section>
+
+              {formError && (
+                <p role="alert" className="text-sm text-destructive m-0">
+                  {formError}
                 </p>
               )}
             </div>
-          </section>
 
-          <section className="space-y-1.5">
-            <Label htmlFor="agent-prompt">System prompt</Label>
-            <Textarea
-              id="agent-prompt"
-              rows={14}
-              placeholder={"You are a careful researcher.\nEnd your reply with <<emit:passed>> or <<emit:failed>>."}
-              value={form.systemPrompt}
-              onChange={(e) => setForm({ ...form, systemPrompt: e.target.value })}
-              className="font-mono text-[12.5px]"
-            />
-          </section>
-
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="agent-emits">Emit labels</Label>
-              <ChipInput
-                id="agent-emits"
-                label="emit"
-                values={form.emits}
-                onChange={(emits) => setForm({ ...form, emits })}
-                placeholder="passed, failed (Enter to add)"
+            {/* ── Right: system prompt fills full height ────────────────── */}
+            <section className="flex flex-col gap-1.5 lg:min-h-0">
+              <Label htmlFor="agent-prompt">System prompt</Label>
+              <Textarea
+                id="agent-prompt"
+                placeholder={"You are a careful researcher.\nEnd your reply with <<emit:passed>> or <<emit:failed>>."}
+                value={form.systemPrompt}
+                onChange={(e) => setForm({ ...form, systemPrompt: e.target.value })}
+                className="font-mono text-[12.5px] flex-1 resize-none min-h-[18rem] lg:min-h-0"
               />
-              <p className="text-[11px] text-muted-foreground">
-                Routing labels the agent may emit via <code>{'<<emit:NAME>>'}</code>. Empty = leaf node.
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="agent-tools">Tools (optional)</Label>
-              <ChipInput
-                id="agent-tools"
-                label="tool"
-                values={form.tools}
-                onChange={(tools) => setForm({ ...form, tools })}
-                placeholder="skill api_names (Enter to add)"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Skill <code>api_name</code>s the agent may invoke. R5 will plumb MCP servers through here.
-              </p>
-            </div>
-          </section>
-
-          {formError && (
-            <p role="alert" className="text-sm text-destructive m-0">
-              {formError}
-            </p>
-          )}
+            </section>
+          </div>
         </div>
       </div>
     </div>
