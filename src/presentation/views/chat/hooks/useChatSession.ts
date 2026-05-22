@@ -47,8 +47,14 @@ export interface ChatSessionApi {
   status: ChatStatus;
   /** Last error message when ``status === 'error'``; ``null`` otherwise. */
   error: string | null;
-  /** Append a user turn and run the agent. No-op while a run is in flight. */
-  send: (text: string) => void;
+  /**
+   * Append a user turn and run the agent. No-op while a run is in flight.
+   * R5: ``attachmentIds`` is the list of staged attachment IDs that the
+   * backend has already received; they ride along in
+   * ``forwarded_props.attachment_ids`` so the pragna route can resolve
+   * + inject the bytes before invoking the LLM.
+   */
+  send: (text: string, attachmentIds?: string[]) => void;
   /**
    * R4 #1. Same as :func:`send` but adds ``?user_model_id=<modelId>`` to
    * the pragna URL for this single run, so the default agent runs against
@@ -262,7 +268,7 @@ export function useChatSession(
   }, [agent, syncMessages, qc]);
 
   const send = useCallback(
-    (text: string) => {
+    (text: string, attachmentIds?: string[]) => {
       const trimmed = text.trim();
       if (!agent || !trimmed) return;
       if (status === 'running') return;
@@ -274,7 +280,16 @@ export function useChatSession(
       });
       syncMessages();
 
-      agent.runAgent({}).catch((e: unknown) => {
+      // R5: when attachments are staged, ride them along via AG-UI's
+      // forwardedProps side channel. The backend's pragna route reads
+      // ``forwarded_props.attachment_ids`` and resolves / capability-
+      // gates / injects multi-part content before invoking the LLM.
+      const runParams =
+        attachmentIds && attachmentIds.length > 0
+          ? { forwardedProps: { attachment_ids: attachmentIds } }
+          : {};
+
+      agent.runAgent(runParams).catch((e: unknown) => {
         // runAgent rejects when the subscriber chain throws; the
         // onRunFailed handler already updated state in that case. Log
         // here for any unhandled rejection path.

@@ -18,6 +18,10 @@ export interface Model {
   /** True when the upstream provider no longer lists this model. */
   archived: boolean;
   metadata: Record<string, unknown>;
+  /** R5. Model can ingest images (PNG/JPG/WebP/GIF) in a multimodal user message. */
+  supportsVision: boolean;
+  /** R5. Model can natively ingest PDF documents. */
+  supportsPdf: boolean;
 }
 
 /**

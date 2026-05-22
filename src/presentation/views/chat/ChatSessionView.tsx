@@ -383,7 +383,9 @@ function ChatSurface({
 
     const timer = window.setTimeout(() => {
       const pending = consumePendingInitialMessage(conversationId);
-      if (pending) send(pending.text);
+      // R5: pass attachmentIds (if any) through to the first send so
+      // the backend can resolve + inject them on the same turn.
+      if (pending) send(pending.text, pending.attachmentIds);
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -484,6 +486,7 @@ function ChatSurface({
             onSend={send}
             onStop={stop}
             disabled={status === 'running'}
+            conversationId={conversationId}
             placeholder={
               status === 'running'
                 ? 'Waiting for response…'

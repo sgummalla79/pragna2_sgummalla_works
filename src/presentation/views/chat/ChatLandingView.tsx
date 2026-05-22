@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import PragnaLogo from '@/assets/logo.svg?react';
 import { useLlmProvidersWithRegistrations } from '@/presentation/hooks/providers/useProviders';
@@ -71,16 +71,24 @@ export default function ChatLandingView() {
   );
   const ready = hasProviders && hasChatModel && knownAgent;
 
+  // The conversation id used for any uploads happening BEFORE first
+  // send. Generated synchronously so the paperclip + drop target work
+  // straight away — the backend allows uploads against not-yet-existing
+  // conversation rows and links them on the first send-time persist.
+  const pendingConvId = useMemo(() => crypto.randomUUID(), []);
+
   const handleSend = useCallback(
-    (text: string) => {
-      const newId = crypto.randomUUID();
-      // Stash BOTH the text and the agent name so the session view can
-      // instantiate the right HttpAgent on mount. The handoff utility
-      // owns the JSON encoding and the storage-unavailable fallback.
-      writePendingInitialMessage(newId, { text, agent: requestedAgent });
-      navigate(`${ROUTES.CHAT}/${newId}`);
+    (text: string, attachmentIds: string[]) => {
+      // Reuse the upload-target convo id as the URL slug so the
+      // attachments already point at the right conversation.
+      writePendingInitialMessage(pendingConvId, {
+        text,
+        agent: requestedAgent,
+        attachmentIds,
+      });
+      navigate(`${ROUTES.CHAT}/${pendingConvId}`);
     },
-    [navigate, requestedAgent],
+    [navigate, pendingConvId, requestedAgent],
   );
 
   return (
@@ -110,6 +118,7 @@ export default function ChatLandingView() {
           <ChatInput
             onSend={handleSend}
             disabled={!ready}
+            conversationId={pendingConvId}
             placeholder={
               ready
                 ? `Ask ${APP_NAME} anything…`
