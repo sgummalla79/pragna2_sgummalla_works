@@ -4,7 +4,9 @@ import type { CreateSkillPayload, Skill, SkillType } from '@/domain/types/skill.
 
 interface ApiSkillResponse {
   id: string;
-  name: string;
+  /** Backend R3.5+ renamed `name` → `api_name` and added `display_name`. */
+  api_name: string;
+  display_name: string;
   description: string;
   skill_type: string;
   user_model_id: string | null;
@@ -15,7 +17,8 @@ interface ApiSkillResponse {
 function mapSkill(raw: ApiSkillResponse): Skill {
   return {
     id: raw.id,
-    name: raw.name,
+    // Keep the domain `.name` field — surface api_name there.
+    name: raw.api_name,
     description: raw.description,
     skillType: raw.skill_type as SkillType,
     userModelId: raw.user_model_id,
@@ -34,7 +37,10 @@ export class SkillRepository implements ISkillRepository {
 
   async create(payload: CreateSkillPayload): Promise<Skill> {
     const { data } = await this.http.post<ApiSkillResponse>('/api/skills', {
-      name: payload.name,
+      // Backend R3.5+ requires both api_name + display_name. We reuse
+      // `payload.name` for both until the UI grows a separate display_name field.
+      api_name: payload.name,
+      display_name: payload.name,
       description: payload.description,
       skill_type: payload.skillType,
       user_model_id: payload.userModelId,

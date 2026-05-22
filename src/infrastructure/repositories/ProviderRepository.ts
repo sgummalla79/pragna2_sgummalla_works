@@ -7,7 +7,8 @@ import { mapModel, type ApiModelResponse } from './mappers/mapModel';
 interface ApiUserProviderResponse {
   id: string;
   llm_provider_id: string;
-  provider_name: string;
+  /** Backend R3.5+ renamed `provider_name` → `provider_api_name`. */
+  provider_api_name: string;
   enabled: boolean;
   metadata: Record<string, unknown>;
 }
@@ -28,7 +29,7 @@ function mapUserProvider(raw: ApiUserProviderResponse): UserProvider {
   return {
     id:            raw.id,
     llmProviderId: raw.llm_provider_id,
-    providerName:  raw.provider_name,
+    providerName:  raw.provider_api_name,
     enabled:       raw.enabled,
     metadata:      raw.metadata ?? {},
   };

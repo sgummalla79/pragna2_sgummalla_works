@@ -9,9 +9,11 @@ import type {
 import { mapModel } from './mappers/mapModel';
 import type { ApiModelResponse } from './mappers/mapModel';
 
+/** Backend R3.5+ wire shape — `api_name` replaces `name`. Domain type
+ *  still exposes `.name`; we source it from the new field in the mapper. */
 interface ApiLlmProviderResponse {
   id: string;
-  name: string;
+  api_name: string;
   display_name: string;
   credential_kind: string;
   enabled: boolean;
@@ -23,7 +25,7 @@ type ApiEmbeddedModelResponse = Omit<ApiModelResponse, 'archived'>;
 interface ApiUserProviderEmbedded {
   id: string;
   llm_provider_id: string;
-  provider_name: string;
+  provider_api_name: string;
   enabled: boolean;
   metadata: Record<string, unknown>;
   models: ApiEmbeddedModelResponse[];
@@ -36,7 +38,7 @@ interface ApiLlmProviderWithRegistrationsResponse extends ApiLlmProviderResponse
 function mapLlmProvider(raw: ApiLlmProviderResponse): LlmProvider {
   return {
     id:             raw.id,
-    name:           raw.name,
+    name:           raw.api_name,
     displayName:    raw.display_name,
     credentialKind: raw.credential_kind as CredentialKind,
     enabled:        raw.enabled,
@@ -47,7 +49,7 @@ function mapEmbeddedUserProvider(raw: ApiUserProviderEmbedded): UserProviderWith
   return {
     id:            raw.id,
     llmProviderId: raw.llm_provider_id,
-    providerName:  raw.provider_name,
+    providerName:  raw.provider_api_name,
     enabled:       raw.enabled,
     metadata:      raw.metadata ?? {},
     // Embedded models have no `archived` field — server excludes archived rows.

@@ -11,12 +11,12 @@ import type {
 } from '@/domain/types/flow.types';
 import { EDGE_CONDITIONS } from '@/constants/edgeConditions';
 
+/** R3.5+ wire shape — flow_nodes are pure topology (node_id + user_agent_id);
+ *  behaviour lives on the referenced user_agent row. */
 interface ApiFlowNodeResponse {
   id: string;
   node_id: string;
-  agent_type: string;
-  user_model_id: string;
-  config: Record<string, unknown>;
+  user_agent_id: string;
 }
 
 interface ApiFlowEdgeResponse {
@@ -28,10 +28,12 @@ interface ApiFlowEdgeResponse {
 
 interface ApiFlowResponse {
   id: string;
-  name: string;
+  api_name: string;
+  display_name: string;
   description: string | null;
   enabled: boolean;
   metadata: Record<string, unknown>;
+  definition: string | null;
   nodes: ApiFlowNodeResponse[];
   edges: ApiFlowEdgeResponse[];
 }
@@ -40,9 +42,7 @@ function mapNode(raw: ApiFlowNodeResponse): FlowNode {
   return {
     id: raw.id,
     nodeId: raw.node_id,
-    agentType: raw.agent_type,
-    userModelId: raw.user_model_id,
-    config: raw.config,
+    userAgentId: raw.user_agent_id,
   };
 }
 
@@ -58,10 +58,12 @@ function mapEdge(raw: ApiFlowEdgeResponse): FlowEdge {
 function mapFlow(raw: ApiFlowResponse): Flow {
   return {
     id: raw.id,
-    name: raw.name,
+    apiName: raw.api_name,
+    displayName: raw.display_name,
     description: raw.description,
     enabled: raw.enabled,
     metadata: raw.metadata,
+    definition: raw.definition,
     nodes: raw.nodes.map(mapNode),
     edges: raw.edges.map(mapEdge),
   };
@@ -82,9 +84,11 @@ export class FlowRepository implements IFlowRepository {
 
   async create(payload: CreateFlowPayload): Promise<Flow> {
     const { data } = await this.http.post<ApiFlowResponse>('/api/flows', {
-      name: payload.name,
+      api_name: payload.apiName,
+      display_name: payload.displayName,
       description: payload.description,
       metadata: payload.metadata ?? {},
+      ...(payload.definition !== undefined ? { definition: payload.definition } : {}),
     });
     return mapFlow(data);
   }
@@ -92,9 +96,7 @@ export class FlowRepository implements IFlowRepository {
   async addNode(flowId: string, payload: AddNodePayload): Promise<Flow> {
     const { data } = await this.http.post<ApiFlowResponse>(`/api/flows/${flowId}/nodes`, {
       node_id: payload.nodeId,
-      agent_type: payload.agentType,
-      user_model_id: payload.userModelId,
-      config: payload.config ?? {},
+      user_agent_id: payload.userAgentId,
     });
     return mapFlow(data);
   }

@@ -88,7 +88,7 @@ export default function ChatSessionView() {
     if (handoffAgent) return handoffAgent;
     if (conversation?.flowId) {
       const flow = flows.find((f) => f.id === conversation.flowId);
-      if (flow) return flow.name;
+      if (flow) return flow.apiName;
     }
     return DEFAULT_AGENT_NAME;
   }, [handoffAgent, conversation, flows]);
