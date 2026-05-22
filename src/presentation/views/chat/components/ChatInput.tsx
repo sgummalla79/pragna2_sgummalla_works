@@ -159,7 +159,7 @@ export function ChatInput({
                 'transition-colors',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
                 canSend
-                  ? 'bg-primary text-white hover:bg-primary/90'
+                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                   : 'bg-muted text-muted-foreground cursor-not-allowed',
               )}
             >

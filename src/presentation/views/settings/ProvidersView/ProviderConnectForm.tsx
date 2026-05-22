@@ -69,9 +69,9 @@ export function ProviderConnectForm({
           )}
 
           {/* Hint — example value + short guidance from the config */}
-          <p className="text-[11px] leading-relaxed text-[rgba(255,255,255,0.35)]">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
             {field.placeholder && (
-              <span className="font-mono text-[rgba(255,255,255,0.25)]">
+              <span className="font-mono text-muted-foreground">
                 {field.placeholder}
               </span>
             )}

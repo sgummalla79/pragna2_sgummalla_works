@@ -83,6 +83,166 @@ export function parseTweakCNTheme(json: string): TweakCNTheme {
   return raw;
 }
 
+/** Parse a TweakCN "Code" panel CSS export — `:root { ... }` for light
+ *  mode, `.dark { ... }` for dark mode — into a TweakCNTheme.
+ *
+ *  TweakCN's CSS export uses shadcn classic naming (`--background`,
+ *  `--primary`, no `--color-` prefix), which is exactly the shape we
+ *  store in TweakCNTheme.cssVars under each mode key. So this parser
+ *  only has to split out the two selector blocks and strip the leading
+ *  ``--`` from each property name.
+ */
+export function parseTweakCNCss(css: string, fallbackName = 'imported'): TweakCNTheme {
+  const lightBlock = extractRuleBlock(css, ':root');
+  const darkBlock = extractRuleBlock(css, '.dark');
+
+  if (!lightBlock && !darkBlock) {
+    throw new Error(
+      "Couldn't find `:root { ... }` or `.dark { ... }` blocks in the CSS. " +
+      "Paste the full output from TweakCN's Code panel — it should include both.",
+    );
+  }
+
+  const light = lightBlock ? parseDeclarations(lightBlock) : {};
+  const dark = darkBlock ? parseDeclarations(darkBlock) : {};
+
+  // Pull the theme name out of a leading ``/* … claude theme … */``
+  // comment if present, else use the fallback.
+  const nameMatch = css.match(/\/\*[^*]*?([\w-]+)\s+theme[^*]*?\*\//i);
+  const name = nameMatch ? nameMatch[1] : fallbackName;
+
+  if (!light.background || !light.foreground) {
+    throw new Error(
+      "`:root` block is missing `--background` or `--foreground`. " +
+      'Make sure you copied the full Code panel, not just one block.',
+    );
+  }
+  if (!dark.background || !dark.foreground) {
+    throw new Error(
+      "`.dark` block is missing `--background` or `--foreground`. " +
+      'Make sure you copied the full Code panel, not just one block.',
+    );
+  }
+
+  return { name, cssVars: { light, dark } };
+}
+
+/** Match a TweakCN registry URL anywhere in the input — accepts both
+ *  the bare URL and copy-pasted CLI commands like
+ *  ``npx shadcn add https://tweakcn.com/r/themes/foo.json``. */
+const TWEAKCN_URL_RE = /https:\/\/tweakcn\.com\/r\/themes\/[\w-]+\.json/;
+
+/**
+ * Auto-detect input format and parse to a TweakCNTheme.
+ *
+ * Four shapes accepted:
+ *   1. **JSON** — starts with `{` (the raw registry-item shape).
+ *   2. **CSS**  — has `:root { ... }` + `.dark { ... }` selectors,
+ *                 as shown in TweakCN's Code panel under `index.css`.
+ *   3. **URL**  — `https://tweakcn.com/r/themes/<name>.json` (the
+ *                 registry endpoint). We fetch + parse as JSON.
+ *   4. **CLI command** — any string containing a TweakCN URL
+ *                        (`pnpm dlx shadcn@latest add <URL>`,
+ *                        `npx shadcn add <URL>`, etc.). We extract
+ *                        the URL and treat it as case 3.
+ *
+ * URL paths run async; JSON / CSS are sync. To keep one call site,
+ * the function always returns a Promise.
+ */
+export async function parseTweakCNInput(
+  text: string,
+  fallbackName = 'imported',
+): Promise<TweakCNTheme> {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    throw new Error(
+      'Paste a TweakCN theme — the install URL, JSON, or CSS from the Code panel.',
+    );
+  }
+
+  // URL or CLI-command — extract the URL and fetch.
+  const urlMatch = trimmed.match(TWEAKCN_URL_RE);
+  if (urlMatch) {
+    return fetchTweakCNTheme(urlMatch[0]);
+  }
+
+  // JSON path starts with `{` (after stripping any leading banner comment).
+  const firstSignificantChar = trimmed
+    .replace(/^\/\*[\s\S]*?\*\//, '')
+    .trimStart()[0];
+  if (firstSignificantChar === '{') {
+    return parseTweakCNTheme(trimmed);
+  }
+
+  // Fall through to CSS.
+  return parseTweakCNCss(trimmed, fallbackName);
+}
+
+/** Fetch a TweakCN registry URL and parse it as a TweakCNTheme.
+ *  Wraps network/CORS errors in a user-friendly message that points
+ *  the user at the CSS paste fallback. */
+async function fetchTweakCNTheme(url: string): Promise<TweakCNTheme> {
+  let response: Response;
+  try {
+    response = await fetch(url, { mode: 'cors' });
+  } catch (err) {
+    throw new Error(
+      `Couldn't reach ${url} — check your network or paste the CSS from the index.css tab instead. (${err instanceof Error ? err.message : 'fetch failed'})`,
+    );
+  }
+  if (!response.ok) {
+    throw new Error(
+      `TweakCN responded ${response.status} for ${url}. Try pasting the CSS instead.`,
+    );
+  }
+  const json = await response.text();
+  return parseTweakCNTheme(json);
+}
+
+/** Extract everything between the FIRST `selector { ... }` block.
+ *  Returns the inner declarations as a string (no surrounding braces),
+ *  or `null` if the selector isn't present. */
+function extractRuleBlock(css: string, selector: string): string | null {
+  // Anchor on the selector verbatim + optional whitespace + `{`. We
+  // accept selector matches anywhere (TweakCN may write `.dark`,
+  // `html.dark`, or other variants) but the simple form is the common
+  // case.
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const startRe = new RegExp(`${escaped}\\s*\\{`, 'g');
+  const match = startRe.exec(css);
+  if (!match) return null;
+  // Walk forward counting braces to find the matching `}`.
+  const start = match.index + match[0].length;
+  let depth = 1;
+  for (let i = start; i < css.length; i++) {
+    if (css[i] === '{') depth++;
+    else if (css[i] === '}') {
+      depth--;
+      if (depth === 0) return css.slice(start, i);
+    }
+  }
+  return null;
+}
+
+/** Parse `--key: value;` declarations into a `{ key: value }` map.
+ *  Strips the leading `--` so keys match TweakCN's JSON shape
+ *  (`background`, not `--background`). Comments are skipped. */
+function parseDeclarations(block: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const cleaned = block.replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const raw of cleaned.split(';')) {
+    const decl = raw.trim();
+    if (!decl) continue;
+    const colon = decl.indexOf(':');
+    if (colon < 0) continue;
+    const keyRaw = decl.slice(0, colon).trim();
+    const value = decl.slice(colon + 1).trim();
+    if (!keyRaw.startsWith('--')) continue;
+    out[keyRaw.slice(2)] = value;
+  }
+  return out;
+}
+
 /**
  * Apply a palette to the DOM for the given mode.
  *

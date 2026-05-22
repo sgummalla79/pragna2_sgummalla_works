@@ -4,7 +4,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { Button } from '@/presentation/components/ui/Button';
 import { Label } from '@/presentation/components/ui/Label';
 import { Textarea } from '@/presentation/components/ui/Textarea';
-import { parseTweakCNTheme } from '@/themes/tweakcn';
+import { parseTweakCNInput } from '@/themes/tweakcn';
 import { installPalette } from '@/themes/registry';
 import { useUiStore } from '@/presentation/store/uiStore';
 
@@ -13,48 +13,53 @@ interface ImportThemeDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const PLACEHOLDER = `{
-  "name": "my-theme",
-  "cssVars": {
-    "light": { "background": "oklch(...)", "foreground": "oklch(...)", ... },
-    "dark":  { "background": "oklch(...)", "foreground": "oklch(...)", ... }
-  }
-}`;
+const PLACEHOLDER = `Paste ANY of these:
+
+· Install URL   →  https://tweakcn.com/r/themes/<name>.json
+· CLI command   →  pnpm dlx shadcn@latest add https://tweakcn.com/r/themes/<name>.json
+· CSS           →  :root { --background: oklch(...); ... } .dark { ... }
+                   (TweakCN "Code" panel → "index.css" tab)
+· JSON          →  { "name": "...", "cssVars": { "light": {...}, "dark": {...} } }`;
 
 /**
- * Install a TweakCN palette via paste-in JSON.
+ * Install a TweakCN palette via paste — any of four shapes:
  *
- * Flow:
- *   1. User copies the **Code → JSON** export from tweakcn.com.
- *   2. Pastes into the textarea here.
- *   3. We validate the shape via :func:`parseTweakCNTheme`.
- *   4. Persist to localStorage via :func:`installPalette`.
- *   5. Switch the active palette to it so the user sees it immediately.
+ *   - **Install URL** (`https://tweakcn.com/r/themes/<name>.json`) —
+ *     we fetch + parse as JSON.
+ *   - **CLI command** containing the URL (the pnpm / npm / yarn / bun
+ *     tabs in TweakCN's Code panel) — we extract the URL.
+ *   - **CSS** — what the Code panel's `index.css` tab shows by
+ *     default; `:root { ... } .dark { ... }` blocks.
+ *   - **JSON** — the underlying registry-item format (advanced).
  *
- * TweakCN's "Copy as JSON" output is what we expect — exactly what the
- * ``shadcn add <url>`` CLI consumes. We don't fetch the URL ourselves
- * because TweakCN may serve CORS-restricted JSON; copy-paste sidesteps
- * that entirely.
+ * Validated via :func:`parseTweakCNInput`, persisted via
+ * :func:`installPalette`, and made active immediately so the user
+ * sees the new palette without leaving the dialog.
  */
 export function ImportThemeDialog({ open, onOpenChange }: ImportThemeDialogProps) {
   const setPaletteId = useUiStore((s) => s.setPaletteId);
 
-  const [jsonText, setJsonText] = useState('');
+  const [text, setText] = useState('');
   const [label, setLabel] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setJsonText('');
+      setText('');
       setLabel('');
       setError(null);
+      setBusy(false);
     }
   }, [open]);
 
-  function handleInstall() {
+  async function handleInstall() {
     setError(null);
+    setBusy(true);
     try {
-      const theme = parseTweakCNTheme(jsonText.trim());
+      // URL / CLI command paths fetch over the network — async; CSS and
+      // JSON paths resolve immediately.
+      const theme = await parseTweakCNInput(text.trim(), label.trim() || 'imported');
       const palette = installPalette({
         theme,
         label: label.trim() || theme.name,
@@ -63,6 +68,8 @@ export function ImportThemeDialog({ open, onOpenChange }: ImportThemeDialogProps
       onOpenChange(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not install theme.');
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -88,13 +95,15 @@ export function ImportThemeDialog({ open, onOpenChange }: ImportThemeDialogProps
             Install a TweakCN theme
           </Dialog.Title>
           <Dialog.Description className="text-[13px] text-muted-foreground m-0 leading-relaxed">
-            Paste the JSON from <a
+            On <a
               href="https://tweakcn.com"
               target="_blank"
               rel="noreferrer"
               className="underline text-primary"
-            >tweakcn.com</a> — choose a theme, click <strong>Code</strong>,
-            copy the JSON, paste below, and Install.
+            >tweakcn.com</a>, pick a theme and click <strong>Code</strong>.
+            Either copy the CLI command (top tabs) or open the{' '}
+            <code className="font-mono text-[11.5px]">index.css</code> tab
+            and copy the CSS. Paste below and Install.
           </Dialog.Description>
 
           <div className="space-y-1.5">
@@ -108,17 +117,17 @@ export function ImportThemeDialog({ open, onOpenChange }: ImportThemeDialogProps
               className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             />
             <p className="text-[11px] text-muted-foreground">
-              Defaults to the JSON's <code>name</code> field.
+              Defaults to the theme's name. Shown in the palette grid.
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="theme-json">TweakCN JSON</Label>
+            <Label htmlFor="theme-input">URL · CLI command · CSS · JSON</Label>
             <Textarea
-              id="theme-json"
+              id="theme-input"
               rows={12}
-              value={jsonText}
-              onChange={(e) => setJsonText(e.target.value)}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
               placeholder={PLACEHOLDER}
               className="font-mono text-[11.5px]"
               spellCheck={false}
@@ -133,15 +142,16 @@ export function ImportThemeDialog({ open, onOpenChange }: ImportThemeDialogProps
 
           <div className="flex justify-end gap-2 pt-1">
             <Dialog.Close asChild>
-              <Button variant="ghost" size="sm">Cancel</Button>
+              <Button variant="ghost" size="sm" disabled={busy}>Cancel</Button>
             </Dialog.Close>
             <Button
               variant="default"
               size="sm"
-              onClick={handleInstall}
-              disabled={jsonText.trim().length === 0}
+              onClick={() => void handleInstall()}
+              disabled={busy || text.trim().length === 0}
+              aria-busy={busy}
             >
-              Install theme
+              {busy ? 'Installing…' : 'Install theme'}
             </Button>
           </div>
         </Dialog.Content>

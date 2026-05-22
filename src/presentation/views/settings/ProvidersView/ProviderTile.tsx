@@ -79,14 +79,14 @@ export function ProviderTile({
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             providerEnabled
-              ? 'bg-primary text-white border-primary hover:bg-primary/90'
+              ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
               : 'bg-violet-500/10 text-violet-400 border-violet-500/25 hover:bg-violet-500/20'
           )}
         >
           <span
             className={cn(
               'h-1.5 w-1.5 rounded-full flex-shrink-0',
-              providerEnabled ? 'bg-white' : 'bg-violet-400'
+              providerEnabled ? 'bg-primary-foreground' : 'bg-violet-400'
             )}
             aria-hidden="true"
           />

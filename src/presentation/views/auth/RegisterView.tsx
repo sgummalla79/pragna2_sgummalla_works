@@ -174,7 +174,7 @@ export default function RegisterView() {
 
             <Button
               type="submit"
-              className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium mt-2"
+              className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium mt-2"
               disabled={busy}
               aria-busy={loading}
             >

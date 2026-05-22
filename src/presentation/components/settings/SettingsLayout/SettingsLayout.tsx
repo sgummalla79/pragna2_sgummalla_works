@@ -46,7 +46,7 @@ export function SettingsLayout() {
           padding: '0 16px',
           height: 52,
           background: 'var(--color-muted)',
-          borderBottom: '1px solid rgba(255,255,255,0.07)',
+          borderBottom: '1px solid var(--color-border)',
           flexShrink: 0,
         }}>
           <button

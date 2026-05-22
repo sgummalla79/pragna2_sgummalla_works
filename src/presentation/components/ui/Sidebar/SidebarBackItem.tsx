@@ -13,7 +13,7 @@ export function SidebarBackItem({ to, label }: Props) {
   return (
     <Link
       to={to}
-      className="flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-sm font-medium text-white no-underline transition-colors duration-150 hover:bg-[rgba(255,255,255,0.05)]"
+      className="flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-sm font-medium text-foreground no-underline transition-colors duration-150 hover:bg-accent"
       style={{ minHeight: 44 }}
     >
       <ChevronLeftIcon />

@@ -22,9 +22,12 @@ export function SidebarNavItem({ to, icon, label }: Props) {
           'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] no-underline',
           'transition-colors duration-150',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
+          // Semantic tokens so light + dark palettes both contrast
+          // correctly. Active: full-strength foreground + tinted primary
+          // background. Inactive: muted foreground + accent hover.
           isActive
-            ? 'font-semibold text-white bg-primary/10'
-            : 'font-medium text-white/70 hover:text-white hover:bg-[rgba(255,255,255,0.05)]'
+            ? 'font-semibold text-foreground bg-primary/10'
+            : 'font-medium text-muted-foreground hover:text-foreground hover:bg-accent'
         )
       }
       style={{ minHeight: 40 }}

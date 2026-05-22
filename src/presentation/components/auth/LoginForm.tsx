@@ -57,7 +57,7 @@ export function LoginForm() {
       style={{
         maxWidth: 380,
         background: 'var(--color-popover)',
-        border: '1px solid rgba(255,255,255,0.09)',
+        border: '1px solid var(--color-border)',
         borderRadius: 16,
         padding: '36px 32px',
         boxShadow: '0 20px 60px rgba(0,0,0,0.45)',
@@ -171,9 +171,9 @@ export function LoginForm() {
 
       {/* Divider */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--color-muted-foreground)', fontSize: 12 }}>
-        <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.09)' }} />
+        <span style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
         or
-        <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.09)' }} />
+        <span style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
       </div>
 
       {/* Social connections */}

@@ -67,7 +67,7 @@ export default function UIFrameworkView() {
         </div>
       </Section>
 
-      <Separator className="bg-[rgba(255,255,255,0.08)]" />
+      <Separator className="bg-accent" />
 
       {/* ── Form Inputs ──────────────────────────────────────────────────────── */}
       <Section title="Form Inputs">
@@ -96,7 +96,7 @@ export default function UIFrameworkView() {
         </div>
       </Section>
 
-      <Separator className="bg-[rgba(255,255,255,0.08)]" />
+      <Separator className="bg-accent" />
 
       {/* ── Provider Tiles ───────────────────────────────────────────────────── */}
       <Section title="Provider Tiles">
@@ -115,7 +115,7 @@ export default function UIFrameworkView() {
         </div>
       </Section>
 
-      <Separator className="bg-[rgba(255,255,255,0.08)]" />
+      <Separator className="bg-accent" />
 
       {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
       <Section title="Sidebar Menu Styles">
@@ -124,7 +124,7 @@ export default function UIFrameworkView() {
         </p>
         <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           {/* Live sidebar panel (always-open demo) */}
-          <div style={{ width: 240, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+          <div style={{ width: 240, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--color-border)', flexShrink: 0 }}>
             <Sidebar
               items={DEMO_NAV}
               isOpen

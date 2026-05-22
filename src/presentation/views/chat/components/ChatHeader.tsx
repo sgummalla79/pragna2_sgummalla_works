@@ -31,7 +31,7 @@ export function ChatHeader({ conversation, agentName }: ChatHeaderProps) {
 
   // Elevation in BOTH themes from a single shadow stack:
   //
-  //   1. ``inset 0 -1px 0 rgba(255,255,255,0.08)`` — a 1px bright line
+  //   1. ``inset 0 -1px 0 var(--color-border)`` — a 1px bright line
   //      pinned to the header's BOTTOM edge. In dark mode this is the
   //      load-bearing trick: a pure-black drop-shadow on a near-black
   //      page is physically invisible (no contrast), but a thin white
@@ -47,7 +47,7 @@ export function ChatHeader({ conversation, agentName }: ChatHeaderProps) {
   //
   // ``relative z-10`` keeps the shadow stack above the scroll column.
   return (
-    <div className="relative z-10 flex h-12 items-center gap-3 bg-background px-4 shadow-[inset_0_-1px_0_rgba(255,255,255,0.08),0_2px_4px_rgba(0,0,0,0.15),0_12px_32px_-8px_rgba(0,0,0,0.25)]">
+    <div className="relative z-10 flex h-12 items-center gap-3 bg-background px-4 shadow-[inset_0_-1px_0_var(--color-border),0_2px_4px_rgba(0,0,0,0.15),0_12px_32px_-8px_rgba(0,0,0,0.25)]">
       <span className="text-[14px] font-semibold text-foreground truncate">
         {title}
       </span>

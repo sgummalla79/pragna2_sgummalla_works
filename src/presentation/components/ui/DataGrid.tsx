@@ -91,7 +91,7 @@ export function DataGrid<T>({
   };
 
   return (
-    <div className={cn('overflow-auto rounded-lg border border-[rgba(255,255,255,0.08)]', className)}>
+    <div className={cn('overflow-auto rounded-lg border border-border', className)}>
       <table className="w-full border-separate border-spacing-0 text-[14px]">
         <thead>
           <tr>
@@ -99,7 +99,7 @@ export function DataGrid<T>({
               <th
                 key={col.key}
                 className={cn(
-                  'sticky top-0 z-10 bg-card border-b border-[rgba(255,255,255,0.08)]',
+                  'sticky top-0 z-10 bg-card border-b border-border',
                   'whitespace-nowrap px-3 py-3 text-[12px] font-bold uppercase tracking-wide text-muted-foreground',
                   alignClass[col.align ?? 'left']
                 )}
@@ -175,8 +175,8 @@ function DataGridRow<T>({
   return (
     <tr
       className={cn(
-        'transition-colors hover:bg-[rgba(255,255,255,0.02)]',
-        !isLast && 'border-b border-[rgba(255,255,255,0.05)]',
+        'transition-colors hover:bg-accent/50',
+        !isLast && 'border-b border-border',
         disabled && 'opacity-50'
       )}
     >
@@ -202,11 +202,11 @@ function DataGridRow<T>({
                 onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); } }}
                 disabled={disabled}
                 className={cn(
-                  'w-full cursor-text rounded-md border border-[rgba(255,255,255,0.12)]',
-                  'bg-[rgba(255,255,255,0.05)] px-2.5 py-1.5 text-[14px] text-foreground outline-none',
+                  'w-full cursor-text rounded-md border border-border',
+                  'bg-accent/50 px-2.5 py-1.5 text-[14px] text-foreground outline-none',
                   'transition-colors duration-150',
-                  'hover:border-[rgba(255,255,255,0.22)] hover:bg-[rgba(255,255,255,0.08)]',
-                  'focus:border-primary focus:bg-[rgba(255,255,255,0.08)]',
+                  'hover:border-input hover:bg-accent',
+                  'focus:border-primary focus:bg-accent',
                   'disabled:cursor-not-allowed disabled:opacity-50'
                 )}
               />
@@ -232,11 +232,13 @@ function DataGridRow<T>({
                 'disabled:cursor-not-allowed disabled:opacity-40',
                 active
                   ? 'bg-primary shadow-[0_0_6px_var(--color-primary)]'
-                  : 'bg-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.16)]'
+                  : 'bg-muted hover:bg-accent'
               )}
             >
               {isPending ? (
-                <span className="text-[8px] text-white">…</span>
+                // Pending state shows over the primary background; reads from
+                // primary-foreground so light/dark palettes both render legibly.
+                <span className="text-[8px] text-primary-foreground">…</span>
               ) : active ? (
                 <CheckMark />
               ) : null}
