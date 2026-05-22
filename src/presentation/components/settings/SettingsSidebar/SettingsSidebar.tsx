@@ -1,5 +1,6 @@
 import { Sidebar } from '@/presentation/components/ui/Sidebar/Sidebar';
 import { ROUTES } from '@/constants/routes';
+import { useUiStore } from '@/presentation/store/uiStore';
 import type { SidebarItemConfig } from '@/presentation/components/ui/Sidebar/types';
 
 interface Props {
@@ -22,14 +23,22 @@ const SETTINGS_NAV: SidebarItemConfig[] = [
   { type: 'nav', to: ROUTES.SETTINGS_PROFILE, icon: <ProfileIcon />, label: 'Profile' },
 ];
 
-/** Settings sidebar — passes the config to the shared Sidebar shell. */
+/** Settings sidebar — passes the config to the shared Sidebar shell.
+ *  Collapse state is persisted in uiStore so the user's choice
+ *  survives navigation between settings sub-views. */
 export function SettingsSidebar({ isOpen, onClose }: Props) {
+  const collapsed = useUiStore((s) => s.settingsPaneCollapsed);
+  const toggle = useUiStore((s) => s.toggleSettingsPane);
+
   return (
     <Sidebar
       isOpen={isOpen}
       onClose={onClose}
       label="Settings navigation"
+      headerTitle="Settings"
       items={SETTINGS_NAV}
+      collapsed={collapsed}
+      onCollapseToggle={toggle}
     />
   );
 }

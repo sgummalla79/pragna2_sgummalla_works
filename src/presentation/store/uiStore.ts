@@ -12,11 +12,17 @@ import {
 export type Theme = 'light' | 'dark';
 
 const THEME_STORAGE_KEY = 'pragna:theme';
+const SETTINGS_PANE_COLLAPSED_KEY = 'pragna:settings-pane-collapsed';
 
 function readInitialTheme(): Theme {
   if (typeof window === 'undefined') return 'dark';
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
   return stored === 'light' ? 'light' : 'dark';
+}
+
+function readInitialSettingsCollapsed(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(SETTINGS_PANE_COLLAPSED_KEY) === '1';
 }
 
 /** Apply the active palette + mode to the DOM. Called on boot and on
@@ -36,6 +42,10 @@ interface UiState {
   activeNavItem: string;
   /** Collapsed state of the chat-page secondary pane (ChatSidebar). */
   chatPaneCollapsed: boolean;
+  /** Collapsed state of the settings-page sidebar. Mirrors the chat
+   *  pane pattern — persisted in localStorage so the choice survives
+   *  navigation + reloads. */
+  settingsPaneCollapsed: boolean;
   /** Active light/dark mode. Both modes are defined per palette in
    *  :file:`src/themes/*.ts` and applied at runtime via the TweakCN
    *  translator. */
@@ -45,6 +55,8 @@ interface UiState {
   setActiveNavItem: (item: string) => void;
   toggleChatPane: () => void;
   setChatPaneCollapsed: (value: boolean) => void;
+  toggleSettingsPane: () => void;
+  setSettingsPaneCollapsed: (value: boolean) => void;
   toggleTheme: () => void;
   setTheme: (t: Theme) => void;
   /** Switch the active palette. Persists + applies immediately. */
@@ -57,12 +69,31 @@ interface UiState {
 export const useUiStore = create<UiState>((set, get) => ({
   activeNavItem: '',
   chatPaneCollapsed: false,
+  settingsPaneCollapsed: readInitialSettingsCollapsed(),
   theme: initialTheme,
   paletteId: initialPaletteId,
 
   setActiveNavItem: (activeNavItem) => set({ activeNavItem }),
   toggleChatPane: () => set((s) => ({ chatPaneCollapsed: !s.chatPaneCollapsed })),
   setChatPaneCollapsed: (chatPaneCollapsed) => set({ chatPaneCollapsed }),
+
+  toggleSettingsPane: () =>
+    set((s) => {
+      const next = !s.settingsPaneCollapsed;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(SETTINGS_PANE_COLLAPSED_KEY, next ? '1' : '0');
+      }
+      return { settingsPaneCollapsed: next };
+    }),
+  setSettingsPaneCollapsed: (settingsPaneCollapsed) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(
+        SETTINGS_PANE_COLLAPSED_KEY,
+        settingsPaneCollapsed ? '1' : '0',
+      );
+    }
+    set({ settingsPaneCollapsed });
+  },
 
   toggleTheme: () =>
     set((s) => {

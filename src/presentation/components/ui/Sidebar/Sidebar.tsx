@@ -1,3 +1,6 @@
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
 import { SidebarBackItem } from './SidebarBackItem';
 import { SidebarNavItem } from './SidebarNavItem';
 import { SidebarSection } from './SidebarSection';
@@ -9,26 +12,44 @@ interface Props {
   /** Controls drawer visibility on mobile (ignored on desktop). */
   isOpen: boolean;
   onClose: () => void;
-  /** Width of the sidebar panel. Defaults to 240px. */
+  /** Width of the sidebar panel when expanded. Default 240px. */
   width?: number;
   /** ARIA label for the aside element. */
   label?: string;
+  /** Optional title rendered in the expanded header (e.g. "Settings").
+   *  When omitted, the header still renders the collapse toggle but
+   *  no text. */
+  headerTitle?: string;
+  /** Collapsed state. When true the sidebar shrinks to icon-only mode
+   *  (w-14) and section labels are hidden. */
+  collapsed?: boolean;
+  /** Toggle handler. Must be set together with `collapsed` for the
+   *  toggle control to render. */
+  onCollapseToggle?: () => void;
 }
+
+/** Width of the sidebar in icon-only mode (matches chat sidebar). */
+const COLLAPSED_WIDTH = 56;
 
 /**
  * Reusable sidebar shell.
  *
- * Items are driven entirely by the `items` config array — the Sidebar does
- * not know about specific routes or content. Each item type delegates
- * rendering to its dedicated component (SidebarBackItem, SidebarNavItem, etc.)
- * so styling is never mixed with data.
+ * Two display modes — both driven entirely by the `items` config and
+ * the optional `collapsed` flag:
  *
- * Desktop (≥ 1024px): positioned statically as a fixed-width panel.
- * Mobile  (< 1024px): full-height drawer that slides in from the left,
- *                     dimmed backdrop behind it.
+ *   - **Expanded** (default): full width, item labels + section headers
+ *     visible. A collapse toggle appears in the header iff
+ *     `onCollapseToggle` is provided.
+ *   - **Collapsed**: shrinks to `COLLAPSED_WIDTH` px, items render as
+ *     icon-only with native `title` tooltips, section labels are
+ *     skipped. Click the toggle (or any item) to interact.
  *
- * Every surface (background, foreground, border) reads from the active
- * palette via Tailwind tokens.
+ * Mobile (< 1024px): always a sliding drawer regardless of `collapsed`
+ * — there's no room for icon-only mode on a narrow viewport, so the
+ * drawer always renders at the expanded width.
+ *
+ * Every surface (background, foreground, border, hover, focus ring)
+ * reads from palette tokens.
  */
 export function Sidebar({
   items,
@@ -36,8 +57,13 @@ export function Sidebar({
   isOpen,
   onClose,
   label = 'Navigation',
+  headerTitle,
+  collapsed = false,
+  onCollapseToggle,
 }: Props) {
   const panelId = label.replace(/\s+/g, '-').toLowerCase();
+  const showCollapseControl = Boolean(onCollapseToggle);
+  const effectiveWidth = collapsed ? COLLAPSED_WIDTH : width;
 
   return (
     <>
@@ -50,36 +76,87 @@ export function Sidebar({
         />
       )}
 
-      {/* Sidebar panel.
-       *
-       * Positioned `fixed` on mobile (sliding drawer) and `lg:static` on
-       * desktop (column in the flex shell). The slide transform is the
-       * only piece of CSS that needs custom rules — Tailwind doesn't ship
-       * a "slide-in-from-left at < lg" primitive, so we keep a tiny
-       * scoped style block that only governs the transform animation.
-       * Colours all come from palette tokens. */}
       <aside
         id={panelId}
         aria-label={label}
-        className={`
-          pragna-sidebar pragna-sidebar--${isOpen ? 'open' : 'closed'}
-          flex flex-col gap-1 px-3 py-4
-          bg-background text-foreground border-r border-border
-        `}
-        style={{ width, minWidth: width }}
+        className={cn(
+          'pragna-sidebar',
+          `pragna-sidebar--${isOpen ? 'open' : 'closed'}`,
+          'flex flex-col flex-shrink-0',
+          'bg-background text-foreground border-r border-border',
+          'transition-[width] duration-150 ease-out',
+        )}
+        style={{ width: effectiveWidth, minWidth: effectiveWidth }}
       >
-        {items.map((item, index) => {
-          switch (item.type) {
-            case 'back':
-              return <SidebarBackItem key={index} to={item.to} label={item.label} />;
-            case 'section':
-              return <SidebarSection key={index} label={item.label} />;
-            case 'nav':
-              return <SidebarNavItem key={index} to={item.to} icon={item.icon} label={item.label} />;
-            case 'divider':
-              return <SidebarDivider key={index} />;
-          }
-        })}
+        {showCollapseControl && (
+          <div
+            className={cn(
+              'flex h-12 items-center border-b border-border px-2',
+              collapsed ? 'justify-center' : 'gap-2',
+            )}
+          >
+            {!collapsed && headerTitle && (
+              <span className="flex-1 truncate px-2 text-[13px] font-semibold text-foreground">
+                {headerTitle}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={onCollapseToggle}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-expanded={!collapsed}
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              className={cn(
+                'flex h-8 w-8 items-center justify-center rounded-md',
+                'text-muted-foreground hover:text-foreground hover:bg-accent',
+                'transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
+              )}
+            >
+              {collapsed ? (
+                <PanelLeftOpen size={18} aria-hidden="true" />
+              ) : (
+                <PanelLeftClose size={18} aria-hidden="true" />
+              )}
+            </button>
+          </div>
+        )}
+
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 px-3 py-4">
+          {items.map((item, index) => {
+            switch (item.type) {
+              case 'back':
+                return (
+                  <SidebarBackItem
+                    key={index}
+                    to={item.to}
+                    label={item.label}
+                    collapsed={collapsed}
+                  />
+                );
+              case 'section':
+                return (
+                  <SidebarSection
+                    key={index}
+                    label={item.label}
+                    collapsed={collapsed}
+                  />
+                );
+              case 'nav':
+                return (
+                  <SidebarNavItem
+                    key={index}
+                    to={item.to}
+                    icon={item.icon}
+                    label={item.label}
+                    collapsed={collapsed}
+                  />
+                );
+              case 'divider':
+                return <SidebarDivider key={index} />;
+            }
+          })}
+        </div>
       </aside>
 
       {/* Slide-in transform — only piece of custom CSS; no colour rules. */}
@@ -98,8 +175,7 @@ export function Sidebar({
           .pragna-sidebar {
             position: static !important;
             transform: none !important;
-            height: auto !important;
-            min-height: 100vh;
+            height: 100% !important;
           }
         }
       `}</style>

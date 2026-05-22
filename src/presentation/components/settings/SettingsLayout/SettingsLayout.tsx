@@ -30,8 +30,11 @@ export function SettingsLayout() {
   const { pathname } = useLocation();
   const pageTitle = SECTION_TITLES[pathname] ?? 'Settings';
 
+  // ``h-screen`` (not ``min-h-screen``) so the viewport is the canvas:
+  // the sidebar stays put while only the main content scrolls. Mirrors
+  // the chat-page layout.
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
+    <div className="flex h-screen bg-background text-foreground">
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <SettingsSidebar
         isOpen={sidebarOpen}
