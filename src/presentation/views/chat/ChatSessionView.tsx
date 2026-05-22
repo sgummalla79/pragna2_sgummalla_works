@@ -10,6 +10,8 @@ import {
   useTruncateFromMessage,
 } from '@/presentation/hooks/conversations/useConversationMutations';
 import { useFlows } from '@/presentation/hooks/flows/useFlows';
+import { useModels } from '@/presentation/hooks/models/useModels';
+import { useChatPreferences } from '@/presentation/hooks/preferences/useChatPreferences';
 import { APP_NAME } from '@/constants/api';
 import { ERRORS } from '@/constants/errors';
 import { ROUTES } from '@/constants/routes';
@@ -224,10 +226,26 @@ function ChatSurface({
     return map;
   }, [persistedMessages]);
 
-  const { messages, status, error, send, stop } = useChatSession(
+  const { messages, status, error, send, sendWithModel, stop } = useChatSession(
     agentName,
     { threadId, initialMessages },
   );
+
+  // R4 #1 regen-with-model: only the default chat agent supports per-turn
+  // model override (flow nodes have their own model bindings). For other
+  // agents we omit availableModels so the dropdown chevron hides. The
+  // user can also turn the feature off entirely via Settings → Profile
+  // (`prefs.regenWithModelEnabled`).
+  const { data: allModels } = useModels();
+  const { prefs } = useChatPreferences();
+  const availableModels = useMemo(() => {
+    if (!prefs.regenWithModelEnabled) return [];
+    if (agentName !== DEFAULT_AGENT_NAME) return [];
+    if (!allModels) return [];
+    return allModels
+      .filter((m) => m.enabled && !m.archived && m.availableForChat)
+      .map((m) => ({ id: m.id, displayName: m.displayName }));
+  }, [prefs.regenWithModelEnabled, agentName, allModels]);
 
   // ── R4 #1 message-actions wiring ────────────────────────────────────
   // Regenerate, Copy, Edit, Branch are composable on top of the existing
@@ -272,10 +290,25 @@ function ChatSurface({
             onSuccess: () => {
               // Re-run the same user message through the existing chat
               // stream. The backend writes a fresh assistant turn
-              // attributed to whichever model the conversation is
-              // currently bound to (or the override the regen-with-model
-              // dropdown lands as a follow-up commit).
+              // attributed to the conversation's currently-bound model.
               send(priorContent);
+            },
+          },
+        );
+      },
+      onRegenerateWithModel: (assistantMessageId: string, modelId: string) => {
+        const priorContent = findPriorUserContent(assistantMessageId);
+        if (!priorContent) return;
+        truncateMutation.mutate(
+          { conversationId, messageId: assistantMessageId },
+          {
+            onSuccess: () => {
+              // sendWithModel temporarily appends ?user_model_id=<modelId>
+              // to the pragna URL so this ONE turn runs against the
+              // chosen model. The conversation's persisted preference
+              // stays untouched — the next plain Regenerate falls back
+              // to it automatically.
+              sendWithModel(priorContent, modelId);
             },
           },
         );
@@ -325,6 +358,7 @@ function ChatSurface({
     truncateMutation,
     branchMutation,
     send,
+    sendWithModel,
     navigate,
     agentName,
     messages,
@@ -414,6 +448,8 @@ function ChatSurface({
                   null
                 }
                 handlers={handlers}
+                availableModels={availableModels}
+                branchEnabled={prefs.branchEnabled}
               />
             ))}
           </div>

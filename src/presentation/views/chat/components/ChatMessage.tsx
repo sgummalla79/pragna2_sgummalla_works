@@ -10,6 +10,10 @@ export interface ChatMessageHandlers {
   /** Assistant: re-run the prior user turn against the current model.
    *  Parent handles truncate + re-submit; this just signals intent. */
   onRegenerate: (messageId: string) => void;
+  /** Assistant: re-run the prior user turn against a different model
+   *  (R4 #1 regen-with-model). Optional — when omitted the dropdown
+   *  chevron hides. */
+  onRegenerateWithModel?: (messageId: string, modelId: string) => void;
   /** Assistant: copy the rendered content to the clipboard. */
   onCopy: (content: string) => Promise<void>;
   /** User: truncate from this turn + re-submit with edited content. */
@@ -38,6 +42,12 @@ interface ChatMessageProps {
    * surface so power users can hide the affordance.
    */
   branchEnabled?: boolean;
+  /**
+   * R4 #1. Chat-eligible models to offer in the regen-with-model
+   * dropdown on assistant turns. When undefined/empty the dropdown
+   * chevron is suppressed.
+   */
+  availableModels?: Array<{ id: string; displayName: string }>;
 }
 
 /**
@@ -56,6 +66,7 @@ export function ChatMessage({
   userModelId,
   handlers,
   branchEnabled = true,
+  availableModels,
 }: ChatMessageProps) {
   // Inline-edit state is local to the user-turn bubble. Save calls the
   // parent handler (which truncates + re-submits); Cancel restores the
@@ -169,6 +180,12 @@ export function ChatMessage({
                   role="assistant"
                   onRegenerate={() => handlers.onRegenerate(message.id)}
                   onCopy={() => handlers.onCopy(message.content)}
+                  onRegenerateWithModel={
+                    handlers.onRegenerateWithModel
+                      ? (modelId) => handlers.onRegenerateWithModel!(message.id, modelId)
+                      : undefined
+                  }
+                  availableModels={availableModels}
                 />
               ) : (
                 <MessageActions

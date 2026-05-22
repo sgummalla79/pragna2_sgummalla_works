@@ -49,6 +49,14 @@ export interface ChatSessionApi {
   error: string | null;
   /** Append a user turn and run the agent. No-op while a run is in flight. */
   send: (text: string) => void;
+  /**
+   * R4 #1. Same as :func:`send` but adds ``?user_model_id=<modelId>`` to
+   * the pragna URL for this single run, so the default agent runs against
+   * the chosen model instead of the conversation's persisted preference.
+   * The conversation's own user_model_id is NOT updated — the next plain
+   * :func:`send` falls back to the user's preference automatically.
+   */
+  sendWithModel: (text: string, userModelId: string) => void;
   /** Abort the current run. Safe to call when no run is active. */
   stop: () => void;
 }
@@ -103,6 +111,13 @@ export function useChatSession(
   // events can update the right call regardless of arrival interleaving.
   const toolCallsRef = useRef<Map<string, ChatToolCall>>(new Map());
 
+  // R4 #1 regen-with-model: when `sendWithModel` runs, it mutates
+  // `agent.url` to include `?user_model_id=<id>` so the pragna route
+  // routes this single run through the override model. The original
+  // URL is captured here and restored in onRunFinalized so the next
+  // plain `send` reverts to the conversation's persisted preference.
+  const overrideUrlRef = useRef<string | null>(null);
+
   const agent = useMemo<HttpAgent | null>(() => {
     if (!accessToken) return null;
     return new HttpAgent({
@@ -154,6 +169,14 @@ export function useChatSession(
       },
       onRunFinalized: () => {
         setStatus((prev) => (prev === 'error' ? prev : 'idle'));
+        // Restore the agent URL after a regen-with-model run so the
+        // next plain `send` reverts to the conversation's persisted
+        // user_model_id (the per-turn override is exactly that —
+        // per-turn, never sticky).
+        if (overrideUrlRef.current !== null && agent) {
+          agent.url = overrideUrlRef.current;
+          overrideUrlRef.current = null;
+        }
         // First invalidation: catches the new conversation row that the
         // backend auto-created on first turn so it appears in the sidebar
         // immediately (title may still be null at this point).
@@ -265,6 +288,23 @@ export function useChatSession(
     [agent, status, syncMessages],
   );
 
+  const sendWithModel = useCallback(
+    (text: string, userModelId: string) => {
+      const trimmed = text.trim();
+      if (!agent || !trimmed) return;
+      if (status === 'running') return;
+      // Capture the current URL so onRunFinalized can restore it. Then
+      // mutate the agent's URL to carry the override for this single run.
+      // HttpAgent reads `this.url` at fetch-issue time inside runAgent;
+      // setting it before calling send (which calls runAgent) is enough.
+      overrideUrlRef.current = agent.url;
+      const base = agent.url.split('?')[0];
+      agent.url = `${base}?user_model_id=${encodeURIComponent(userModelId)}`;
+      send(text);
+    },
+    [agent, status, send],
+  );
+
   const stop = useCallback(() => {
     if (agent && status === 'running') {
       agent.abortRun();
@@ -272,7 +312,7 @@ export function useChatSession(
     }
   }, [agent, status]);
 
-  return { messages, status, error, send, stop };
+  return { messages, status, error, send, sendWithModel, stop };
 }
 
 /**

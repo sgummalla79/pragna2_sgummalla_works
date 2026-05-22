@@ -1,11 +1,23 @@
 import { useState } from 'react';
-import { Check, Copy, GitBranch, Pencil, RefreshCw } from 'lucide-react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { Check, ChevronDown, Copy, GitBranch, Pencil, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface ModelOption {
+  id: string;
+  displayName: string;
+}
 
 interface AssistantActions {
   role: 'assistant';
   onRegenerate: () => void;
   onCopy: () => Promise<void>;
+  /** R4 #1. Optional dropdown to regenerate with a different model.
+   *  Render the chevron split-button only when this is supplied AND
+   *  the user's chat-eligible model list is non-empty. */
+  onRegenerateWithModel?: (modelId: string) => void;
+  /** Chat-eligible models to offer in the dropdown. Filtered upstream. */
+  availableModels?: ModelOption[];
 }
 
 interface UserActions {
@@ -75,6 +87,66 @@ export function MessageActions(props: Props) {
             icon={<RefreshCw size={13} aria-hidden="true" />}
             onClick={(props as AssistantActions).onRegenerate}
           />
+          {(() => {
+            const a = props as AssistantActions;
+            const dropdownEnabled =
+              a.onRegenerateWithModel &&
+              a.availableModels &&
+              a.availableModels.length > 0;
+            if (!dropdownEnabled) return null;
+            return (
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Regenerate with a different model"
+                    title="Regenerate with a different model"
+                    onClick={(e) => e.stopPropagation()}
+                    className={cn(
+                      'inline-flex items-center justify-center h-7 w-5 rounded-md',
+                      'text-muted-foreground hover:text-foreground hover:bg-accent',
+                      'transition-colors',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
+                    )}
+                  >
+                    <ChevronDown size={12} aria-hidden="true" />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    align="start"
+                    sideOffset={4}
+                    className={cn(
+                      'z-50 min-w-[12rem] overflow-hidden rounded-lg border border-border',
+                      'bg-popover text-popover-foreground shadow-xl',
+                      'data-[state=open]:animate-in data-[state=closed]:animate-out',
+                      'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+                    )}
+                  >
+                    <DropdownMenu.Label className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Regenerate with…
+                    </DropdownMenu.Label>
+                    {a.availableModels!.map((m) => (
+                      <DropdownMenu.Item
+                        key={m.id}
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          a.onRegenerateWithModel!(m.id);
+                        }}
+                        className={cn(
+                          'relative flex w-full cursor-pointer select-none items-center',
+                          'rounded-md py-1.5 px-2 text-[13px] outline-none',
+                          'focus:bg-accent focus:text-accent-foreground',
+                        )}
+                      >
+                        {m.displayName}
+                      </DropdownMenu.Item>
+                    ))}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            );
+          })()}
           <ActionButton
             label={copied ? 'Copied' : 'Copy'}
             icon={
