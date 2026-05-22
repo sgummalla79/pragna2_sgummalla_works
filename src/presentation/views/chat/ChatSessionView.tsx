@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { Message } from '@ag-ui/client';
 import { ErrorBoundary } from '@/presentation/components/ui/ErrorBoundary';
 import { useLlmProvidersWithRegistrations } from '@/presentation/hooks/providers/useProviders';
 import { useConversation } from '@/presentation/hooks/conversations/useConversation';
 import { useConversationMessages } from '@/presentation/hooks/conversations/useConversationMessages';
+import {
+  useBranchConversation,
+  useTruncateFromMessage,
+} from '@/presentation/hooks/conversations/useConversationMutations';
 import { useFlows } from '@/presentation/hooks/flows/useFlows';
 import { APP_NAME } from '@/constants/api';
 import { ERRORS } from '@/constants/errors';
@@ -17,8 +21,9 @@ import { useChatSession } from './hooks/useChatSession';
 import {
   consumePendingInitialMessage,
   peekPendingInitialMessage,
+  writePendingInitialMessage,
 } from './hooks/initialMessageHandoff';
-import { ChatMessage } from './components/ChatMessage';
+import { ChatMessage, type ChatMessageHandlers } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
 import { ChatHeader } from './components/ChatHeader';
 
@@ -224,6 +229,107 @@ function ChatSurface({
     { threadId, initialMessages },
   );
 
+  // ── R4 #1 message-actions wiring ────────────────────────────────────
+  // Regenerate, Copy, Edit, Branch are composable on top of the existing
+  // truncate / branch repo calls + the chat session's send(). The handlers
+  // live here (not in `useChatSession`) because they need access to the
+  // full message list AND the conversation id, both of which are
+  // surface-level concerns.
+  const navigate = useNavigate();
+  const truncateMutation = useTruncateFromMessage();
+  const branchMutation = useBranchConversation();
+
+  /** Find the user message that prompted the given assistant message. */
+  const findPriorUserContent = useCallback(
+    (assistantMessageId: string): string | null => {
+      const idx = messages.findIndex((m) => m.id === assistantMessageId);
+      if (idx <= 0) return null;
+      // Walk backwards to the first user turn — there can be tool /
+      // system messages between the user prompt and the assistant
+      // response, so simple `idx - 1` isn't always correct.
+      for (let i = idx - 1; i >= 0; i--) {
+        if (messages[i].role === 'user') return messages[i].content;
+      }
+      return null;
+    },
+    [messages],
+  );
+
+  const handlers = useMemo<ChatMessageHandlers | undefined>(() => {
+    // No conversation id means we're on a brand-new chat that hasn't
+    // materialised a server-side row yet — truncate + branch routes
+    // would 404. Skip the handlers; the hover affordances just don't
+    // render. As soon as the first turn finishes and the row exists,
+    // the handlers light up.
+    if (!conversationId) return undefined;
+    return {
+      onRegenerate: (assistantMessageId: string) => {
+        const priorContent = findPriorUserContent(assistantMessageId);
+        if (!priorContent) return;
+        truncateMutation.mutate(
+          { conversationId, messageId: assistantMessageId },
+          {
+            onSuccess: () => {
+              // Re-run the same user message through the existing chat
+              // stream. The backend writes a fresh assistant turn
+              // attributed to whichever model the conversation is
+              // currently bound to (or the override the regen-with-model
+              // dropdown lands as a follow-up commit).
+              send(priorContent);
+            },
+          },
+        );
+      },
+      onCopy: async (content: string) => {
+        await navigator.clipboard.writeText(content);
+      },
+      onEdit: (userMessageId: string, newContent: string) => {
+        truncateMutation.mutate(
+          { conversationId, messageId: userMessageId },
+          {
+            onSuccess: () => {
+              send(newContent);
+            },
+          },
+        );
+      },
+      onBranch: (userMessageId: string) => {
+        branchMutation.mutate(
+          { conversationId, messageId: userMessageId },
+          {
+            onSuccess: (fork) => {
+              // After navigation the new ChatSessionView mounts, fetches
+              // the cloned messages (including the branch-point user
+              // turn), and auto-fires a regen via the handoff slot so
+              // the user sees a fresh assistant reply immediately.
+              // Re-using the existing landing→session handoff keeps the
+              // wiring single-sourced.
+              const branchPoint = messages.find(
+                (m) => m.id === userMessageId,
+              );
+              if (branchPoint?.role === 'user') {
+                writePendingInitialMessage(fork.id, {
+                  text: branchPoint.content,
+                  agent: agentName,
+                });
+              }
+              navigate(`${ROUTES.CHAT}/${fork.id}`);
+            },
+          },
+        );
+      },
+    };
+  }, [
+    conversationId,
+    findPriorUserContent,
+    truncateMutation,
+    branchMutation,
+    send,
+    navigate,
+    agentName,
+    messages,
+  ]);
+
   // Landing handoff: if the user just sent a message from ChatLandingView,
   // the text is sitting in sessionStorage under this conversation's id.
   // Read + delete it on first mount, then fire the send once the hook is
@@ -307,6 +413,7 @@ function ChatSurface({
                   conversation?.userModelId ??
                   null
                 }
+                handlers={handlers}
               />
             ))}
           </div>

@@ -1,6 +1,22 @@
+import { useState } from 'react';
 import type { ChatMessage as ChatMessageType } from '@/presentation/views/chat/hooks/useChatSession';
+import { Button } from '@/presentation/components/ui/Button';
+import { Textarea } from '@/presentation/components/ui/Textarea';
+import { MessageActions } from './MessageActions';
 import { ModelBadge } from './ModelBadge';
 import { ToolCallBadge } from './ToolCallBadge';
+
+export interface ChatMessageHandlers {
+  /** Assistant: re-run the prior user turn against the current model.
+   *  Parent handles truncate + re-submit; this just signals intent. */
+  onRegenerate: (messageId: string) => void;
+  /** Assistant: copy the rendered content to the clipboard. */
+  onCopy: (content: string) => Promise<void>;
+  /** User: truncate from this turn + re-submit with edited content. */
+  onEdit: (messageId: string, newContent: string) => void;
+  /** User: fork the conversation at this turn; parent navigates. */
+  onBranch: (messageId: string) => void;
+}
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -10,55 +26,159 @@ interface ChatMessageProps {
    * fallback (for mid-stream turns). Ignored for non-assistant roles.
    */
   userModelId?: string | null;
+  /**
+   * R4 #1 message-controls. When omitted, the bubble renders without
+   * any hover affordances (matches the pre-R4 surface — useful for
+   * tests and non-chat contexts that mount ChatMessage).
+   */
+  handlers?: ChatMessageHandlers;
+  /**
+   * R4 #1. When true the Branch action shows up on user turns.
+   * Defaults to true. Wired to a per-user preference in the chat
+   * surface so power users can hide the affordance.
+   */
+  branchEnabled?: boolean;
 }
 
 /**
  * Render a single chat turn. ChatGPT / Claude.ai treatment:
- *   - User turns sit in a subtle grey bubble, right-aligned.
+ *   - User turns sit in a subtle grey bubble, right-aligned. Hover
+ *     reveals Edit + Branch action buttons (R4 #1). Edit toggles the
+ *     bubble into an inline editor (Textarea + Save/Cancel).
  *   - Assistant turns are bare text in the column flow — no bubble, no
- *     background — so long responses read like a document rather than a
- *     wall of pill-shaped containers. R4 #0 adds a small "by <model>"
- *     attribution chip under each assistant turn.
+ *     background. Hover reveals Regenerate + Copy action buttons.
+ *     R4 #0 adds a small "by <model>" attribution chip under the turn.
  *   - Tool / system turns are suppressed (the relevant detail surfaces
  *     via assistant ``ToolCall*`` events; see :class:`ToolCallBadge`).
  */
-export function ChatMessage({ message, userModelId }: ChatMessageProps) {
+export function ChatMessage({
+  message,
+  userModelId,
+  handlers,
+  branchEnabled = true,
+}: ChatMessageProps) {
+  // Inline-edit state is local to the user-turn bubble. Save calls the
+  // parent handler (which truncates + re-submits); Cancel restores the
+  // original content.
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(message.content);
+
   if (message.role === 'tool' || message.role === 'system') {
     return null;
   }
 
   const isUser = message.role === 'user';
+
+  const enterEditMode = () => {
+    setDraft(message.content);
+    setEditing(true);
+  };
+  const cancelEdit = () => {
+    setEditing(false);
+    setDraft(message.content);
+  };
+  const submitEdit = () => {
+    const next = draft.trim();
+    if (!next || next === message.content || !handlers) {
+      cancelEdit();
+      return;
+    }
+    setEditing(false);
+    handlers.onEdit(message.id, next);
+  };
+
   return (
     <div
-      className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}
+      className={`group flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}
       data-role={message.role}
     >
       <div
         className={
-          // 16px body copy (matches claude.ai / chatgpt convention) so
+          // 18px body copy (matches claude.ai / chatgpt convention) so
           // long responses read comfortably. text-card-foreground for
           // the brighter ~98% lightness token — see the chat-text
           // brightness rationale on the previous commit.
           isUser
-            ? 'max-w-[80%] rounded-2xl bg-muted px-4 py-3 text-[18px] leading-relaxed text-card-foreground'
-            : 'w-full text-[18px] leading-relaxed text-card-foreground'
+            ? 'flex max-w-[80%] flex-col items-end gap-1.5'
+            : 'flex w-full flex-col gap-1.5'
         }
       >
-        {message.content && (
-          <div className="whitespace-pre-wrap break-words">
-            {message.content}
+        {/* Bubble (or inline editor) */}
+        {editing && isUser ? (
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-input p-2">
+            <Textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              autoFocus
+              rows={Math.min(8, Math.max(2, draft.split('\n').length + 1))}
+              className="text-[17px] leading-relaxed"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  submitEdit();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  cancelEdit();
+                }
+              }}
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" size="sm" onClick={cancelEdit}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={submitEdit} disabled={!draft.trim()}>
+                Save &amp; submit
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div
+            className={
+              isUser
+                ? 'rounded-2xl bg-muted px-4 py-3 text-[18px] leading-relaxed text-card-foreground'
+                : 'w-full text-[18px] leading-relaxed text-card-foreground'
+            }
+          >
+            {message.content && (
+              <div className="whitespace-pre-wrap break-words">
+                {message.content}
+              </div>
+            )}
+            {message.role === 'assistant' && message.toolCalls && (
+              <div className={message.content ? 'mt-1' : ''}>
+                {message.toolCalls.map((call) => (
+                  <ToolCallBadge key={call.id} call={call} />
+                ))}
+              </div>
+            )}
           </div>
         )}
-        {message.role === 'assistant' && message.toolCalls && (
-          <div className={message.content ? 'mt-1' : ''}>
-            {message.toolCalls.map((call) => (
-              <ToolCallBadge key={call.id} call={call} />
-            ))}
-          </div>
-        )}
-        {message.role === 'assistant' && (
-          <div className="mt-1.5">
-            <ModelBadge userModelId={userModelId} />
+
+        {/* Footer: model attribution (assistant) + action row */}
+        {!editing && (
+          <div
+            className={`flex items-center gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
+          >
+            {message.role === 'assistant' && (
+              <ModelBadge userModelId={userModelId} />
+            )}
+            {handlers && (
+              message.role === 'assistant' ? (
+                <MessageActions
+                  role="assistant"
+                  onRegenerate={() => handlers.onRegenerate(message.id)}
+                  onCopy={() => handlers.onCopy(message.content)}
+                />
+              ) : (
+                <MessageActions
+                  role="user"
+                  onEdit={enterEditMode}
+                  onBranch={() => handlers.onBranch(message.id)}
+                  showBranch={branchEnabled}
+                />
+              )
+            )}
           </div>
         )}
       </div>
