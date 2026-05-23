@@ -477,7 +477,7 @@ function ChatSurface({
 
   return (
     <div className="flex h-full flex-col bg-background">
-      <ChatHeader conversation={conversation} agentName={agentName} />
+      <ChatHeader conversation={conversation} />
 
       <div
         ref={scrollRef}
@@ -515,6 +515,7 @@ function ChatSurface({
                 handlers={handlers}
                 availableModels={availableModels}
                 branchEnabled={prefs.branchEnabled}
+                conversationId={conversationId}
               />
             ))}
           </div>

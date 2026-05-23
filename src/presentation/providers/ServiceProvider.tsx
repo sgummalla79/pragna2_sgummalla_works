@@ -7,6 +7,7 @@ import { AgentRepository } from '@/infrastructure/repositories/AgentRepository';
 import { AttachmentRepository } from '@/infrastructure/repositories/AttachmentRepository';
 import { ConversationRepository } from '@/infrastructure/repositories/ConversationRepository';
 import { FlowRepository } from '@/infrastructure/repositories/FlowRepository';
+import { FlowRunRepository } from '@/infrastructure/repositories/FlowRunRepository';
 import { LlmProviderRepository } from '@/infrastructure/repositories/LlmProviderRepository';
 import { ModelRepository } from '@/infrastructure/repositories/ModelRepository';
 import { ProviderRepository } from '@/infrastructure/repositories/ProviderRepository';
@@ -16,6 +17,7 @@ import { AgentService } from '@/application/services/AgentService';
 import { AttachmentService } from '@/application/services/AttachmentService';
 import { AuthService } from '@/application/services/AuthService';
 import { ConversationService } from '@/application/services/ConversationService';
+import { FlowRunService } from '@/application/services/FlowRunService';
 import { FlowService } from '@/application/services/FlowService';
 import { LlmProviderService } from '@/application/services/LlmProviderService';
 import { ModelService } from '@/application/services/ModelService';
@@ -42,6 +44,7 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
     const providerRepo       = new ProviderRepository(axiosClient);
     const modelRepo          = new ModelRepository(axiosClient);
     const flowRepo           = new FlowRepository(axiosClient);
+    const flowRunRepo        = new FlowRunRepository(axiosClient);
     const skillRepo          = new SkillRepository(axiosClient);
     const conversationRepo   = new ConversationRepository(axiosClient);
     const agentRepo          = new AgentRepository(axiosClient);
@@ -54,6 +57,7 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
       providerService:     new ProviderService(providerRepo),
       modelService:        new ModelService(modelRepo),
       flowService:         new FlowService(flowRepo),
+      flowRunService:      new FlowRunService(flowRunRepo),
       skillService:        new SkillService(skillRepo),
       conversationService: new ConversationService(conversationRepo),
       agentService:        new AgentService(agentRepo),

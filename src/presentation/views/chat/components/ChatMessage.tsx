@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ChatMessage as ChatMessageType } from '@/presentation/views/chat/hooks/useChatSession';
 import type { Attachment } from '@/domain/types/attachment.types';
 import { Button } from '@/presentation/components/ui/Button';
 import { Textarea } from '@/presentation/components/ui/Textarea';
+import { useFlows } from '@/presentation/hooks/flows/useFlows';
 import { useServices } from '@/presentation/providers/ServiceContext';
 import { AttachmentChip } from './AttachmentChip';
+import { FlowProposalCard } from './FlowProposalCard';
 import { MessageActions } from './MessageActions';
 import { ModelBadge } from './ModelBadge';
 import { ToolCallBadge } from './ToolCallBadge';
@@ -58,6 +60,15 @@ interface ChatMessageProps {
    * download).
    */
   attachments?: Attachment[];
+  /**
+   * R6a. The conversation id this message belongs to. Required when
+   * the message carries a propose-flow tool call so the inline
+   * :class:`FlowProposalCard` can route Confirm to
+   * ``POST /api/conversations/{id}/run-flow``. Falsy on brand-new
+   * conversations whose row hasn't materialised yet (no flow proposal
+   * is possible there anyway — the LLM hasn't run a turn).
+   */
+  conversationId?: string;
 }
 
 /**
@@ -78,8 +89,18 @@ export function ChatMessage({
   branchEnabled = true,
   availableModels,
   attachments = [],
+  conversationId,
 }: ChatMessageProps) {
   const { attachmentService } = useServices();
+  // R6a: load the user's flows once per render and surface the
+  // api_name set so each tool call below can decide whether to render
+  // the default ToolCallBadge or the FlowProposalCard. Empty when the
+  // user has no flows — the branch then never fires.
+  const { data: flows = [] } = useFlows();
+  const flowApiNames = useMemo(
+    () => new Set(flows.map((f) => f.apiName)),
+    [flows],
+  );
   // Inline-edit state is local to the user-turn bubble. Save calls the
   // parent handler (which truncates + re-submits); Cancel restores the
   // original content.
@@ -200,9 +221,25 @@ export function ChatMessage({
             )}
             {message.role === 'assistant' && message.toolCalls && (
               <div className={message.content ? 'mt-1' : ''}>
-                {message.toolCalls.map((call) => (
-                  <ToolCallBadge key={call.id} call={call} />
-                ))}
+                {message.toolCalls.map((call) => {
+                  // R6a: tool calls whose name matches one of the user's
+                  // flow api_names are propose-flow proposals — render
+                  // the confirmation card instead of the default badge.
+                  // ``conversationId`` is required by the card to fire
+                  // the run; without it (brand-new conversation) we
+                  // fall back to the badge so the LLM's intent is still
+                  // visible.
+                  if (flowApiNames.has(call.name) && conversationId) {
+                    return (
+                      <FlowProposalCard
+                        key={call.id}
+                        call={call}
+                        conversationId={conversationId}
+                      />
+                    );
+                  }
+                  return <ToolCallBadge key={call.id} call={call} />;
+                })}
               </div>
             )}
           </div>
