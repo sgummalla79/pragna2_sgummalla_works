@@ -1,11 +1,10 @@
 import {
   MessageSquarePlus,
+  MessagesSquare,
   PanelLeftClose,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import PragnaLogo from '@/assets/logo.svg?react';
 import { APP_NAME } from '@/constants/api';
-import { ROUTES } from '@/constants/routes';
 import { useUiStore } from '@/presentation/store/uiStore';
 import { cn } from '@/lib/utils';
 import { AvatarMenu } from './AvatarMenu';
@@ -15,6 +14,7 @@ interface NavItem {
   icon: React.ComponentType<{ size?: number; className?: string }>;
   label: string;
   onClick: () => void;
+  active?: boolean;
 }
 
 /**
@@ -45,19 +45,31 @@ interface NavItem {
  * a fresh thread starts).
  */
 interface ChatSidebarProps {
+  /** True while {@link ChatView}'s browse-mode is on (the main panel
+   *  shows the chats browser). Used to give the "Chats" menu item the
+   *  active-item styling. */
+  browseMode?: boolean;
+  /** Click handler for the "Chats" menu item. */
+  onShowBrowser?: () => void;
+  /** Click handler for the "New Chat" menu item. */
   onNewChat?: () => void;
 }
 
-export function Sidebar({ onNewChat }: ChatSidebarProps) {
+export function Sidebar({ browseMode = false, onShowBrowser, onNewChat }: ChatSidebarProps) {
   const collapsed = useUiStore((s) => s.chatPaneCollapsed);
   const toggle = useUiStore((s) => s.toggleChatPane);
-  const navigate = useNavigate();
 
   const items: NavItem[] = [
     {
       icon: MessageSquarePlus,
       label: 'New Chat',
-      onClick: onNewChat ?? (() => navigate(ROUTES.CHAT)),
+      onClick: onNewChat ?? (() => undefined),
+    },
+    {
+      icon: MessagesSquare,
+      label: 'Chats',
+      onClick: onShowBrowser ?? (() => undefined),
+      active: browseMode,
     },
   ];
 
@@ -125,7 +137,7 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
 
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <ul className="flex flex-col list-none m-0 p-0" role="list">
-          {items.map(({ icon: Icon, label, onClick }) => (
+          {items.map(({ icon: Icon, label, onClick, active }) => (
             <li key={label}>
               <button
                 type="button"
@@ -135,10 +147,13 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
                 // discoverable.
                 title={collapsed ? label : undefined}
                 aria-label={label}
+                aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'group flex w-full items-center gap-3 px-4 py-3 text-sm font-medium',
-                  'text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  'group flex w-full items-center gap-3 px-4 py-3 text-[15px] transition-colors',
                   'focus-visible:outline-none focus-visible:bg-sidebar-accent',
+                  active
+                    ? 'font-semibold text-sidebar-primary-foreground bg-sidebar-primary'
+                    : 'font-medium text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                   collapsed && 'justify-center px-0',
                 )}
               >
@@ -167,8 +182,8 @@ export function Sidebar({ onNewChat }: ChatSidebarProps) {
 
       {/* Account / settings pinned at the bottom. The avatar trigger
           opens a Radix dropdown containing user identity, settings
-          navigation, theme toggle, and sign-out — modelled after
-          claude.ai's chat. See [AvatarMenu.tsx](./AvatarMenu.tsx). */}
+          navigation, and sign-out — modelled after claude.ai's chat.
+          See [AvatarMenu.tsx](./AvatarMenu.tsx). */}
       <div className="border-t border-border p-2">
         <AvatarMenu collapsed={collapsed} />
       </div>

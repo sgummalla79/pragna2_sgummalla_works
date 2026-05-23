@@ -13,7 +13,6 @@ const AuthCallbackView = lazy(() => import('@/presentation/views/auth/AuthCallba
 // ── Chat ─────────────────────────────────────────────────────────────────────
 const ChatView          = lazy(() => import('@/presentation/views/chat/ChatView'));
 const ChatLandingView   = lazy(() => import('@/presentation/views/chat/ChatLandingView'));
-const ConversationsView = lazy(() => import('@/presentation/views/chat/ConversationsView'));
 const ChatSessionView   = lazy(() => import('@/presentation/views/chat/ChatSessionView'));
 
 // ── Settings sections ────────────────────────────────────────────────────────
@@ -51,8 +50,6 @@ export function AppRoutes() {
               the text in sessionStorage, and navigates to /chat/{uuid}
               where ChatSessionView picks up the handoff. */}
           <Route index element={<ChatLandingView />} />
-          {/* Past conversations + per-conversation cost breakdown. */}
-          <Route path="history" element={<ConversationsView />} />
           {/* Legacy redirect: /chat/new used to be the active chat
               surface before the landing existed. Bounce back to the
               landing so any stale bookmark still lands somewhere useful. */}

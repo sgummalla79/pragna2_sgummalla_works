@@ -63,6 +63,26 @@ export interface ChatSessionApi {
    * :func:`send` falls back to the user's preference automatically.
    */
   sendWithModel: (text: string, userModelId: string) => void;
+  /**
+   * Landing → first-send variant. Like :func:`send`, but mutates the
+   * pragna URL with ``?user_model_id=`` and ``?thinking_enabled=``
+   * query params reconstructed from the landing's picker state. The
+   * backend's pragna route reads these on auto-create and stamps the
+   * conversation row's columns to match — without this, the first turn
+   * would use server defaults regardless of what the user picked on
+   * the landing.
+   *
+   * No-op for empty / running states. ``attachmentIds`` carried through
+   * the same way :func:`send` carries them.
+   */
+  sendWithOverrides: (
+    text: string,
+    opts: {
+      attachmentIds?: string[];
+      userModelId?: string;
+      thinkingEnabled?: boolean;
+    },
+  ) => void;
   /** Abort the current run. Safe to call when no run is active. */
   stop: () => void;
 }
@@ -320,6 +340,42 @@ export function useChatSession(
     [agent, status, send],
   );
 
+  const sendWithOverrides = useCallback(
+    (
+      text: string,
+      opts: {
+        attachmentIds?: string[];
+        userModelId?: string;
+        thinkingEnabled?: boolean;
+      },
+    ) => {
+      const trimmed = text.trim();
+      if (!agent || !trimmed) return;
+      if (status === 'running') return;
+
+      // Build query params from non-undefined opts. Either-or makes
+      // ``thinking_enabled`` survive being set to ``false`` — we want
+      // an explicit "off" to round-trip to the backend instead of
+      // being dropped.
+      const params = new URLSearchParams();
+      if (opts.userModelId) {
+        params.set('user_model_id', opts.userModelId);
+      }
+      if (opts.thinkingEnabled !== undefined) {
+        params.set('thinking_enabled', String(opts.thinkingEnabled));
+      }
+
+      if (params.toString().length > 0) {
+        overrideUrlRef.current = agent.url;
+        const base = agent.url.split('?')[0];
+        agent.url = `${base}?${params.toString()}`;
+      }
+
+      send(text, opts.attachmentIds);
+    },
+    [agent, status, send],
+  );
+
   const stop = useCallback(() => {
     if (agent && status === 'running') {
       agent.abortRun();
@@ -327,7 +383,7 @@ export function useChatSession(
     }
   }, [agent, status]);
 
-  return { messages, status, error, send, sendWithModel, stop };
+  return { messages, status, error, send, sendWithModel, sendWithOverrides, stop };
 }
 
 /**

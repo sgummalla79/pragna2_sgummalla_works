@@ -11,6 +11,17 @@ export interface Conversation {
    */
   userModelId: string | null;
   title: string | null;
+  /**
+   * Per-conversation Anthropic extended-thinking toggle. Backend stores
+   * the value but the LLM-call-time wiring is a follow-up; setting this
+   * to ``true`` round-trips through PATCH today, but does not yet alter
+   * the LLM payload.
+   */
+  thinkingEnabled: boolean;
+  /** Per-user "pin to sidebar top" flag. Visual ordering hint only. */
+  pinned: boolean;
+  /** ISO 8601 UTC timestamp of the last pin event, or null when not pinned. */
+  pinnedAt: string | null;
   createdAt: string;
 }
 
@@ -73,4 +84,8 @@ export interface UpdateConversationPayload {
   title?: string;
   /** New active model; omitted leaves the model unchanged. */
   userModelId?: string;
+  /** New thinking-enabled flag; omitted leaves the flag unchanged. */
+  thinkingEnabled?: boolean;
+  /** Pin / unpin; omitted leaves the flag unchanged. */
+  pinned?: boolean;
 }

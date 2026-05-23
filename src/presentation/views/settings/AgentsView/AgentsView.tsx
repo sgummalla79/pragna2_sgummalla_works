@@ -93,6 +93,11 @@ export default function AgentsView() {
                 <Card>
                   <CardContent className="py-4">
                     <div className="flex items-start justify-between gap-3">
+                      <Bot
+                        size={22}
+                        className="shrink-0 mt-0.5 text-muted-foreground"
+                        aria-hidden="true"
+                      />
                       <Link
                         to={editPath(a.id)}
                         className="flex-1 text-foreground no-underline hover:opacity-80"

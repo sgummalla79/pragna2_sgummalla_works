@@ -1,5 +1,10 @@
 import type { CredentialKind } from '@/domain/types/provider.types';
 
+/** Canonical machine name for Anthropic — used as a feature gate for
+ *  Anthropic-only capabilities like extended thinking. Matches the
+ *  ``llm_providers.name`` seed value on the backend. */
+export const ANTHROPIC_PROVIDER_NAME = 'anthropic';
+
 // ── Visual design ─────────────────────────────────────────────────────────────
 // Brand surface colours used to live here as hardcoded hex values
 // (Anthropic copper, OpenAI black, etc.). Removed — every surface now

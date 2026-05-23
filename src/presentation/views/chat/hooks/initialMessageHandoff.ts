@@ -39,6 +39,12 @@ export interface PendingInitialMessage {
    *  session view passes these through ``forwarded_props`` on the
    *  first send so the backend can resolve + inject them server-side. */
   attachmentIds?: string[];
+  /** Model the user picked on the landing. PATCHed onto the conversation
+   *  on first send so the row reflects the selection from turn one. */
+  userModelId?: string;
+  /** Extended-thinking flag picked on the landing. PATCHed alongside
+   *  ``userModelId`` on first send. */
+  thinkingEnabled?: boolean;
 }
 
 /**
@@ -64,6 +70,14 @@ function parseStored(raw: string): PendingInitialMessage {
               (id: unknown) => typeof id === 'string',
             )
           : undefined,
+        userModelId:
+          typeof parsed.userModelId === 'string' && parsed.userModelId.length > 0
+            ? parsed.userModelId
+            : undefined,
+        thinkingEnabled:
+          typeof parsed.thinkingEnabled === 'boolean'
+            ? parsed.thinkingEnabled
+            : undefined,
       };
     }
   } catch {

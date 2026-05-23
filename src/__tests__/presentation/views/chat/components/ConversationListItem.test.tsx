@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConversationListItem } from '@/presentation/views/chat/components/ConversationListItem';
@@ -16,6 +16,9 @@ function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
     threadId: 'thread-1',
     userModelId: 'model-1',
     title: 'Research planning',
+    thinkingEnabled: false,
+    pinned: false,
+    pinnedAt: null,
     createdAt: '2026-05-21T00:00:00Z',
     ...overrides,
   };
@@ -61,14 +64,12 @@ describe('ConversationListItem', () => {
     expect(screen.getByText('Untitled chat')).toBeInTheDocument();
   });
 
-  it('exposes rename and delete actions (icon-only buttons)', () => {
+  it('exposes a kebab menu trigger for actions', () => {
     renderItem(makeConversation());
-    // Icon-only affordances — locate them by aria-label.
+    // The three actions (Edit / Pin / Delete) now live behind a single
+    // kebab (⋮) menu trigger. The trigger has an accessible label.
     expect(
-      screen.getByRole('button', { name: /rename conversation/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /delete conversation/i }),
+      screen.getByRole('button', { name: /conversation actions/i }),
     ).toBeInTheDocument();
   });
 
@@ -78,14 +79,4 @@ describe('ConversationListItem', () => {
     expect(link).toHaveAttribute('aria-current', 'page');
   });
 
-  it('opens the rename dialog when the pencil is clicked', () => {
-    renderItem(makeConversation());
-    fireEvent.click(
-      screen.getByRole('button', { name: /rename conversation/i }),
-    );
-    // Dialog title is rendered when open.
-    expect(
-      screen.getByRole('dialog', { name: /rename conversation/i }),
-    ).toBeInTheDocument();
-  });
 });

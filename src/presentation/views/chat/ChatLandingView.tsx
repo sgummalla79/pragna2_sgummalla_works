@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import PragnaLogo from '@/assets/logo.svg?react';
 import { useLlmProvidersWithRegistrations } from '@/presentation/hooks/providers/useProviders';
@@ -6,6 +6,8 @@ import { useAgents } from '@/presentation/hooks/agents/useAgents';
 import { APP_NAME } from '@/constants/api';
 import { ROUTES } from '@/constants/routes';
 import { ChatInput } from './components/ChatInput';
+import { ModelPicker } from './components/ModelPicker';
+import { SetupBanner } from './components/SetupBanner';
 import { useGreeting } from './hooks/useGreeting';
 import { writePendingInitialMessage } from './hooks/initialMessageHandoff';
 
@@ -77,6 +79,16 @@ export default function ChatLandingView() {
   // conversation rows and links them on the first send-time persist.
   const pendingConvId = useMemo(() => crypto.randomUUID(), []);
 
+  // Landing-time model + Extended Thinking selections. Local state
+  // only; carried to the session view via ``writePendingInitialMessage``
+  // and applied by the backend on auto-create through the pragna
+  // route's ``?user_model_id=`` + ``?thinking_enabled=`` query params.
+  // ``null`` userModelId means "let the picker pick the default" — the
+  // picker itself defaults to the first chat-eligible model when
+  // unset, so this stays valid through the handoff.
+  const [landingUserModelId, setLandingUserModelId] = useState<string | null>(null);
+  const [landingThinkingEnabled, setLandingThinkingEnabled] = useState(false);
+
   const handleSend = useCallback(
     (text: string, attachmentIds: string[]) => {
       // Reuse the upload-target convo id as the URL slug so the
@@ -85,10 +97,18 @@ export default function ChatLandingView() {
         text,
         agent: requestedAgent,
         attachmentIds,
+        userModelId: landingUserModelId ?? undefined,
+        thinkingEnabled: landingThinkingEnabled,
       });
       navigate(`${ROUTES.CHAT}/${pendingConvId}`);
     },
-    [navigate, pendingConvId, requestedAgent],
+    [
+      navigate,
+      pendingConvId,
+      requestedAgent,
+      landingUserModelId,
+      landingThinkingEnabled,
+    ],
   );
 
   return (
@@ -101,7 +121,7 @@ export default function ChatLandingView() {
             provider list so we don't flash an incomplete greeting before
             the gating banners show up. */}
         {!isLoading && (
-          <div className="flex items-center gap-4 mb-12 select-none">
+          <div className="flex items-center gap-4 mb-6 select-none">
             <PragnaLogo className="h-10 w-10 flex-shrink-0" aria-hidden="true" />
             <h1 className="text-[32px] sm:text-[40px] font-serif font-semibold text-card-foreground m-0 leading-none">
               {greeting.text}
@@ -114,11 +134,21 @@ export default function ChatLandingView() {
             visually attaches to the input the user is being told to
             unblock. Matches the ChatGPT pattern of "in-composer
             advisory" rather than a separate floating element. */}
-        <div className="w-full max-w-2xl">
+        <div className="w-full max-w-2xl mx-auto">
           <ChatInput
             onSend={handleSend}
             disabled={!ready}
             conversationId={pendingConvId}
+            rightActions={
+              ready && requestedAgent === DEFAULT_AGENT_NAME ? (
+                <ModelPicker
+                  userModelId={landingUserModelId}
+                  thinkingEnabled={landingThinkingEnabled}
+                  onModelChange={setLandingUserModelId}
+                  onThinkingChange={setLandingThinkingEnabled}
+                />
+              ) : null
+            }
             placeholder={
               ready
                 ? `Ask ${APP_NAME} anything…`
@@ -171,18 +201,3 @@ export default function ChatLandingView() {
   );
 }
 
-/**
- * Inline error-tinted banner used above the composer when a setup
- * step is missing. Visual matches the "Chat unavailable" surface so
- * the user reads it as "blocking but recoverable."
- */
-function SetupBanner({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      role="alert"
-      className="rounded-lg border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-2.5 text-[13px] text-[var(--color-error-text)]"
-    >
-      {children}
-    </div>
-  );
-}

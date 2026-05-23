@@ -6,9 +6,16 @@ import type {
 } from '@/domain/types/conversation.types';
 import type { PaginatedParams } from '@/domain/types/common.types';
 
+/** Filter shape accepted by ``IConversationRepository.list``. */
+export interface ConversationListParams extends PaginatedParams {
+  /** ``true`` → only pinned rows (ordered by ``pinned_at`` desc),
+   *  ``false`` → only unpinned, ``undefined`` → all by ``created_at`` desc. */
+  pinned?: boolean;
+}
+
 export interface IConversationRepository {
   /** List the authenticated user's conversations (newest first). */
-  list(params?: PaginatedParams): Promise<Conversation[]>;
+  list(params?: ConversationListParams): Promise<Conversation[]>;
   /** Aggregated per-conversation usage + totals. */
   getUsage(conversationId: string): Promise<ConversationUsage>;
   /** Persisted message log for a conversation, ordered by ``messageIndex``. */

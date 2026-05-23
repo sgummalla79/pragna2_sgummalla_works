@@ -28,6 +28,12 @@ import {
 import { ChatMessage, type ChatMessageHandlers } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
 import { ChatHeader } from './components/ChatHeader';
+import { ModelPicker } from './components/ModelPicker';
+import { SetupBanner } from './components/SetupBanner';
+import {
+  useSetConversationModel,
+  useSetThinkingEnabled,
+} from '@/presentation/hooks/conversations/useConversationMutations';
 
 const DEFAULT_AGENT_NAME = 'default';
 
@@ -110,12 +116,10 @@ export default function ChatSessionView() {
     ),
   );
 
-  if (!hasProviders) {
-    return <SetupPrompt message={ERRORS.CHT_001.message} />;
-  }
-  if (!hasChatModel) {
-    return <SetupPrompt message={ERRORS.CHT_002.message} />;
-  }
+  // History stays visible even when the user has no provider /
+  // chat-model configured — the gating banner is rendered inline in
+  // the composer (see ``ChatSurface``), and ``ChatInput`` is disabled
+  // until the gate clears. Matches the landing page's pattern.
 
   // On resumed chats, wait for messages AND flows AND the conversation
   // row itself before mounting ChatSurface. Without the conversation
@@ -139,6 +143,8 @@ export default function ChatSessionView() {
         conversation={conversation}
         persistedMessages={persistedMessages ?? []}
         agentName={agentName}
+        hasProviders={hasProviders}
+        hasChatModel={hasChatModel}
       />
     </ErrorBoundary>
   );
@@ -180,6 +186,13 @@ interface ChatSurfaceProps {
   /** Resolved agent name. See ``ChatSessionView`` for the resolution
    *  fallback chain (handoff → flow lookup → default). */
   agentName: string;
+  /** False when the user has no LLM provider connected. History stays
+   *  visible; the composer renders the gating banner inline + disables
+   *  send. Pattern mirrors the landing page. */
+  hasProviders: boolean;
+  /** False when no provider has at least one ``available_for_chat``
+   *  model. Same treatment as ``!hasProviders``. */
+  hasChatModel: boolean;
 }
 
 /**
@@ -195,7 +208,10 @@ function ChatSurface({
   conversation,
   persistedMessages,
   agentName,
+  hasProviders,
+  hasChatModel,
 }: ChatSurfaceProps) {
+  const ready = hasProviders && hasChatModel;
   // The agent's threadId is the conversation id from the URL — the
   // landing view already generated it before navigating here. The
   // ``?? crypto.randomUUID()`` fallback is defensive only (the route
@@ -240,7 +256,7 @@ function ChatSurface({
     return map;
   }, [persistedMessages]);
 
-  const { messages, status, error, send, sendWithModel, stop } = useChatSession(
+  const { messages, status, error, send, sendWithModel, sendWithOverrides, stop } = useChatSession(
     agentName,
     { threadId, initialMessages },
   );
@@ -411,13 +427,31 @@ function ChatSurface({
 
     const timer = window.setTimeout(() => {
       const pending = consumePendingInitialMessage(conversationId);
-      // R5: pass attachmentIds (if any) through to the first send so
-      // the backend can resolve + inject them on the same turn.
-      if (pending) send(pending.text, pending.attachmentIds);
+      if (!pending) return;
+      // When the landing's handoff carries a model pick or extended-
+      // thinking choice, route the first send through
+      // ``sendWithOverrides`` so both ride the URL as query params and
+      // the backend can stamp them onto the auto-created conversation.
+      // Otherwise the plain ``send`` path is sufficient (backend uses
+      // user's default model on auto-create).
+      const hasOverrides =
+        pending.userModelId !== undefined ||
+        pending.thinkingEnabled !== undefined;
+      if (hasOverrides) {
+        sendWithOverrides(pending.text, {
+          attachmentIds: pending.attachmentIds,
+          userModelId: pending.userModelId,
+          thinkingEnabled: pending.thinkingEnabled,
+        });
+      } else {
+        // R5: pass attachmentIds (if any) through to the first send so
+        // the backend can resolve + inject them on the same turn.
+        send(pending.text, pending.attachmentIds);
+      }
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [conversationId, send, status]);
+  }, [conversationId, send, sendWithOverrides, status]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const didInitialScroll = useRef(false);
@@ -510,19 +544,60 @@ function ChatSurface({
             platforms where the scroll area's vertical scrollbar takes
             real estate it visually balances out the off-centre shift
             of the messages. */}
-        <div className="mx-auto max-w-[820px]">
+        <div className="w-full max-w-2xl mx-auto">
           <ChatInput
             onSend={send}
-            onStop={stop}
-            disabled={status === 'running'}
+            onStop={ready ? stop : undefined}
+            // Disable when streaming a response OR when the user hasn't
+            // finished setup. Keeps the composer visible (with the
+            // gating banner inline) so prior history stays readable.
+            disabled={status === 'running' || !ready}
             conversationId={conversationId}
             modelCapabilities={modelCapabilities}
-            placeholder={
-              status === 'running'
-                ? 'Waiting for response…'
-                : `Ask ${APP_NAME} anything…`
+            rightActions={
+              ready && agentName === DEFAULT_AGENT_NAME && conversation && conversationId ? (
+                <InlineModelPicker
+                  conversationId={conversationId}
+                  userModelId={conversation.userModelId}
+                  thinkingEnabled={conversation.thinkingEnabled}
+                />
+              ) : null
             }
-          />
+            placeholder={
+              !hasProviders
+                ? 'Connect a provider to continue this chat…'
+                : !hasChatModel
+                  ? 'Enable a chat-available model to continue…'
+                  : status === 'running'
+                    ? 'Waiting for response…'
+                    : `Ask ${APP_NAME} anything…`
+            }
+          >
+            {!hasProviders && (
+              <SetupBanner>
+                No LLM providers connected. Go to{' '}
+                <Link
+                  to={ROUTES.SETTINGS_PROVIDERS}
+                  className="font-semibold underline underline-offset-2 hover:opacity-80"
+                >
+                  Settings → Providers
+                </Link>{' '}
+                to connect your API keys.
+              </SetupBanner>
+            )}
+            {hasProviders && !hasChatModel && (
+              <SetupBanner>
+                No chat-available models enabled. Go to{' '}
+                <Link
+                  to={ROUTES.SETTINGS_PROVIDERS}
+                  className="font-semibold underline underline-offset-2 hover:opacity-80"
+                >
+                  Settings → Providers
+                </Link>{' '}
+                and turn on at least one model for chat.
+              </SetupBanner>
+            )}
+          </ChatInput>
         </div>
       </div>
     </div>
@@ -538,40 +613,44 @@ function EmptyState() {
   );
 }
 
+interface InlineModelPickerProps {
+  conversationId: string;
+  userModelId: string | null;
+  thinkingEnabled: boolean;
+}
+
+/**
+ * Thin wrapper around :class:`ModelPicker` that PATCHes the conversation
+ * row on selection. Kept local to this view so :class:`ModelPicker`
+ * itself stays generic (re-usable in other contexts that don't yet
+ * exist — e.g. a future landing-page picker once the pragna route
+ * grows a ``thinking_enabled`` query param).
+ */
+function InlineModelPicker({
+  conversationId,
+  userModelId,
+  thinkingEnabled,
+}: InlineModelPickerProps) {
+  const setModel = useSetConversationModel();
+  const setThinking = useSetThinkingEnabled();
+  return (
+    <ModelPicker
+      userModelId={userModelId}
+      thinkingEnabled={thinkingEnabled}
+      onModelChange={(id) =>
+        setModel.mutate({ id: conversationId, userModelId: id })
+      }
+      onThinkingChange={(enabled) =>
+        setThinking.mutate({ id: conversationId, thinkingEnabled: enabled })
+      }
+    />
+  );
+}
+
 function LoadingState() {
   return (
     <div className="flex h-full items-center justify-center">
       <p className="text-[13px] text-muted-foreground">Loading…</p>
-    </div>
-  );
-}
-
-function SetupPrompt({ message }: { message: string }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="var(--color-primary)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-        </svg>
-      </div>
-      <p className="text-[15px] font-semibold text-foreground">Almost ready</p>
-      <p className="text-[13px] text-muted-foreground max-w-xs">{message}</p>
-      <Link
-        to={ROUTES.SETTINGS_PROVIDERS}
-        className="rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground no-underline hover:bg-primary/90 transition-colors"
-      >
-        Go to Providers →
-      </Link>
     </div>
   );
 }

@@ -35,6 +35,13 @@ interface Props {
    *  (e.g. a gear for Settings) when they'd rather identify the
    *  section than show a generic collapse glyph. */
   toggleIcon?: ReactNode;
+  /** Optional brand/section icon rendered BEFORE `headerTitle` in the
+   *  expanded header (e.g. a gear for Settings). In collapsed mode this
+   *  icon replaces the generic collapse chevron and itself becomes the
+   *  expand click target — same pattern the chat sidebar uses for the
+   *  Pragna logo. Independent of `toggleIcon` (which still controls the
+   *  collapse-button glyph when expanded). */
+  headerIcon?: ReactNode;
 }
 
 /** Width of the sidebar in icon-only mode (matches chat sidebar). */
@@ -70,6 +77,7 @@ export function Sidebar({
   collapsed = false,
   onCollapseToggle,
   toggleIcon,
+  headerIcon,
 }: Props) {
   const panelId = label.replace(/\s+/g, '-').toLowerCase();
   const showCollapseControl = Boolean(onCollapseToggle);
@@ -110,31 +118,60 @@ export function Sidebar({
               collapsed ? 'justify-center' : 'gap-2',
             )}
           >
-            {!collapsed && headerTitle && (
-              <span className="flex-1 truncate px-2 text-[13px] font-semibold text-sidebar-foreground">
-                {headerTitle}
-              </span>
+            {collapsed ? (
+              // When collapsed the only header element is the click
+              // target that re-expands. If a `headerIcon` is supplied it
+              // doubles as that target (matches the chat sidebar's logo-
+              // is-the-expander pattern); otherwise we fall back to the
+              // generic chevron — preserves backward-compat for callers
+              // that don't pass a brand icon.
+              <button
+                type="button"
+                onClick={onCollapseToggle}
+                aria-label="Expand sidebar"
+                aria-expanded={false}
+                title="Expand sidebar"
+                className={cn(
+                  'flex h-8 w-8 items-center justify-center rounded-md',
+                  'text-sidebar-foreground/80 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent',
+                  'transition-colors',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-sidebar-ring)]',
+                )}
+              >
+                {headerIcon ?? toggleIcon ?? <PanelLeftOpen size={18} aria-hidden="true" />}
+              </button>
+            ) : (
+              <>
+                {headerIcon && (
+                  <span
+                    className="flex flex-shrink-0 items-center pl-1 text-sidebar-foreground"
+                    aria-hidden="true"
+                  >
+                    {headerIcon}
+                  </span>
+                )}
+                {headerTitle && (
+                  <span className="flex-1 truncate px-1 text-[13px] font-semibold text-sidebar-foreground">
+                    {headerTitle}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={onCollapseToggle}
+                  aria-label="Collapse sidebar"
+                  aria-expanded
+                  title="Collapse sidebar"
+                  className={cn(
+                    'flex h-8 w-8 items-center justify-center rounded-md',
+                    'text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent',
+                    'transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-sidebar-ring)]',
+                  )}
+                >
+                  {toggleIcon ?? <PanelLeftClose size={18} aria-hidden="true" />}
+                </button>
+              </>
             )}
-            <button
-              type="button"
-              onClick={onCollapseToggle}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              aria-expanded={!collapsed}
-              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-md',
-                'text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent',
-                'transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-sidebar-ring)]',
-              )}
-            >
-              {toggleIcon ??
-                (collapsed ? (
-                  <PanelLeftOpen size={18} aria-hidden="true" />
-                ) : (
-                  <PanelLeftClose size={18} aria-hidden="true" />
-                ))}
-            </button>
           </div>
         )}
 

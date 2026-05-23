@@ -61,6 +61,9 @@
   --color-destructive:            oklch(0.6368 0.2078 25.3313);
   --color-destructive-foreground: oklch(1.0000 0 0);
 
+  --color-success:            oklch(0.7268 0.1751 149.5);
+  --color-success-foreground: oklch(1.0000 0 0);
+
   /* App-specific inline-banner triplet. Not part of TweakCN/shadcn —
      authors are expected to keep them on a red axis regardless of
      palette so error banners stay legible. */
