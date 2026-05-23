@@ -108,7 +108,18 @@ export default function SkillsView() {
             </div>
             {formError && <p role="alert" className="text-sm text-destructive">{formError}</p>}
             <div className="flex gap-2">
-              <Button onClick={handleCreate} disabled={createSkill.isPending}>
+              <Button
+                onClick={handleCreate}
+                // Required-field gate. Mirrors the inline validation in
+                // ``handleCreate`` ("Name and description are required.")
+                // so the user can't even click while a required field
+                // is missing. Whitespace-only counts as missing.
+                disabled={
+                  createSkill.isPending ||
+                  !name.trim() ||
+                  !description.trim()
+                }
+              >
                 {createSkill.isPending ? 'Saving…' : 'Create skill'}
               </Button>
               <Button variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
@@ -121,7 +132,20 @@ export default function SkillsView() {
         <p className="text-muted-foreground text-sm">Loading skills…</p>
       ) : skills.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
-          <Zap size={40} className="mx-auto mb-3 opacity-30" aria-hidden="true" />
+          {/* svgrepo "skill" — hand holding a gear. Same artwork as the
+              Settings sidebar nav icon so the empty state visually
+              connects the section header to the missing rows. */}
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 100 100"
+            fill="currentColor"
+            aria-hidden="true"
+            className="mx-auto mb-3 opacity-30"
+          >
+            <path fillRule="evenodd" d="M43.84,46.76a5.35,5.35,0,1,1,5.46-5.34A5.41,5.41,0,0,1,43.84,46.76Z" />
+            <path fillRule="evenodd" d="M77.33,55.7,70.06,44.9V44A24,24,0,0,0,46.19,20a22,22,0,0,0-5.67.7A23.89,23.89,0,0,0,22.31,44a21.92,21.92,0,0,0,3.58,12.7c4.18,6,7,10.8,5.27,17.3a4.58,4.58,0,0,0,.9,4.2A4.43,4.43,0,0,0,35.74,80h19.6A4.72,4.72,0,0,0,60,76.2a5,5,0,0,0,.2-1.2,2.37,2.37,0,0,1,2.39-2H64a4.72,4.72,0,0,0,4.68-3.4A41.31,41.31,0,0,0,70.16,60h5.17a2.78,2.78,0,0,0,2.19-1.6A2.86,2.86,0,0,0,77.33,55.7ZM57.49,47.33l-1,1.57a2.22,2.22,0,0,1-1.76.94,2.38,2.38,0,0,1-.72-.16l-2.65-1a11.64,11.64,0,0,1-3.85,2.2l-.48,2.91a2,2,0,0,1-2,1.65h-2a2,2,0,0,1-2-1.65l-.48-2.91a10,10,0,0,1-3.69-2l-2.81,1a2.38,2.38,0,0,1-.72.16,2.1,2.1,0,0,1-1.76-1l-1-1.65a1.94,1.94,0,0,1,.48-2.51l2.33-1.89a10.11,10.11,0,0,1-.24-2.12,9.41,9.41,0,0,1,.24-2L31.1,36.88a1.92,1.92,0,0,1-.48-2.51l1-1.65a2,2,0,0,1,1.76-1,2.38,2.38,0,0,1,.72.16l2.81,1a11.52,11.52,0,0,1,3.69-2.12L41,28a1.91,1.91,0,0,1,2-1.57h2a1.92,1.92,0,0,1,2,1.49l.48,2.83a11.31,11.31,0,0,1,3.69,2l2.81-1a2.38,2.38,0,0,1,.72-.16,2.1,2.1,0,0,1,1.76,1l1,1.65A2,2,0,0,1,57,36.8l-2.33,1.89a9.56,9.56,0,0,1,.24,2.12,9.41,9.41,0,0,1-.24,2L57,44.74A2,2,0,0,1,57.49,47.33Z" />
+          </svg>
           <p>No skills yet. Create one to enable /slash-commands in chat.</p>
         </div>
       ) : (
@@ -130,12 +154,19 @@ export default function SkillsView() {
             <li key={s.id}>
               <Card>
                 <CardContent className="flex items-center justify-between py-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-medium font-mono text-primary">/{s.name}</p>
-                      <Badge variant="secondary">{SKILL_TYPE_LABELS[s.skillType] ?? s.skillType}</Badge>
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <Zap
+                      size={22}
+                      className="shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium font-mono text-primary">/{s.name}</p>
+                        <Badge variant="secondary">{SKILL_TYPE_LABELS[s.skillType] ?? s.skillType}</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{s.description}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground">{s.description}</p>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => deleteSkill.mutate(s.id)} aria-label={`Delete skill ${s.name}`}>
                     <Trash2 size={16} aria-hidden="true" />

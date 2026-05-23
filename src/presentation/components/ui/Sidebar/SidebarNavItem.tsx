@@ -24,7 +24,7 @@ export function SidebarNavItem({ to, icon, label, collapsed = false }: Props) {
       aria-label={collapsed ? label : undefined}
       className={({ isActive }) =>
         cn(
-          'flex items-center rounded-lg text-[13px] no-underline',
+          'flex items-center rounded-lg text-[14px] no-underline',
           'transition-colors duration-150',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-sidebar-ring)]',
           collapsed ? 'h-10 w-10 justify-center mx-auto' : 'gap-2.5 px-3 py-2.5 min-h-10',

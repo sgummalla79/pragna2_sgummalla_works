@@ -40,6 +40,45 @@ export function useSetConversationModel() {
   });
 }
 
+/**
+ * Toggle the per-user pin flag on a conversation. Pinning stamps
+ * ``pinned_at = now()`` server-side; unpinning clears it. Invalidates
+ * both the paginated conversation list AND the pinned-only query so
+ * the sidebar's Pinned section refreshes immediately.
+ */
+export function useSetPinned() {
+  const { conversationService } = useServices();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) =>
+      conversationService.update(id, { pinned }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['conversations'] });
+      qc.invalidateQueries({ queryKey: ['conversations', vars.id] });
+    },
+  });
+}
+
+/**
+ * Toggle the per-conversation Anthropic extended-thinking flag.
+ *
+ * Persistence only at this stage — the backend column round-trips
+ * through PATCH but does not yet propagate to the Anthropic LLM call.
+ * Tracked as a follow-up.
+ */
+export function useSetThinkingEnabled() {
+  const { conversationService } = useServices();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, thinkingEnabled }: { id: string; thinkingEnabled: boolean }) =>
+      conversationService.update(id, { thinkingEnabled }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['conversations'] });
+      qc.invalidateQueries({ queryKey: ['conversations', vars.id] });
+    },
+  });
+}
+
 /** Hard-delete a conversation. FK cascade removes messages + usage rows. */
 export function useDeleteConversation() {
   const { conversationService } = useServices();

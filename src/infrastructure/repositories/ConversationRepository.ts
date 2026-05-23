@@ -1,5 +1,8 @@
 import axios, { type AxiosInstance } from 'axios';
-import type { IConversationRepository } from '@/application/ports/IConversationRepository';
+import type {
+  ConversationListParams,
+  IConversationRepository,
+} from '@/application/ports/IConversationRepository';
 import type {
   Conversation,
   ConversationUsage,
@@ -7,7 +10,6 @@ import type {
   UpdateConversationPayload,
   UsageRecord,
 } from '@/domain/types/conversation.types';
-import type { PaginatedParams } from '@/domain/types/common.types';
 import { mapAttachment } from './AttachmentRepository';
 
 interface ApiAttachmentResponse {
@@ -27,6 +29,9 @@ interface ApiConversationResponse {
   thread_id: string;
   user_model_id: string | null;
   title: string | null;
+  thinking_enabled: boolean;
+  pinned: boolean;
+  pinned_at: string | null;
   created_at: string;
 }
 
@@ -74,6 +79,9 @@ function mapConversation(raw: ApiConversationResponse): Conversation {
     threadId: raw.thread_id,
     userModelId: raw.user_model_id,
     title: raw.title,
+    thinkingEnabled: raw.thinking_enabled ?? false,
+    pinned: raw.pinned ?? false,
+    pinnedAt: raw.pinned_at ?? null,
     createdAt: raw.created_at,
   };
 }
@@ -107,11 +115,12 @@ function mapMessage(raw: ApiMessageResponse): PersistedMessage {
 export class ConversationRepository implements IConversationRepository {
   constructor(private readonly http: AxiosInstance) {}
 
-  async list(params?: PaginatedParams): Promise<Conversation[]> {
+  async list(params?: ConversationListParams): Promise<Conversation[]> {
     const { data } = await this.http.get<ApiConversationResponse[]>('/api/conversations', {
       params: {
         limit: params?.limit,
         offset: params?.offset,
+        pinned: params?.pinned,
       },
     });
     return data.map(mapConversation);
@@ -161,6 +170,8 @@ export class ConversationRepository implements IConversationRepository {
     const body: Record<string, unknown> = {};
     if (payload.title !== undefined) body.title = payload.title;
     if (payload.userModelId !== undefined) body.user_model_id = payload.userModelId;
+    if (payload.thinkingEnabled !== undefined) body.thinking_enabled = payload.thinkingEnabled;
+    if (payload.pinned !== undefined) body.pinned = payload.pinned;
     const { data } = await this.http.patch<ApiConversationResponse>(
       `/api/conversations/${conversationId}`,
       body,

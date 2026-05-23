@@ -78,6 +78,7 @@ export const KNOWN_COLOR_KEYS = [
   'muted', 'muted-foreground',
   'accent', 'accent-foreground',
   'destructive', 'destructive-foreground',
+  'success', 'success-foreground',
   'border', 'input', 'ring',
   'chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5',
   'sidebar',

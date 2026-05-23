@@ -64,6 +64,13 @@ function EditorInner({ flowId }: EditorProps) {
   // The CodeMirror document. Seeded once from the loaded flow (when editing)
   // or from the starter template (when creating).
   const [yamlText, setYamlText] = useState<string>('');
+  // Snapshot of the YAML at seed time. Used to compute "dirty" so the
+  // Save button stays disabled until the user has actually changed
+  // something. Edit mode seeds from the loaded flow's definition; new
+  // mode seeds from the starter template (so clicking Save on an
+  // unmodified starter is blocked — the user needs to give the flow
+  // its own api_name anyway).
+  const [initialYamlText, setInitialYamlText] = useState<string>('');
   // CodeMirror's theme follows the app's light/dark mode so the
   // editor doesn't render as a dark slab on a cream background.
   const mode = useUiStore((s) => s.theme);
@@ -80,13 +87,23 @@ function EditorInner({ flowId }: EditorProps) {
   // fall back to the starter template so the user has something to edit.
   useEffect(() => {
     if (flowId && existingFlow && yamlText === '') {
-      setYamlText(existingFlow.definition ?? STARTER_FLOW_YAML);
+      const seed = existingFlow.definition ?? STARTER_FLOW_YAML;
+      setYamlText(seed);
+      setInitialYamlText(seed);
     }
     if (!flowId && yamlText === '') {
       setYamlText(STARTER_FLOW_YAML);
+      setInitialYamlText(STARTER_FLOW_YAML);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flowId, existingFlow]);
+
+  // "Dirty" — user has changed the YAML from its seeded value. Once
+  // ``initialYamlText`` is populated (post-seed), any divergence flips
+  // this true. Before seed runs (``initialYamlText === ''``) we stay
+  // clean so Save is disabled — the editor isn't ready anyway.
+  const isDirty =
+    initialYamlText.length > 0 && yamlText !== initialYamlText;
 
   // Reactflow's controlled state. We sync from the YAML on every text
   // change (replacing the graph), but between edits the user is free to
@@ -132,6 +149,10 @@ function EditorInner({ flowId }: EditorProps) {
         kind: 'ok',
         text: created ? `Created "${flow.displayName}".` : `Saved "${flow.displayName}".`,
       });
+      // Re-snapshot so the form goes back to "clean" after a successful
+      // save. Without this, Save stays enabled until the next edit even
+      // though the YAML now matches the persisted state.
+      setInitialYamlText(yamlText);
       // For brand-new flows, swap the URL to /edit so reloads land back here.
       if (created && !flowId) {
         navigate(ROUTES.SETTINGS_FLOW_EDITOR.replace(':flowId', flow.id), {
@@ -190,7 +211,7 @@ function EditorInner({ flowId }: EditorProps) {
           <Button
             size="sm"
             onClick={handleSave}
-            disabled={isSaving || !yamlText.trim()}
+            disabled={isSaving || !yamlText.trim() || !isDirty}
           >
             <Save size={14} aria-hidden="true" />
             {isSaving ? 'Saving…' : 'Save'}

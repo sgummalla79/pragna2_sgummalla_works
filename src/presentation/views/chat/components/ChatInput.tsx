@@ -87,6 +87,12 @@ interface ChatInputProps {
    * floating element above the input.
    */
   children?: ReactNode;
+  /**
+   * Optional element rendered in the action row, just before the
+   * send/stop button on the right end. Used by both ChatLandingView
+   * and ChatSessionView to inline the ModelPicker.
+   */
+  rightActions?: ReactNode;
 }
 
 /**
@@ -117,6 +123,7 @@ export function ChatInput({
   conversationId,
   modelCapabilities = { vision: true, pdf: true },
   children,
+  rightActions,
 }: ChatInputProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -416,7 +423,7 @@ export function ChatInput({
             onHoverIndex={setSlashIndex}
           />
         )}
-        {children && <div className="px-4 pt-3">{children}</div>}
+        {children && <div className="px-4 pt-3 space-y-2">{children}</div>}
 
         {/* R5: staged-attachments row, only shown when there's at least one. */}
         {pending.length > 0 && (
@@ -462,74 +469,84 @@ export function ChatInput({
           )}
         />
 
-        <div className="flex items-center justify-between px-4 pb-3 pt-1">
-          {/* R5: paperclip + hidden file input. Hidden entirely when
-              attachments aren't available for this composer mount. */}
-          {attachmentsEnabled ? (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept={ATTACHMENT_ACCEPT}
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files) stageFiles(e.target.files);
-                  // Allow re-picking the same file in succession.
-                  e.target.value = '';
-                }}
-              />
+        <div className="flex items-center justify-between gap-2 px-4 pb-3 pt-1">
+          {/* Left cluster — just the paperclip. Visual balance comes
+              from `justify-between` pushing the right cluster (model
+              picker + send) to the far end. */}
+          <div className="flex items-center gap-1">
+            {/* R5: paperclip + hidden file input. Hidden entirely when
+                attachments aren't available for this composer mount. */}
+            {attachmentsEnabled && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept={ATTACHMENT_ACCEPT}
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files) stageFiles(e.target.files);
+                    // Allow re-picking the same file in succession.
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label="Attach file"
+                  title="Attach file (images, PDF, .txt/.md/.csv)"
+                  className={cn(
+                    'flex h-9 w-9 items-center justify-center rounded-full',
+                    'text-muted-foreground hover:text-foreground hover:bg-accent',
+                    'transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
+                  )}
+                >
+                  <Paperclip size={16} aria-hidden="true" />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Right cluster — model picker (or anything else the parent
+              injects via ``rightActions``) followed by the send/stop
+              button. Wraps both into one flex row so they stay tightly
+              spaced regardless of which pieces are present. */}
+          <div className="flex items-center gap-2">
+            {rightActions}
+            {showStop ? (
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                aria-label="Attach file"
-                title="Attach file (images, PDF, .txt/.md/.csv)"
+                onClick={onStop}
+                aria-label="Stop generating"
                 className={cn(
                   'flex h-9 w-9 items-center justify-center rounded-full',
-                  'text-muted-foreground hover:text-foreground hover:bg-accent',
-                  'transition-colors',
+                  'bg-foreground text-background transition-opacity',
+                  'hover:opacity-90',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
                 )}
               >
-                <Paperclip size={16} aria-hidden="true" />
+                <Square size={14} fill="currentColor" />
               </button>
-            </>
-          ) : (
-            <span />
-          )}
-
-          {showStop ? (
-            <button
-              type="button"
-              onClick={onStop}
-              aria-label="Stop generating"
-              className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-full',
-                'bg-foreground text-background transition-opacity',
-                'hover:opacity-90',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
-              )}
-            >
-              <Square size={14} fill="currentColor" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={submit}
-              disabled={!canSend}
-              aria-label="Send message"
-              className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-full',
-                'transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
-                canSend
-                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                  : 'bg-muted text-muted-foreground cursor-not-allowed',
-              )}
-            >
-              <ArrowUp size={18} strokeWidth={2.5} />
-            </button>
-          )}
+            ) : (
+              <button
+                type="button"
+                onClick={submit}
+                disabled={!canSend}
+                aria-label="Send message"
+                className={cn(
+                  'flex h-9 w-9 items-center justify-center rounded-full',
+                  'transition-colors',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
+                  canSend
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed',
+                )}
+              >
+                <ArrowUp size={18} strokeWidth={2.5} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -56,6 +56,11 @@ export default function FlowBuilderView() {
               <li key={f.id}>
                 <Card>
                   <CardContent className="flex items-center justify-between py-4">
+                    <GitBranch
+                      size={22}
+                      className="shrink-0 mr-3 text-muted-foreground"
+                      aria-hidden="true"
+                    />
                     <Link
                       to={editPath}
                       className="flex-1 no-underline text-foreground hover:opacity-80"

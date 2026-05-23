@@ -1,11 +1,13 @@
-import type { IConversationRepository } from '@/application/ports/IConversationRepository';
+import type {
+  ConversationListParams,
+  IConversationRepository,
+} from '@/application/ports/IConversationRepository';
 import type {
   Conversation,
   ConversationUsage,
   PersistedMessage,
   UpdateConversationPayload,
 } from '@/domain/types/conversation.types';
-import type { PaginatedParams } from '@/domain/types/common.types';
 
 /**
  * Application-layer facade over :class:`IConversationRepository`.
@@ -18,7 +20,7 @@ import type { PaginatedParams } from '@/domain/types/common.types';
 export class ConversationService {
   constructor(private readonly conversationRepository: IConversationRepository) {}
 
-  list(params?: PaginatedParams): Promise<Conversation[]> {
+  list(params?: ConversationListParams): Promise<Conversation[]> {
     return this.conversationRepository.list(params);
   }
 

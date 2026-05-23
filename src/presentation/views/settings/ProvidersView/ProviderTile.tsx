@@ -57,15 +57,15 @@ export function ProviderTile({
         'transition-[border-color,box-shadow] duration-[180ms]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         // Border weight signals "is this provider connected" via the
-        // palette: primary for connected (positive), destructive for
+        // palette: success (green) for connected, destructive (red) for
         // disconnected. Hover bumps the alpha + adds a soft shadow tinted
         // by the same token. Following palette only — no hardcoded hex.
         hovered
           ? connected
-            ? 'border-primary/85 shadow-[0_4px_16px_color-mix(in_oklab,var(--color-primary)_12%,transparent)]'
+            ? 'border-success/85 shadow-[0_4px_16px_color-mix(in_oklab,var(--color-success)_12%,transparent)]'
             : 'border-destructive/85 shadow-[0_4px_16px_color-mix(in_oklab,var(--color-destructive)_12%,transparent)]'
           : connected
-          ? 'border-primary/40'
+          ? 'border-success/40'
           : 'border-destructive/40'
       )}
     >
@@ -128,7 +128,7 @@ export function ProviderTile({
         </span>
       </div>
 
-      {/* Connected badge — bottom. Connected = primary tint (positive,
+      {/* Connected badge — bottom. Connected = success tint (green,
           matches the border treatment above); Not-connected = destructive
           tint (matches the disconnected border). Pure palette tokens. */}
       <div className="flex items-center">
@@ -136,7 +136,7 @@ export function ProviderTile({
           className={cn(
             'inline-flex items-center gap-1.5 rounded-full px-2 py-[2px] text-[10px] font-semibold border flex-shrink-0',
             connected
-              ? 'bg-primary/10 text-primary border-primary/30'
+              ? 'bg-success/10 text-success border-success/30'
               : 'bg-destructive/10 text-destructive border-destructive/30',
           )}
         >
