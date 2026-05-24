@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { Plus, Trash2, Zap } from 'lucide-react';
 import { useSkills, useCreateSkill, useDeleteSkill } from '@/presentation/hooks/skills/useSkills';
 import { useModels } from '@/presentation/hooks/models/useModels';
-import { SKILL_TYPE_FUNCTION, SKILL_TYPE_AGENT, SKILL_TYPE_LABELS } from '@/constants/skillTypes';
-import type { SkillType } from '@/domain/types/skill.types';
+import { SKILL_TYPE_AGENT, SKILL_TYPE_LABELS } from '@/constants/skillTypes';
 import { Button } from '@/presentation/components/ui/Button';
 import { Input } from '@/presentation/components/ui/Input';
 import { Label } from '@/presentation/components/ui/Label';
@@ -26,9 +25,17 @@ export default function SkillsView() {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [skillType, setSkillType] = useState<SkillType>(SKILL_TYPE_FUNCTION);
   const [userModelId, setUserModelId] = useState('');
   const [formError, setFormError] = useState('');
+
+  // Cleanup branch: function skills are disabled at the BE framework
+  // level (see pranga2-api docs/architecture/skill-system.md). The
+  // type picker is gone from the form — every new skill is an agent
+  // skill (backed by one of the user's flows). When function skills
+  // are re-enabled, restore the dropdown using SKILL_TYPE_FUNCTION
+  // and SKILL_TYPE_LABELS[SKILL_TYPE_FUNCTION] — both constants are
+  // preserved intact in @/constants/skillTypes for that reason.
+  const skillType = SKILL_TYPE_AGENT;
 
   async function handleCreate() {
     setFormError('');
@@ -63,28 +70,13 @@ export default function SkillsView() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="skill-name">Slash command name</Label>
-                <Input id="skill-name" placeholder="summarize" value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="skill-type">Type</Label>
-                <Select
-                  value={skillType}
-                  onValueChange={(v) => setSkillType(v as SkillType)}
-                >
-                  <SelectTrigger id="skill-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={SKILL_TYPE_FUNCTION}>{SKILL_TYPE_LABELS[SKILL_TYPE_FUNCTION]}</SelectItem>
-                    <SelectItem value={SKILL_TYPE_AGENT}>{SKILL_TYPE_LABELS[SKILL_TYPE_AGENT]}</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input id="skill-name" placeholder="research" value={name} onChange={(e) => setName(e.target.value)} />
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="skill-description">Description (shown to LLM)</Label>
-                <Input id="skill-description" placeholder="Summarizes text when the user asks to summarize something." value={description} onChange={(e) => setDescription(e.target.value)} />
+                <Input id="skill-description" placeholder="Run the research pipeline on a specific topic." value={description} onChange={(e) => setDescription(e.target.value)} />
               </div>
               {models.length > 0 && (
                 <div className="space-y-2">
