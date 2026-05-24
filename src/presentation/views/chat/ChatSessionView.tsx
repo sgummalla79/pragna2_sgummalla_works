@@ -28,6 +28,7 @@ import {
 import { ChatMessage, type ChatMessageHandlers } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
 import { ChatHeader } from './components/ChatHeader';
+import { ThinkingStrip } from './components/ThinkingStrip';
 import { ModelPicker } from './components/ModelPicker';
 import { SetupBanner } from './components/SetupBanner';
 import {
@@ -268,7 +269,7 @@ function ChatSurface({
     return map;
   }, [persistedMessages]);
 
-  const { messages, status, error, send, sendWithModel, sendWithOverrides, stop } = useChatSession(
+  const { messages, status, error, progressLabel, send, sendWithModel, sendWithOverrides, stop } = useChatSession(
     agentName,
     { threadId, initialMessages },
   );
@@ -561,7 +562,7 @@ function ChatSurface({
 
   return (
     <div className="flex h-full flex-col bg-background">
-      <ChatHeader conversation={conversation} conversationId={conversationId} />
+      <ChatHeader conversation={conversation} />
 
       <div
         ref={scrollRef}
@@ -602,6 +603,17 @@ function ChatSurface({
                 conversationId={conversationId}
               />
             ))}
+            {/* R7.1#3 follow-up — thinking strip rendered after the
+                last message bubble, so it sits visually just below
+                the most recent user turn (where the streaming
+                assistant response will appear). Hidden when not
+                running, or when the open episode is awaiting_user
+                (the HITLFormCard below the composer is the focal
+                point in that state — no second "waiting" indicator). */}
+            {status === 'running' &&
+              episodes.openEpisode?.status !== 'awaiting_user' && (
+                <ThinkingStrip label={progressLabel} />
+              )}
           </div>
         )}
       </div>

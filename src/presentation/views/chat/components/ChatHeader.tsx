@@ -1,17 +1,11 @@
 import { APP_NAME } from '@/constants/api';
 import type { Conversation } from '@/domain/types/conversation.types';
-import { EpisodeBadge } from './EpisodeBadge';
 
 interface ChatHeaderProps {
   /** The conversation backing this view, or nullish before its row
    * has materialised on the backend (the first turn of a brand-new
    * chat, where the URL leads the database). */
   conversation: Conversation | null | undefined;
-  /** R7 Tier 1 #2: when set, the EpisodeBadge renders next to the
-   *  title and surfaces the open-episode state (running / awaiting
-   *  user) with a × cancel affordance. Absent on brand-new chats
-   *  whose row hasn't materialised yet. */
-  conversationId?: string;
 }
 
 /**
@@ -24,11 +18,14 @@ interface ChatHeaderProps {
  * R6 + R7: the agent-picker dropdown was removed in R6a; flows are now
  * proposed mid-conversation by the default chat agent and confirmed
  * via :class:`FlowProposalCard`, which creates an episode (R6b) that
- * runs via ``POST /api/conversations/{id}/episodes``. When an episode
- * is open, R7 Tier 1 #2's :class:`EpisodeBadge` surfaces inline here
- * with a destructive-confirmed × cancel.
+ * runs via ``POST /api/conversations/{id}/episodes``. R7 Tier 1 #2
+ * briefly hosted an ``EpisodeBadge`` × cancel here, but R7.1#3 v2 and
+ * the R7.1#3 follow-up replaced that affordance with the
+ * :class:`ThinkingStrip` inline above the streaming assistant bubble
+ * + the :class:`ChatInput` Stop button — the header is back to being
+ * a pure title + brand mark.
  */
-export function ChatHeader({ conversation, conversationId }: ChatHeaderProps) {
+export function ChatHeader({ conversation }: ChatHeaderProps) {
   const title =
     conversation?.title
     ?? (conversation ? 'Untitled chat' : 'New conversation');
@@ -55,7 +52,6 @@ export function ChatHeader({ conversation, conversationId }: ChatHeaderProps) {
       <span className="text-[14px] font-semibold text-foreground truncate">
         {title}
       </span>
-      {conversationId && <EpisodeBadge conversationId={conversationId} />}
       <span className="ml-auto text-[11px] text-muted-foreground">{APP_NAME}</span>
     </div>
   );
