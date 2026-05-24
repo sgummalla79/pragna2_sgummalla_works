@@ -19,8 +19,11 @@ import { SlashCommandPopover } from './SlashCommandPopover';
 /** Max number of suggestions shown in the slash-command popover at once. */
 const SLASH_MAX_ITEMS = 8;
 
-/** R5 — content types the paperclip's accept= attribute filters to.
- *  Should mirror ATTACHMENT_ALLOWED_MIME_TYPES on the backend. */
+/** R5 + R7 Tier 1 #1 — content types the paperclip's accept= attribute
+ *  filters to. Should mirror ATTACHMENT_ALLOWED_MIME_TYPES on the backend.
+ *  Office docs (.docx / .xlsx) join the allowlist in R7 — they're
+ *  extracted to text server-side, so they work against any text-capable
+ *  model (no vision/PDF capability needed). */
 const ATTACHMENT_ACCEPT = [
   'image/png',
   'image/jpeg',
@@ -31,8 +34,13 @@ const ATTACHMENT_ACCEPT = [
   'text/plain',
   'text/markdown',
   'text/csv',
+  // R7 Tier 1 #1 — office doc MIME types.
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   '.md',
   '.csv',
+  '.docx',
+  '.xlsx',
 ].join(',');
 
 /** Local-only state for one in-flight or staged upload. */
@@ -552,7 +560,7 @@ export function ChatInput({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   aria-label="Attach file"
-                  title="Attach file (images, PDF, .txt/.md/.csv)"
+                  title="Attach file (images, PDF, .txt/.md/.csv, .docx/.xlsx)"
                   className={cn(
                     'flex h-9 w-9 items-center justify-center rounded-full',
                     'text-muted-foreground hover:text-foreground hover:bg-accent',
