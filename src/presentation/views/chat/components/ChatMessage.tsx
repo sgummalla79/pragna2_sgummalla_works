@@ -107,8 +107,25 @@ export function ChatMessage({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
 
-  if (message.role === 'tool' || message.role === 'system') {
+  // Tool turns are suppressed (their relevant detail surfaces via the
+  // assistant turn's ToolCall events; see ToolCallBadge). System turns
+  // are rendered as a centered muted divider — currently only used for
+  // the R7.1#3 "You cancelled X" cancellation breadcrumb, so the styling
+  // is intentionally subtle (no avatar, no action row, no model badge).
+  if (message.role === 'tool') {
     return null;
+  }
+  if (message.role === 'system') {
+    return (
+      <div
+        className="flex w-full justify-center py-2"
+        data-role="system"
+      >
+        <span className="text-[12px] italic text-muted-foreground">
+          {message.content}
+        </span>
+      </div>
+    );
   }
 
   const isUser = message.role === 'user';

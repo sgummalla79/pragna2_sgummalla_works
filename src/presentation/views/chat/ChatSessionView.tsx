@@ -653,6 +653,14 @@ function ChatSurface({
               // row hasn't materialised yet; the file renderer
               // shows a hint in that case.
               uploadContext={conversationId ? { conversationId } : undefined}
+              // R7.1#3 — Cancel button on the form. The cancel
+              // mutation flips the episode to ``cancelled``, writes
+              // the "You cancelled …" transcript message, and
+              // signals the streaming task on the BE. The badge ×
+              // is gone (per R7.1#3 cancel UX v2), so this is the
+              // sole cancel affordance during ``awaiting_user``.
+              onCancel={() => episodes.cancel.mutate()}
+              cancelling={episodes.cancel.isPending}
             />
           )}
           {/* The composer hides only when an HITL pause is active AND
@@ -662,7 +670,29 @@ function ChatSurface({
           {(!hitlSchema || hitlSchema.allow_text_input) && (
           <ChatInput
             onSend={send}
-            onStop={ready ? stop : undefined}
+            // R7.1#3 cancel UX v2. Two cases:
+            //   1) Flow episode active — fire the cancel mutation so
+            //      the BE flips status, writes the "You cancelled X"
+            //      transcript message, and signals task.cancel(). Then
+            //      close the SSE stream locally so the UI returns to
+            //      idle without waiting for the BE round-trip.
+            //   2) Default chat generating (no episode) — just close
+            //      the SSE locally. Matches ChatGPT / Claude.ai: the
+            //      partial assistant response stays in the transcript;
+            //      no system message.
+            onStop={
+              ready
+                ? () => {
+                    if (
+                      episodes.openEpisode &&
+                      episodes.openEpisode.status === 'active'
+                    ) {
+                      episodes.cancel.mutate();
+                    }
+                    stop();
+                  }
+                : undefined
+            }
             // Disable when streaming a response OR when the user hasn't
             // finished setup. Keeps the composer visible (with the
             // gating banner inline) so prior history stays readable.
