@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Zap } from 'lucide-react';
 import { useFlows } from '@/presentation/hooks/flows/useFlows';
-import { useRunFlow } from '@/presentation/hooks/flows/useRunFlow';
+import { useCreateEpisode } from '@/presentation/hooks/episodes/useEpisodes';
 import { Button } from '@/presentation/components/ui/Button';
 import { Textarea } from '@/presentation/components/ui/Textarea';
 import type { ChatToolCall } from '@/presentation/views/chat/hooks/useChatSession';
@@ -23,11 +23,13 @@ interface FlowProposalCardProps {
  * Layout: flow display name + summary from the LLM + flow description
  * (looked up from the user's flow list) + optional text input for
  * additional context + Skip and Confirm buttons. On Confirm the
- * :func:`useRunFlow` mutation calls the backend's
- * ``POST /api/conversations/{id}/run-flow`` endpoint, which runs the
- * flow synchronously and persists its output. The chat's
- * message-list query is then invalidated so the flow's response
- * appears as new assistant messages.
+ * :func:`useCreateEpisode` mutation calls the backend's
+ * ``POST /api/conversations/{id}/episodes`` endpoint (R6b), which
+ * starts a flow episode, streams the first turn, and persists messages
+ * tagged with ``episode_id``. The chat's message-list query is then
+ * invalidated so the flow's response appears as new assistant
+ * messages; if the flow paused at ``ask_user`` the open-episode query
+ * surfaces the schema and the chat surface renders the HITLFormCard.
  *
  * Behaviour while ``call.args`` is still streaming in: the card waits
  * with a "preparing…" footer so Confirm is gated on the LLM
@@ -36,7 +38,13 @@ interface FlowProposalCardProps {
  */
 export function FlowProposalCard({ call, conversationId }: FlowProposalCardProps) {
   const { data: flows = [] } = useFlows();
-  const run = useRunFlow(conversationId);
+  // R6b: Confirm now creates an EPISODE (POST /api/conversations/{id}/episodes)
+  // instead of running /run-flow. The streaming flow runs inside the
+  // episode lifecycle, persists messages with episode_id, and pauses
+  // for HITL when the LLM tool-calls ask_user. The episode-aware
+  // chat surface (see ChatSurface in ChatSessionView) listens for the
+  // resulting awaiting_user episode and renders the HITLFormCard.
+  const createEpisode = useCreateEpisode(conversationId);
   const [additionalContext, setAdditionalContext] = useState('');
   const [decisionLocked, setDecisionLocked] = useState<'confirmed' | 'skipped' | null>(null);
 
@@ -55,23 +63,24 @@ export function FlowProposalCard({ call, conversationId }: FlowProposalCardProps
   const args = call.args as { summary?: string; additional_context?: string } | undefined;
   const summary = args?.summary?.trim() ?? '';
 
-  const seedText = [summary, additionalContext.trim()].filter(Boolean).join('\n\n');
-
-  // Surface the run error to the user. The mutation hook wraps the
-  // axios error; we only need its message.
+  // R6b: surface the create-episode error to the user. The mutation
+  // hook wraps the axios error; we only need its message.
   const errorMessage =
-    run.isError && run.error instanceof Error ? run.error.message : null;
+    createEpisode.isError && createEpisode.error instanceof Error
+      ? createEpisode.error.message
+      : null;
 
   async function handleConfirm() {
     setDecisionLocked('confirmed');
     try {
-      await run.mutateAsync({
+      await createEpisode.mutateAsync({
         flowApiName: call.name,
-        seedText,
+        seedSummary: summary || null,
+        seedUserInput: additionalContext.trim() || null,
       });
     } catch {
-      // The error is rendered below from `run.isError`; keep the card
-      // visible so the user can retry.
+      // The error is rendered below from `createEpisode.isError`;
+      // keep the card visible so the user can retry.
       setDecisionLocked(null);
     }
   }
@@ -81,7 +90,8 @@ export function FlowProposalCard({ call, conversationId }: FlowProposalCardProps
   }
 
   const argsReady = call.complete && args !== undefined;
-  const disableActions = !argsReady || run.isPending || decisionLocked !== null;
+  const disableActions =
+    !argsReady || createEpisode.isPending || decisionLocked !== null;
 
   return (
     <div className="my-2 rounded-lg border-2 border-primary/30 bg-accent/40 p-4 text-[13px]">
@@ -142,7 +152,11 @@ export function FlowProposalCard({ call, conversationId }: FlowProposalCardProps
           onClick={handleConfirm}
           disabled={disableActions}
         >
-          {run.isPending ? 'Running…' : decisionLocked === 'confirmed' ? 'Done' : 'Confirm'}
+          {createEpisode.isPending
+            ? 'Running…'
+            : decisionLocked === 'confirmed'
+              ? 'Done'
+              : 'Confirm'}
         </Button>
       </div>
 

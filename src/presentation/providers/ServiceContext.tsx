@@ -3,7 +3,7 @@ import type { AgentService } from '@/application/services/AgentService';
 import type { AttachmentService } from '@/application/services/AttachmentService';
 import type { AuthService } from '@/application/services/AuthService';
 import type { ConversationService } from '@/application/services/ConversationService';
-import type { FlowRunService } from '@/application/services/FlowRunService';
+import type { EpisodeService } from '@/application/services/EpisodeService';
 import type { FlowService } from '@/application/services/FlowService';
 import type { LlmProviderService } from '@/application/services/LlmProviderService';
 import type { ModelService } from '@/application/services/ModelService';
@@ -17,7 +17,7 @@ export interface Services {
   providerService: ProviderService;
   modelService: ModelService;
   flowService: FlowService;
-  flowRunService: FlowRunService;
+  episodeService: EpisodeService;
   skillService: SkillService;
   conversationService: ConversationService;
   agentService: AgentService;

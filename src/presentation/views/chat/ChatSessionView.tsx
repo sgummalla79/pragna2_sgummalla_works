@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { Message } from '@ag-ui/client';
 import { ErrorBoundary } from '@/presentation/components/ui/ErrorBoundary';
@@ -30,6 +30,18 @@ import { ChatInput } from './components/ChatInput';
 import { ChatHeader } from './components/ChatHeader';
 import { ModelPicker } from './components/ModelPicker';
 import { SetupBanner } from './components/SetupBanner';
+import {
+  HITLFormCard,
+  isHITLFormSubmittable,
+} from './components/HITLFormCard';
+import {
+  type AskUserSchema,
+  coerceForSubmit,
+  initialFormValues,
+} from './components/form/validators';
+import {
+  useEpisodes,
+} from '@/presentation/hooks/episodes/useEpisodes';
 import {
   useSetConversationModel,
   useSetThinkingEnabled,
@@ -260,6 +272,78 @@ function ChatSurface({
     agentName,
     { threadId, initialMessages },
   );
+
+  // R6b — open-episode lookup + form state for the HITL pause flow.
+  // ``useEpisodes`` fetches the most-recent episode for this conversation
+  // and treats it as "open" iff its status is active/awaiting_user.
+  // While the run is in flight (status === 'running') we still poll the
+  // open-episode query because the backend may flip it to
+  // ``awaiting_user`` mid-stream once the LLM tool-calls ``ask_user``.
+  //
+  // Form values + touched bitmap + composer text are LIFTED HERE (rather
+  // than living inside HITLFormCard) so the composer can double as the
+  // form's free-text field when ``schema.allow_text_input`` is true —
+  // the submit dispatch needs both halves in one place.
+  const episodes = useEpisodes(conversationId);
+  const hitlSchema = useMemo<AskUserSchema | null>(() => {
+    const open = episodes.openEpisode;
+    if (!open || open.status !== 'awaiting_user') return null;
+    const raw = (open.interruptValue as { schema?: AskUserSchema } | null)
+      ?.schema;
+    return raw ?? null;
+  }, [episodes.openEpisode]);
+  const [hitlValues, setHitlValues] = useState<Record<string, unknown>>({});
+  const [hitlTouched, setHitlTouched] = useState<Record<string, boolean>>({});
+  const [hitlComposerText, setHitlComposerText] = useState('');
+
+  // Reset form state whenever the open episode changes (e.g. a fresh
+  // ask_user pause supersedes the previous one, or the episode
+  // completed and a new one has yet to open). Keying on episode.id
+  // means switching to a different conversation also resets cleanly.
+  const hitlEpisodeId = episodes.openEpisode?.id;
+  useEffect(() => {
+    if (!hitlSchema) {
+      setHitlValues({});
+      setHitlTouched({});
+      setHitlComposerText('');
+      return;
+    }
+    setHitlValues(initialFormValues(hitlSchema));
+    setHitlTouched({});
+    setHitlComposerText('');
+  }, [hitlEpisodeId, hitlSchema]);
+
+  // Surface the resume mutation error to the form card.
+  const resumeError =
+    episodes.resume.isError && episodes.resume.error instanceof Error
+      ? episodes.resume.error.message
+      : null;
+
+  const canSubmitHitl = hitlSchema
+    ? isHITLFormSubmittable(hitlSchema, hitlValues) && !episodes.resume.isPending
+    : false;
+
+  // The submit handler used by BOTH the form card's submit button AND
+  // the composer's send button (in form-mode). Reads form values +
+  // composer text from the lifted state and dispatches the resume
+  // mutation. On success the open-episode query refetches and either
+  // unmounts this form (episode terminated) OR re-renders with the
+  // next pause's schema (LLM tool-called ask_user again).
+  const submitHitl = useCallback(() => {
+    if (!hitlSchema) return;
+    const isAllowingText = Boolean(hitlSchema.allow_text_input);
+    episodes.resume.mutate(
+      {
+        form: coerceForSubmit(hitlSchema, hitlValues),
+        text: isAllowingText ? hitlComposerText : '',
+      },
+      {
+        onSuccess: () => {
+          setHitlComposerText('');
+        },
+      },
+    );
+  }, [hitlSchema, hitlValues, hitlComposerText, episodes.resume]);
 
   // R4 #1 regen-with-model: only the default chat agent supports per-turn
   // model override (flow nodes have their own model bindings). For other
@@ -546,6 +630,30 @@ function ChatSurface({
             real estate it visually balances out the off-centre shift
             of the messages. */}
         <div className="w-full max-w-2xl mx-auto">
+          {/* R6b — HITL pause renders inline above the composer.
+              When the schema's ``allow_text_input`` is true the
+              composer stays visible AND its text doubles as the
+              form's ``text`` field; when false, the composer is
+              hidden entirely so the user can only submit via the
+              form. */}
+          {hitlSchema && (
+            <HITLFormCard
+              schema={hitlSchema}
+              values={hitlValues}
+              onValuesChange={setHitlValues}
+              textValue={hitlComposerText}
+              touched={hitlTouched}
+              onTouchedChange={setHitlTouched}
+              onSubmit={submitHitl}
+              submitting={episodes.resume.isPending}
+              errorMessage={resumeError}
+            />
+          )}
+          {/* The composer hides only when an HITL pause is active AND
+              the schema disallows free text. In every other case it
+              stays visible — either as a normal chat composer or as
+              the form's free-text field (form-mode). */}
+          {(!hitlSchema || hitlSchema.allow_text_input) && (
           <ChatInput
             onSend={send}
             onStop={ready ? stop : undefined}
@@ -553,6 +661,22 @@ function ChatSurface({
             // finished setup. Keeps the composer visible (with the
             // gating banner inline) so prior history stays readable.
             disabled={status === 'running' || !ready}
+            // R6b — in form-mode the composer is controlled, and the
+            // send button submits the HITL form via ``submitHitl``.
+            value={hitlSchema ? hitlComposerText : undefined}
+            onValueChange={hitlSchema ? setHitlComposerText : undefined}
+            formMode={
+              hitlSchema
+                ? {
+                    onSubmit: (text) => {
+                      setHitlComposerText(text);
+                      submitHitl();
+                    },
+                    canSubmit: canSubmitHitl,
+                    submitting: episodes.resume.isPending,
+                  }
+                : undefined
+            }
             conversationId={conversationId}
             modelCapabilities={modelCapabilities}
             rightActions={
@@ -599,6 +723,7 @@ function ChatSurface({
               </SetupBanner>
             )}
           </ChatInput>
+          )}
         </div>
       </div>
     </div>

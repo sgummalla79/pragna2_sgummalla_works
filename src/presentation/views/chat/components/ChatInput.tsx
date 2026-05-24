@@ -93,6 +93,37 @@ interface ChatInputProps {
    * and ChatSessionView to inline the ModelPicker.
    */
   rightActions?: ReactNode;
+  /**
+   * R6b. When supplied, the composer becomes a CONTROLLED component:
+   * the parent owns the text value and receives every keystroke via
+   * ``onValueChange``. Used by the HITL pause flow so the composer
+   * text doubles as the form's free-text field on submit. When
+   * omitted (the default), the composer keeps its existing
+   * uncontrolled-text behaviour.
+   */
+  value?: string;
+  /** R6b. Setter paired with ``value``. */
+  onValueChange?: (next: string) => void;
+  /**
+   * R6b. Hijacks the send action so the same UI affordance submits a
+   * HITL form instead of a chat turn. When present:
+   *   * Clicking send / hitting Enter calls ``formMode.onSubmit(text)``
+   *     instead of ``onSend(...)``.
+   *   * The send button is disabled when ``formMode.canSubmit`` is
+   *     false (mirrors the form-side validity gate).
+   *   * Empty composer text is allowed — the form may be the only
+   *     payload (free text is optional when ``allow_text_input`` is
+   *     true).
+   *   * ``aria-label`` updates so screen readers say "Submit form"
+   *     instead of "Send message".
+   * The button visuals stay the same so the composer reads as one
+   * single send affordance regardless of mode.
+   */
+  formMode?: {
+    onSubmit: (text: string) => void;
+    canSubmit: boolean;
+    submitting?: boolean;
+  };
 }
 
 /**
@@ -124,8 +155,20 @@ export function ChatInput({
   modelCapabilities = { vision: true, pdf: true },
   children,
   rightActions,
+  value: controlledValue,
+  onValueChange,
+  formMode,
 }: ChatInputProps) {
-  const [value, setValue] = useState('');
+  // Internal-only fallback for uncontrolled mode. When ``controlledValue``
+  // is supplied the parent owns the text — useState here still runs (no
+  // conditional hook) but its value is ignored in favour of the prop.
+  const [internalValue, setInternalValue] = useState('');
+  const isControlled = controlledValue !== undefined;
+  const value = isControlled ? controlledValue : internalValue;
+  const setValue = (next: string) => {
+    if (isControlled) onValueChange?.(next);
+    else setInternalValue(next);
+  };
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -302,6 +345,18 @@ export function ChatInput({
 
   const submit = useCallback(() => {
     const trimmed = value.trim();
+    if (formMode) {
+      // R6b form-mode: send button submits a HITL form via the parent's
+      // resume mutation. The form may carry the entire payload (empty
+      // text is fine), and the parent's ``canSubmit`` gate already
+      // mirrors the form-validity check.
+      if (!formMode.canSubmit || disabled) return;
+      formMode.onSubmit(trimmed);
+      // Don't clear value here — the parent does that after the
+      // resume mutation settles (so the user's text isn't lost if
+      // resume fails mid-flight).
+      return;
+    }
     if (!trimmed || disabled || uploadsInFlight) return;
     onSend(trimmed, readyAttachmentIds);
     setValue('');
@@ -310,7 +365,8 @@ export function ChatInput({
       if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
     });
     setPending([]);
-  }, [value, disabled, uploadsInFlight, onSend, readyAttachmentIds, pending]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, disabled, uploadsInFlight, onSend, readyAttachmentIds, pending, formMode]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -367,8 +423,10 @@ export function ChatInput({
   }, [value]);
 
   const hasText = value.trim().length > 0;
-  const showStop = disabled && Boolean(onStop);
-  const canSend = hasText && !disabled && !uploadsInFlight;
+  const showStop = disabled && Boolean(onStop) && !formMode;
+  const canSend = formMode
+    ? formMode.canSubmit && !disabled && !formMode.submitting
+    : hasText && !disabled && !uploadsInFlight;
 
   // Vertical padding only; horizontal containment + screen-edge
   // padding are owned by the parent so the composer can be aligned
@@ -533,7 +591,7 @@ export function ChatInput({
                 type="button"
                 onClick={submit}
                 disabled={!canSend}
-                aria-label="Send message"
+                aria-label={formMode ? 'Submit form' : 'Send message'}
                 className={cn(
                   'flex h-9 w-9 items-center justify-center rounded-full',
                   'transition-colors',
