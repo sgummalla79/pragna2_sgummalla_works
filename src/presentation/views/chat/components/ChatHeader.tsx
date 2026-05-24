@@ -15,13 +15,15 @@ interface ChatHeaderProps {
  * still pending) and the app name on the far right as a quiet brand
  * mark.
  *
- * R6a: the agent-picker dropdown is gone. Flows are no longer selected
- * upfront — the default chat agent proposes them mid-conversation via
- * the ``propose_flow`` tool, the user confirms in an inline
- * ``FlowProposalCard``, and the flow runs against
- * ``POST /api/conversations/{id}/run-flow``. The header therefore
- * carries no agent affordance at all in R6a. R6c will add an
- * ``EpisodeBadge`` here when multi-turn episodes ship.
+ * R6 + R7: the agent-picker dropdown was removed in R6a; flows are now
+ * proposed mid-conversation by the default chat agent and confirmed
+ * via :class:`FlowProposalCard`, which creates an episode (R6b) that
+ * runs via ``POST /api/conversations/{id}/episodes``. R7 Tier 1 #2
+ * briefly hosted an ``EpisodeBadge`` × cancel here, but R7.1#3 v2 and
+ * the R7.1#3 follow-up replaced that affordance with the
+ * :class:`ThinkingStrip` inline above the streaming assistant bubble
+ * + the :class:`ChatInput` Stop button — the header is back to being
+ * a pure title + brand mark.
  */
 export function ChatHeader({ conversation }: ChatHeaderProps) {
   const title =

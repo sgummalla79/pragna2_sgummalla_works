@@ -116,4 +116,10 @@ export interface IEpisodeRepository {
     conversationId: string,
     params?: ListEpisodesParams,
   ): Promise<ListEpisodesResponse>;
+  /** R7 Tier 1 #2: user-initiated cancel of an open episode.
+   *  DELETE ``/api/conversations/{id}/episodes/{ep_id}`` — 204 on
+   *  success, 404 if not owned, 409 if the episode is already
+   *  terminal (race with another tab or the run finishing
+   *  mid-click). */
+  cancel(conversationId: string, episodeId: string): Promise<void>;
 }

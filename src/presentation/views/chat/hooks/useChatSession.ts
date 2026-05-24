@@ -48,6 +48,21 @@ export interface ChatSessionApi {
   /** Last error message when ``status === 'error'``; ``null`` otherwise. */
   error: string | null;
   /**
+   * R7.1#3 follow-up — latest live progress label from the agent.
+   * Backed by the LangChain ``on_progress`` custom event emitted from
+   * every ``BaseAgentNode.__call__`` on the BE. ``null`` between runs
+   * and when the latest event hasn't carried a label.
+   *
+   * Last-wins: in a parallel-agents flow, the most recent emit
+   * overwrites previous labels (per the R7.1#3 follow-up design call —
+   * matches Cursor / ChatGPT behaviour, simpler than stacking).
+   *
+   * Cleared on every transition out of ``running`` (RunFinalized /
+   * RunError) so the thinking strip disappears the moment the run
+   * settles.
+   */
+  progressLabel: string | null;
+  /**
    * Append a user turn and run the agent. No-op while a run is in flight.
    * R5: ``attachmentIds`` is the list of staged attachment IDs that the
    * backend has already received; they ride along in
@@ -132,6 +147,10 @@ export function useChatSession(
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [status, setStatus] = useState<ChatStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  // R7.1#3 follow-up — latest on_progress label from the agent. Last-wins
+  // across parallel agents per the design call. Cleared on RunFinalized /
+  // RunError so the strip disappears the moment the run settles.
+  const [progressLabel, setProgressLabel] = useState<string | null>(null);
 
   // toolCallId → ChatToolCall, accumulated across the run so partial-args
   // events can update the right call regardless of arrival interleaving.
@@ -187,14 +206,21 @@ export function useChatSession(
       onRunInitialized: () => {
         setStatus('running');
         setError(null);
+        // R7.1#3 — reset on every new run so the strip starts fresh,
+        // not carrying the last label from the prior turn.
+        setProgressLabel(null);
       },
       onRunFailed: ({ error: e }) => {
         setStatus('error');
         setError(e.message || 'Run failed');
+        // R7.1#3 — strip disappears on terminal state per the design
+        // call (no "Stopping..." beat, matches ChatGPT/Claude.ai).
+        setProgressLabel(null);
         logger.fromError('CHT_004:run_failed', e);
       },
       onRunFinalized: () => {
         setStatus((prev) => (prev === 'error' ? prev : 'idle'));
+        setProgressLabel(null);
         // Restore the agent URL after a regen-with-model run so the
         // next plain `send` reverts to the conversation's persisted
         // user_model_id (the per-turn override is exactly that —
@@ -277,6 +303,26 @@ export function useChatSession(
           });
         }
         syncMessages();
+      },
+      // R7.1#3 follow-up — every BaseAgentNode.__call__ on the BE
+      // dispatches a LangChain on_progress custom event with payload
+      // {label, agent_name}. ag_ui_langgraph forwards it as an AG-UI
+      // CustomEvent with the same name. Last-wins: the most recent
+      // emit overwrites previous labels (parallel agents render as a
+      // single "currently active" indicator, matching Cursor /
+      // ChatGPT behaviour).
+      //
+      // Unknown custom events are ignored — keeps the door open for
+      // future event names without forcing every consumer to be
+      // exhaustive.
+      onCustomEvent: ({ event }) => {
+        if (event.name !== 'on_progress') return;
+        const value = event.value as { label?: unknown } | null | undefined;
+        const label =
+          value && typeof value === 'object' && typeof value.label === 'string'
+            ? value.label
+            : null;
+        if (label) setProgressLabel(label);
       },
     };
 
@@ -380,10 +426,23 @@ export function useChatSession(
     if (agent && status === 'running') {
       agent.abortRun();
       setStatus('idle');
+      // R7.1#3 — clear immediately on stop. RunFinalized also clears,
+      // but it can lag a few hundred ms behind abort; we want the
+      // strip to disappear the instant the user clicks Stop.
+      setProgressLabel(null);
     }
   }, [agent, status]);
 
-  return { messages, status, error, send, sendWithModel, sendWithOverrides, stop };
+  return {
+    messages,
+    status,
+    error,
+    progressLabel,
+    send,
+    sendWithModel,
+    sendWithOverrides,
+    stop,
+  };
 }
 
 /**

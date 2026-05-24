@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { MessageSquareWarning } from 'lucide-react';
 import { Button } from '@/presentation/components/ui/Button';
+import { ConfirmButton } from '@/presentation/components/ui/ConfirmButton';
 import { FormField } from './form/FormField';
 import {
   type AskUserSchema,
@@ -51,6 +52,22 @@ export interface HITLFormCardProps {
   submitting?: boolean;
   /** Error from the resume mutation, if any. Rendered as a banner. */
   errorMessage?: string | null;
+  /** R7 Tier 1 #2: forwarded to each :class:`FormField` so the new
+   *  ``file`` field type can dispatch uploads to the active
+   *  conversation. Absent on brand-new chats whose row hasn't
+   *  materialised yet; the file field renders disabled with a hint
+   *  in that case. */
+  uploadContext?: { conversationId: string };
+  /** R7.1#3 — user-initiated cancel of the paused episode. When set,
+   *  a Cancel button renders next to Submit and triggers a confirm
+   *  dialog before firing the mutation. The parent owns the actual
+   *  ``useCancelEpisode`` mutation and any post-cancel side-effects
+   *  (composer focus, query invalidations, etc.). Absent in tests /
+   *  storybook stubs where cancellation isn't wired. */
+  onCancel?: () => void;
+  /** R7.1#3 — disables the Cancel button while the cancel mutation is
+   *  in flight, so a slow DELETE can't get double-clicked. */
+  cancelling?: boolean;
 }
 
 /** True iff every field passes the per-field validator. Exported so
@@ -74,6 +91,9 @@ export function HITLFormCard({
   onSubmit,
   submitting = false,
   errorMessage,
+  uploadContext,
+  onCancel,
+  cancelling = false,
 }: HITLFormCardProps) {
   // Touch _textValue so the variable isn't tree-shaken from the
   // closure — it's documented as part of the public API and a future
@@ -127,6 +147,7 @@ export function HITLFormCard({
             // first render when every required field is empty.
             error={touched[field.name] ? validateField(field, values[field.name]) : null}
             disabled={submitting}
+            uploadContext={uploadContext}
           />
         ))}
       </div>
@@ -143,6 +164,25 @@ export function HITLFormCard({
           <span className="mr-auto text-[11px] text-muted-foreground">
             Your composer text submits with this form.
           </span>
+        )}
+        {/* R7.1#3 — Cancel is destructive (discards any typed form
+            values) so it's gated behind ConfirmButton per the
+            destructive-actions-confirm rule. Rendered as a subtle
+            ghost button so Submit stays the primary action. */}
+        {onCancel && (
+          <ConfirmButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={cancelling || submitting}
+            confirmTitle="Cancel this episode?"
+            confirmDescription="Any values you've typed will be discarded and the conversation will resume on the default chat agent."
+            confirmLabel="Cancel episode"
+            cancelLabel="Keep editing"
+            onConfirm={onCancel}
+          >
+            {cancelling ? 'Cancelling…' : 'Cancel'}
+          </ConfirmButton>
         )}
         <Button type="submit" disabled={!canSubmit}>
           {submitting ? 'Submitting…' : submitLabel}

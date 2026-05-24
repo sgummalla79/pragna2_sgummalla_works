@@ -95,6 +95,14 @@ export class EpisodeRepository implements IEpisodeRepository {
       offset: response.data.offset,
     };
   }
+
+  async cancel(conversationId: string, episodeId: string): Promise<void> {
+    await this.axiosClient.delete(
+      `/api/conversations/${encodeURIComponent(conversationId)}/episodes/${encodeURIComponent(
+        episodeId,
+      )}`,
+    );
+  }
 }
 
 /** Wire shape (snake_case) returned by the backend. */

@@ -132,3 +132,17 @@
   --sidebar-width:           240px;
   --sidebar-width-collapsed:  64px;
 }
+
+/* ── R7.1#3 follow-up: ThinkingStrip animations ────────────────────────
+   Slow rotation (3s) reads contemplative instead of urgent. Shimmer
+   sweeps left-to-right over the label text via a moving background
+   position; pairs with the inline gradient + background-clip:text on
+   the component. */
+@keyframes thinking-strip-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes thinking-strip-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}

@@ -28,6 +28,7 @@ import {
 import { ChatMessage, type ChatMessageHandlers } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
 import { ChatHeader } from './components/ChatHeader';
+import { ThinkingStrip } from './components/ThinkingStrip';
 import { ModelPicker } from './components/ModelPicker';
 import { SetupBanner } from './components/SetupBanner';
 import {
@@ -268,7 +269,7 @@ function ChatSurface({
     return map;
   }, [persistedMessages]);
 
-  const { messages, status, error, send, sendWithModel, sendWithOverrides, stop } = useChatSession(
+  const { messages, status, error, progressLabel, send, sendWithModel, sendWithOverrides, stop } = useChatSession(
     agentName,
     { threadId, initialMessages },
   );
@@ -602,6 +603,17 @@ function ChatSurface({
                 conversationId={conversationId}
               />
             ))}
+            {/* R7.1#3 follow-up — thinking strip rendered after the
+                last message bubble, so it sits visually just below
+                the most recent user turn (where the streaming
+                assistant response will appear). Hidden when not
+                running, or when the open episode is awaiting_user
+                (the HITLFormCard below the composer is the focal
+                point in that state — no second "waiting" indicator). */}
+            {status === 'running' &&
+              episodes.openEpisode?.status !== 'awaiting_user' && (
+                <ThinkingStrip label={progressLabel} />
+              )}
           </div>
         )}
       </div>
@@ -647,6 +659,20 @@ function ChatSurface({
               onSubmit={submitHitl}
               submitting={episodes.resume.isPending}
               errorMessage={resumeError}
+              // R7 Tier 1 #2: the `file` field type uploads via the
+              // existing attachments endpoint — needs the current
+              // conversation id. Absent on brand-new chats whose
+              // row hasn't materialised yet; the file renderer
+              // shows a hint in that case.
+              uploadContext={conversationId ? { conversationId } : undefined}
+              // R7.1#3 — Cancel button on the form. The cancel
+              // mutation flips the episode to ``cancelled``, writes
+              // the "You cancelled …" transcript message, and
+              // signals the streaming task on the BE. The badge ×
+              // is gone (per R7.1#3 cancel UX v2), so this is the
+              // sole cancel affordance during ``awaiting_user``.
+              onCancel={() => episodes.cancel.mutate()}
+              cancelling={episodes.cancel.isPending}
             />
           )}
           {/* The composer hides only when an HITL pause is active AND
@@ -656,7 +682,29 @@ function ChatSurface({
           {(!hitlSchema || hitlSchema.allow_text_input) && (
           <ChatInput
             onSend={send}
-            onStop={ready ? stop : undefined}
+            // R7.1#3 cancel UX v2. Two cases:
+            //   1) Flow episode active — fire the cancel mutation so
+            //      the BE flips status, writes the "You cancelled X"
+            //      transcript message, and signals task.cancel(). Then
+            //      close the SSE stream locally so the UI returns to
+            //      idle without waiting for the BE round-trip.
+            //   2) Default chat generating (no episode) — just close
+            //      the SSE locally. Matches ChatGPT / Claude.ai: the
+            //      partial assistant response stays in the transcript;
+            //      no system message.
+            onStop={
+              ready
+                ? () => {
+                    if (
+                      episodes.openEpisode &&
+                      episodes.openEpisode.status === 'active'
+                    ) {
+                      episodes.cancel.mutate();
+                    }
+                    stop();
+                  }
+                : undefined
+            }
             // Disable when streaming a response OR when the user hasn't
             // finished setup. Keeps the composer visible (with the
             // gating banner inline) so prior history stays readable.
