@@ -107,3 +107,31 @@ export function useSaveFlowFromYamlById() {
     },
   });
 }
+
+/** R10 #2: persist canvas-drag positions on ``flow.metadata.positions``.
+ *
+ *  The mutation fires AFTER the user finishes a drag (reactflow's
+ *  ``onNodeDragStop`` hook). The caller is responsible for sending the
+ *  FULL positions map — the backend's metadata-merge is shallow, so a
+ *  single-node delta would clobber previously-saved siblings.
+ *
+ *  Cache invalidation re-fetches the flow so a subsequent visit lands
+ *  with the persisted positions. We deliberately do NOT invalidate the
+ *  flows list — positions don't surface in the list endpoint.
+ */
+export function useUpdateFlowPositions() {
+  const { flowService } = useServices();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      flowId,
+      positions,
+    }: {
+      flowId: string;
+      positions: Record<string, { x: number; y: number }>;
+    }) => flowService.updatePositions(flowId, positions),
+    onSuccess: (flow) => {
+      queryClient.invalidateQueries({ queryKey: flowKey(flow.id) });
+    },
+  });
+}

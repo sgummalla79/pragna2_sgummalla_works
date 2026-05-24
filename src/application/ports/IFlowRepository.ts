@@ -29,4 +29,17 @@ export interface IFlowRepository {
    *  regardless of what `api_name` the YAML carries. Surfaces `409` when
    *  the new `api_name` collides with a different flow owned by the user. */
   saveFromYamlById(flowId: string, definition: string): Promise<SaveFromYamlResult>;
+
+  /** R10 #2: persist the canvas-drag node positions onto
+   *  ``flow.metadata.positions`` so they survive YAML keystrokes AND
+   *  page reloads. The backend's existing ``PATCH /api/flows/{id}``
+   *  merges ``metadata`` shallowly — sending ``{positions: {...}}``
+   *  replaces the whole ``positions`` slot but leaves siblings
+   *  (``max_revisions``, ``timeout_seconds``, …) untouched. Callers
+   *  MUST send the FULL positions map (not a single-node delta) so
+   *  previously-saved positions don't vanish on the next write. */
+  updatePositions(
+    flowId: string,
+    positions: Record<string, { x: number; y: number }>,
+  ): Promise<Flow>;
 }

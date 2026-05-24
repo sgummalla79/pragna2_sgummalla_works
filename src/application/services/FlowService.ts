@@ -45,4 +45,11 @@ export class FlowService {
   saveFromYamlById(flowId: string, definition: string): Promise<SaveFromYamlResult> {
     return this.flowRepository.saveFromYamlById(flowId, definition);
   }
+
+  updatePositions(
+    flowId: string,
+    positions: Record<string, { x: number; y: number }>,
+  ): Promise<Flow> {
+    return this.flowRepository.updatePositions(flowId, positions);
+  }
 }

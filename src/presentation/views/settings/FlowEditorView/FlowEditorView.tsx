@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml as yamlLang } from '@codemirror/lang-yaml';
 import ReactFlow, {
   Background,
   Controls,
+  type Node,
+  type NodeDragHandler,
   ReactFlowProvider,
   useEdgesState,
   useNodesState,
@@ -17,6 +19,7 @@ import {
   useFlow,
   useSaveFlowFromYaml,
   useSaveFlowFromYamlById,
+  useUpdateFlowPositions,
   useValidateFlowYaml,
 } from '@/presentation/hooks/flows/useFlows';
 import type { YamlError } from '@/domain/types/flowYaml.types';
@@ -25,7 +28,22 @@ import { Card, CardContent } from '@/presentation/components/ui/Card';
 import { useUiStore } from '@/presentation/store/uiStore';
 import { ROUTES } from '@/constants/routes';
 import { STARTER_FLOW_YAML } from './starterYaml';
-import { yamlToGraph } from './yamlToGraph';
+import { LoopBackEdge } from './LoopBackEdge';
+import { type PositionOverrides, yamlToGraph } from './yamlToGraph';
+
+/** R10 #1: registered with ReactFlow so back-edges tagged
+ *  ``type: 'loopback'`` by :func:`yamlToGraph` are rendered by the
+ *  custom :class:`LoopBackEdge` component instead of the default
+ *  smoothstep renderer (which would overlap forward edges). Module-
+ *  level constant so the object identity is stable across renders —
+ *  ReactFlow warns when ``edgeTypes`` is a fresh object every render. */
+const EDGE_TYPES = { loopback: LoopBackEdge } as const;
+
+/** R10 #2: how long to wait after the last drag before PATCHing the
+ *  positions back to the server. Long enough to batch a multi-node
+ *  rearrangement into one request; short enough that a single drag
+ *  feels persisted. */
+const POSITION_PERSIST_DEBOUNCE_MS = 600;
 
 /** Pull a YAML error list out of an Axios error from /api/flows/from-yaml.
  *  The backend returns 422 with `detail: [{path, message}, ...]`. */
@@ -108,16 +126,108 @@ function EditorInner({ flowId }: EditorProps) {
   // Reactflow's controlled state. We sync from the YAML on every text
   // change (replacing the graph), but between edits the user is free to
   // drag nodes around — onNodesChange writes back here so positions
-  // persist within the editing session. (Persisting across reloads
-  // would need writing positions into flow.metadata; deferred to R6.)
+  // persist within the editing session.
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
+  // ── R10 #2: persisted-position overrides ────────────────────────────
+  //
+  // Lives separately from reactflow's ``nodes`` state because every
+  // YAML keystroke rebuilds the graph via ``yamlToGraph`` — without an
+  // out-of-band override map, a single keystroke would clobber every
+  // user-drag position. The override map is seeded once from the
+  // loaded flow's ``metadata.positions``, mutated on drag-end, and
+  // overlaid on top of dagre's auto-layout inside ``yamlToGraph``.
+  //
+  // Persistence: ``onNodeDragStop`` debounces a PATCH to
+  // ``/api/flows/{id}`` for the FULL map (the backend merges
+  // metadata shallowly, so a partial map would erase un-dragged
+  // siblings on the next write). The debounce timer is tracked in a
+  // ref so multi-node drags batch into a single request.
+  const [positionOverrides, setPositionOverrides] = useState<
+    Record<string, { x: number; y: number }>
+  >({});
+
+  const updatePositionsMutation = useUpdateFlowPositions();
+  const persistTimerRef = useRef<number | null>(null);
+
+  // Seed overrides from the loaded flow's metadata once it arrives.
+  // Only runs in edit mode (``flowId`` set) — new flows have no
+  // persisted positions to seed from.
   useEffect(() => {
-    const graph = yamlToGraph(yamlText);
+    if (!flowId || !existingFlow) return;
+    const persisted = (existingFlow.metadata as { positions?: unknown } | null)
+      ?.positions;
+    if (persisted && typeof persisted === 'object' && !Array.isArray(persisted)) {
+      setPositionOverrides(persisted as Record<string, { x: number; y: number }>);
+    }
+    // Intentionally one-shot per flow load. Subsequent overrides come
+    // from the drag handler; re-running this on every existingFlow
+    // identity change would clobber unsaved drags.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flowId, existingFlow?.id]);
+
+  const overridesForRender: PositionOverrides = useMemo(
+    () => (Object.keys(positionOverrides).length > 0 ? positionOverrides : null),
+    [positionOverrides],
+  );
+
+  useEffect(() => {
+    const graph = yamlToGraph(yamlText, overridesForRender);
     setNodes(graph.nodes);
     setEdges(graph.edges);
-  }, [yamlText, setNodes, setEdges]);
+  }, [yamlText, overridesForRender, setNodes, setEdges]);
+
+  // Drag-end handler. Reactflow guarantees this fires with the final
+  // position of the dragged node — onNodesChange events during the
+  // drag are noisy and not worth listening to. We update the override
+  // map locally (so subsequent YAML keystrokes don't reset it) and
+  // schedule a debounced PATCH to persist.
+  const handleNodeDragStop: NodeDragHandler = (_event, node) => {
+    setPositionOverrides((prev) => {
+      const next = { ...prev, [node.id]: { x: node.position.x, y: node.position.y } };
+      // Schedule the persist OUTSIDE the setter — setState callbacks
+      // should be pure. We pass ``next`` via closure into the timeout
+      // so the latest map is what hits the server.
+      if (flowId) {
+        if (persistTimerRef.current !== null) {
+          window.clearTimeout(persistTimerRef.current);
+        }
+        persistTimerRef.current = window.setTimeout(() => {
+          updatePositionsMutation.mutate({ flowId, positions: next });
+          persistTimerRef.current = null;
+        }, POSITION_PERSIST_DEBOUNCE_MS);
+      }
+      return next;
+    });
+  };
+
+  // Flush any in-flight debounced PATCH on unmount so a fast nav-away
+  // after a drag doesn't drop the position update.
+  useEffect(() => {
+    return () => {
+      if (persistTimerRef.current !== null) {
+        window.clearTimeout(persistTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Drop overrides for node_ids that no longer appear in the graph
+  // (renamed / deleted in the YAML). Keeps ``metadata.positions``
+  // from accumulating stale entries indefinitely across edits.
+  useEffect(() => {
+    if (!flowId || nodes.length === 0) return;
+    const liveIds = new Set(nodes.map((n: Node) => n.id));
+    setPositionOverrides((prev) => {
+      let changed = false;
+      const next: Record<string, { x: number; y: number }> = {};
+      for (const [id, pos] of Object.entries(prev)) {
+        if (liveIds.has(id)) next[id] = pos;
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [flowId, nodes]);
 
   async function handleValidate() {
     setBanner(null);
@@ -289,6 +399,15 @@ function EditorInner({ flowId }: EditorProps) {
               edges={edges}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
+              // R10 #2: drag-end fires after the user releases a node.
+              // ``onNodesChange`` also surfaces drag events but is
+              // noisy (one event per frame) — we just want the final
+              // position, which is what ``onNodeDragStop`` carries.
+              onNodeDragStop={handleNodeDragStop}
+              // R10 #1: register the custom loopback edge renderer
+              // so back-edges tagged in yamlToGraph route via a side
+              // channel instead of stacking on forward edges.
+              edgeTypes={EDGE_TYPES}
               fitView
               // Nodes are draggable for readability tweaks. We deliberately
               // leave edge authoring off (`nodesConnectable`, `edgesUpdatable`)

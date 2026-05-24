@@ -147,4 +147,19 @@ export class FlowRepository implements IFlowRepository {
     // By-id save is always an update — 200 OK, never 201.
     return { flow: mapFlow(response.data), created: false };
   }
+
+  async updatePositions(
+    flowId: string,
+    positions: Record<string, { x: number; y: number }>,
+  ): Promise<Flow> {
+    // R10 #2: reuse the existing PATCH endpoint. The backend's
+    // ``SqlFlowRepository.update`` does a shallow merge on ``metadata``,
+    // so sending ``{positions}`` replaces the whole ``positions`` slot
+    // but preserves siblings.
+    const { data } = await this.http.patch<ApiFlowResponse>(
+      `/api/flows/${flowId}`,
+      { metadata: { positions } },
+    );
+    return mapFlow(data);
+  }
 }

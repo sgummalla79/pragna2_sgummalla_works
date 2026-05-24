@@ -1,8 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import PragnaLogo from '@/assets/logo.svg?react';
 import { useLlmProvidersWithRegistrations } from '@/presentation/hooks/providers/useProviders';
-import { useAgents } from '@/presentation/hooks/agents/useAgents';
 import { APP_NAME } from '@/constants/api';
 import { ROUTES } from '@/constants/routes';
 import { ChatInput } from './components/ChatInput';
@@ -11,6 +10,10 @@ import { SetupBanner } from './components/SetupBanner';
 import { useGreeting } from './hooks/useGreeting';
 import { writePendingInitialMessage } from './hooks/initialMessageHandoff';
 
+// R6a: every new conversation starts on the default chat agent. Flows
+// are no longer picked upfront — the default agent proposes them
+// mid-conversation when intent matches and the user confirms via an
+// inline FlowProposalCard.
 const DEFAULT_AGENT_NAME = 'default';
 
 /**
@@ -40,29 +43,13 @@ const DEFAULT_AGENT_NAME = 'default';
 export default function ChatLandingView() {
   const navigate = useNavigate();
   const greeting = useGreeting();
-  const [searchParams] = useSearchParams();
   const { data: providers = [], isLoading } = useLlmProvidersWithRegistrations();
 
-  // ``/chat?agent={name}`` selects which agent the next fresh
-  // conversation will be created against. Defaults to the free-chat
-  // ``default`` agent when omitted. The AgentPicker (in the chat
-  // header of any open conversation) navigates here with this param
-  // set when the user wants to start a new chat against a different
-  // agent.
-  const requestedAgent =
-    searchParams.get('agent')?.trim() || DEFAULT_AGENT_NAME;
-
-  // Validate ``requestedAgent`` against the live agent list. Without this
-  // check, a stale URL like ``/chat?agent=research-flow`` (where the flow
-  // has since been deleted) would carry through the handoff and surface
-  // as ``AbortError: signal is aborted without reason`` once the backend
-  // returns 404 mid-SSE — the AG-UI client can't recover the response
-  // body once the stream is broken, so the upstream error message is
-  // unreachable. Pre-flighting here keeps the failure path on a clear
-  // inline banner instead.
-  const { data: agents = [], isLoading: agentsLoading } = useAgents();
-  const knownAgent =
-    agentsLoading || agents.some((a) => a.name === requestedAgent);
+  // R6a: every new conversation lands on the default agent — there is
+  // no `?agent=` parameter to honour any more. The constant is still
+  // threaded through the handoff so the backend's persistence path
+  // (which expects an agent name on first turn) stays unchanged.
+  const requestedAgent = DEFAULT_AGENT_NAME;
 
   const connectedProviders = providers.filter((p) => p.userProviders.length > 0);
   const hasProviders = connectedProviders.length > 0;
@@ -71,7 +58,7 @@ export default function ChatLandingView() {
       up.models.some((m) => m.enabled && m.availableForChat),
     ),
   );
-  const ready = hasProviders && hasChatModel && knownAgent;
+  const ready = hasProviders && hasChatModel;
 
   // The conversation id used for any uploads happening BEFORE first
   // send. Generated synchronously so the paperclip + drop target work
@@ -152,9 +139,7 @@ export default function ChatLandingView() {
             placeholder={
               ready
                 ? `Ask ${APP_NAME} anything…`
-                : !knownAgent
-                  ? `Agent '${requestedAgent}' isn't available…`
-                  : 'Connect a model to start chatting…'
+                : 'Connect a model to start chatting…'
             }
           >
             {!isLoading && !hasProviders && (
@@ -181,19 +166,9 @@ export default function ChatLandingView() {
                 and turn on at least one model for chat.
               </SetupBanner>
             )}
-            {!agentsLoading && !knownAgent && (
-              <SetupBanner>
-                Agent <span className="font-mono">&apos;{requestedAgent}&apos;</span> isn&apos;t
-                available. It may have been deleted or never existed. Start a{' '}
-                <Link
-                  to={ROUTES.CHAT}
-                  className="font-semibold underline underline-offset-2 hover:opacity-80"
-                >
-                  free chat
-                </Link>{' '}
-                instead, or pick a different agent from any open conversation.
-              </SetupBanner>
-            )}
+            {/* R6a removed the agent picker; the stale-agent banner that
+                lived here is no longer reachable because every new chat
+                lands on the default agent. */}
           </ChatInput>
         </div>
       </div>
