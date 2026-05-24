@@ -561,7 +561,7 @@ function ChatSurface({
 
   return (
     <div className="flex h-full flex-col bg-background">
-      <ChatHeader conversation={conversation} />
+      <ChatHeader conversation={conversation} conversationId={conversationId} />
 
       <div
         ref={scrollRef}
@@ -647,6 +647,12 @@ function ChatSurface({
               onSubmit={submitHitl}
               submitting={episodes.resume.isPending}
               errorMessage={resumeError}
+              // R7 Tier 1 #2: the `file` field type uploads via the
+              // existing attachments endpoint — needs the current
+              // conversation id. Absent on brand-new chats whose
+              // row hasn't materialised yet; the file renderer
+              // shows a hint in that case.
+              uploadContext={conversationId ? { conversationId } : undefined}
             />
           )}
           {/* The composer hides only when an HITL pause is active AND

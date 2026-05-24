@@ -46,4 +46,9 @@ export class EpisodeService {
   ): Promise<ListEpisodesResponse> {
     return this.repo.list(conversationId, params);
   }
+
+  /** User-initiated cancel of an open episode (R7 Tier 1 #2). */
+  cancel(conversationId: string, episodeId: string): Promise<void> {
+    return this.repo.cancel(conversationId, episodeId);
+  }
 }

@@ -1,11 +1,17 @@
 import { APP_NAME } from '@/constants/api';
 import type { Conversation } from '@/domain/types/conversation.types';
+import { EpisodeBadge } from './EpisodeBadge';
 
 interface ChatHeaderProps {
   /** The conversation backing this view, or nullish before its row
    * has materialised on the backend (the first turn of a brand-new
    * chat, where the URL leads the database). */
   conversation: Conversation | null | undefined;
+  /** R7 Tier 1 #2: when set, the EpisodeBadge renders next to the
+   *  title and surfaces the open-episode state (running / awaiting
+   *  user) with a × cancel affordance. Absent on brand-new chats
+   *  whose row hasn't materialised yet. */
+  conversationId?: string;
 }
 
 /**
@@ -15,15 +21,14 @@ interface ChatHeaderProps {
  * still pending) and the app name on the far right as a quiet brand
  * mark.
  *
- * R6a: the agent-picker dropdown is gone. Flows are no longer selected
- * upfront — the default chat agent proposes them mid-conversation via
- * the ``propose_flow`` tool, the user confirms in an inline
- * ``FlowProposalCard``, and the flow runs against
- * ``POST /api/conversations/{id}/run-flow``. The header therefore
- * carries no agent affordance at all in R6a. R6c will add an
- * ``EpisodeBadge`` here when multi-turn episodes ship.
+ * R6 + R7: the agent-picker dropdown was removed in R6a; flows are now
+ * proposed mid-conversation by the default chat agent and confirmed
+ * via :class:`FlowProposalCard`, which creates an episode (R6b) that
+ * runs via ``POST /api/conversations/{id}/episodes``. When an episode
+ * is open, R7 Tier 1 #2's :class:`EpisodeBadge` surfaces inline here
+ * with a destructive-confirmed × cancel.
  */
-export function ChatHeader({ conversation }: ChatHeaderProps) {
+export function ChatHeader({ conversation, conversationId }: ChatHeaderProps) {
   const title =
     conversation?.title
     ?? (conversation ? 'Untitled chat' : 'New conversation');
@@ -50,6 +55,7 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
       <span className="text-[14px] font-semibold text-foreground truncate">
         {title}
       </span>
+      {conversationId && <EpisodeBadge conversationId={conversationId} />}
       <span className="ml-auto text-[11px] text-muted-foreground">{APP_NAME}</span>
     </div>
   );

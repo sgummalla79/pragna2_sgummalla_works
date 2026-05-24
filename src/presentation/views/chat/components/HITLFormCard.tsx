@@ -51,6 +51,12 @@ export interface HITLFormCardProps {
   submitting?: boolean;
   /** Error from the resume mutation, if any. Rendered as a banner. */
   errorMessage?: string | null;
+  /** R7 Tier 1 #2: forwarded to each :class:`FormField` so the new
+   *  ``file`` field type can dispatch uploads to the active
+   *  conversation. Absent on brand-new chats whose row hasn't
+   *  materialised yet; the file field renders disabled with a hint
+   *  in that case. */
+  uploadContext?: { conversationId: string };
 }
 
 /** True iff every field passes the per-field validator. Exported so
@@ -74,6 +80,7 @@ export function HITLFormCard({
   onSubmit,
   submitting = false,
   errorMessage,
+  uploadContext,
 }: HITLFormCardProps) {
   // Touch _textValue so the variable isn't tree-shaken from the
   // closure — it's documented as part of the public API and a future
@@ -127,6 +134,7 @@ export function HITLFormCard({
             // first render when every required field is empty.
             error={touched[field.name] ? validateField(field, values[field.name]) : null}
             disabled={submitting}
+            uploadContext={uploadContext}
           />
         ))}
       </div>

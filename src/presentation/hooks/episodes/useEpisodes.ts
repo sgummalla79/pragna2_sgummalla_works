@@ -171,12 +171,62 @@ export function useResumeEpisode(
   });
 }
 
+/**
+ * Mutation that cancels an open episode (R7 Tier 1 #2).
+ *
+ * Backs the × button on :class:`EpisodeBadge`. The destructive
+ * confirm dialog lives at the call site (per the project's
+ * destructive-action-confirm rule); this hook just dispatches the
+ * DELETE and invalidates the open-episode + messages queries so the
+ * badge disappears and any cancellation-related message
+ * (placeholder, etc.) appears.
+ *
+ * On settlement the mutation invalidates the same slices as
+ * :func:`useResumeEpisode` so the UI converges to the post-cancel
+ * state without manual refetch.
+ */
+export function useCancelEpisode(
+  conversationId: string | undefined,
+  episodeId: string | undefined,
+) {
+  const { episodeService } = useServices();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!conversationId || !episodeId) {
+        throw new Error(
+          'useCancelEpisode: conversationId + episodeId are required',
+        );
+      }
+      await episodeService.cancel(conversationId, episodeId);
+    },
+    onSettled: () => {
+      if (!conversationId) return;
+      queryClient.invalidateQueries({
+        queryKey: openEpisodeQueryKey(conversationId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['conversations', conversationId, 'messages'],
+      });
+      if (episodeId) {
+        queryClient.invalidateQueries({
+          queryKey: episodeQueryKey(conversationId, episodeId),
+        });
+      }
+    },
+  });
+}
+
 /** Bundle helper for callers that need both the open-episode query AND
  *  the matching mutations — keeps imports tidy at the call site. */
 export function useEpisodes(conversationId: string | undefined) {
   const openEpisodeQuery = useOpenEpisode(conversationId);
   const createMutation = useCreateEpisode(conversationId);
   const resumeMutation = useResumeEpisode(
+    conversationId,
+    openEpisodeQuery.data?.id,
+  );
+  const cancelMutation = useCancelEpisode(
     conversationId,
     openEpisodeQuery.data?.id,
   );
@@ -187,7 +237,14 @@ export function useEpisodes(conversationId: string | undefined) {
       isOpenEpisodeLoading: openEpisodeQuery.isLoading,
       create: createMutation,
       resume: resumeMutation,
+      cancel: cancelMutation,
     }),
-    [openEpisodeQuery.data, openEpisodeQuery.isLoading, createMutation, resumeMutation],
+    [
+      openEpisodeQuery.data,
+      openEpisodeQuery.isLoading,
+      createMutation,
+      resumeMutation,
+      cancelMutation,
+    ],
   );
 }

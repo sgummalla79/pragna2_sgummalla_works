@@ -9,14 +9,24 @@
  * each field as they type.
  */
 
-/** R6b shipping field types. R9 adds ``file`` / ``date`` / ``daterange``. */
+/** Field types accepted by the ask_user schema.
+ *
+ * R6b shipped six. R7 Tier 1 #2 added three more: ``file`` (returns an
+ * attachment_id once the upload completes), ``date`` (ISO-8601
+ * ``YYYY-MM-DD`` string), and ``daterange`` (``{start, end}`` object). */
 export type AskUserFieldType =
   | 'text'
   | 'textarea'
   | 'select'
   | 'multiselect'
   | 'number'
-  | 'checkbox';
+  | 'checkbox'
+  | 'file'
+  | 'date'
+  | 'daterange';
+
+/** R7: ISO-8601 date shape used by the backend validator. */
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Single field declaration as emitted by the LLM's ``ask_user`` tool call. */
 export interface AskUserField {
@@ -71,6 +81,13 @@ export function initialFormValues(
       case 'number':
         out[field.name] = '';
         break;
+      case 'daterange':
+        // R7: empty start/end strings keep React inputs controlled.
+        out[field.name] = { start: '', end: '' };
+        break;
+      case 'file':
+      case 'date':
+      // text / textarea / select fall through to the empty-string default.
       default:
         out[field.name] = '';
     }
@@ -84,11 +101,22 @@ export function validateField(
   field: AskUserField,
   value: unknown,
 ): string | null {
+  // R7: daterange counts as "missing" when EITHER half is empty —
+  // an object with one filled date is still incomplete. Same gate as
+  // for required.
+  const isDateRangeIncomplete =
+    field.type === 'daterange' &&
+    (typeof value !== 'object' ||
+      value === null ||
+      !(value as { start?: string }).start ||
+      !(value as { end?: string }).end);
+
   const isMissing =
     value === undefined ||
     value === null ||
     value === '' ||
-    (Array.isArray(value) && value.length === 0);
+    (Array.isArray(value) && value.length === 0) ||
+    isDateRangeIncomplete;
 
   if (field.required && isMissing) {
     return `${field.label} is required.`;
@@ -153,6 +181,37 @@ export function validateField(
     case 'checkbox':
       // ``required`` was already checked above (treats false as missing).
       return null;
+    case 'file': {
+      // R7: value is the attachment_id once upload completes. Empty
+      // string means "no upload yet" — already caught by the required
+      // gate. The id format we get from the BE is a UUID v4 string;
+      // the validator stays permissive here because the BE re-checks.
+      if (typeof value !== 'string') {
+        return `${field.label}: file not yet uploaded.`;
+      }
+      return null;
+    }
+    case 'date': {
+      // R7: ISO-8601 YYYY-MM-DD. The native <input type="date"> only
+      // emits this shape, but a tampered value or a paste could slip
+      // through.
+      if (typeof value !== 'string' || !ISO_DATE_PATTERN.test(value)) {
+        return `${field.label}: pick a valid date.`;
+      }
+      return null;
+    }
+    case 'daterange': {
+      // R7: {start, end} object. By this point we've ruled out missing
+      // halves; check the shape + that end >= start.
+      const range = value as { start: string; end: string };
+      if (!ISO_DATE_PATTERN.test(range.start) || !ISO_DATE_PATTERN.test(range.end)) {
+        return `${field.label}: pick valid start and end dates.`;
+      }
+      if (range.end < range.start) {
+        return `${field.label}: end date must be on or after start.`;
+      }
+      return null;
+    }
   }
 }
 
