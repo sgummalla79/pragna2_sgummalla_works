@@ -32,52 +32,45 @@ export default function McpServersView() {
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4 p-6">
-      {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto">
+      <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl font-semibold">MCP Servers</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Register your own Model Context Protocol servers. Each
-            server's discovered tools land in your tool inventory; opt
-            them in per tool, then reference them from any agent's{' '}
-            <code>tools</code> list.
+          <h1 className="text-2xl font-bold">MCP Servers</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Per-user Model Context Protocol servers. Opt tools in to use them from your agents.
           </p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
-          <Plus size={14} aria-hidden="true" className="mr-1.5" />
+        <Button onClick={() => setModalOpen(true)} size="sm" className="shrink-0">
+          <Plus size={16} aria-hidden="true" />
           Register server
         </Button>
       </div>
 
-      {/* ── Post-register success banner ───────────────────────────── */}
       {lastRegistered && (
-        <div className="rounded-md border border-green-500/30 bg-green-500/5 px-4 py-3 text-[12px] text-foreground">
+        <div className="mb-4 rounded-md border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-foreground">
           <div className="font-medium">
             Registered “{lastRegistered.displayName}” with{' '}
             {lastRegistered.discoveredToolApiNames.length} tool
             {lastRegistered.discoveredToolApiNames.length === 1 ? '' : 's'}{' '}
             discovered.
           </div>
-          <div className="mt-0.5 text-muted-foreground">
-            Expand the server card below and toggle on the tools you
-            want available to your agents.
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            Expand the server card below and toggle on the tools you want available to your agents.
           </div>
         </div>
       )}
 
-      {/* ── Body ───────────────────────────────────────────────────── */}
       {isLoading ? (
-        <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-          Loading…
-        </div>
+        <p className="text-muted-foreground text-sm">Loading MCP servers…</p>
       ) : isError ? (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-sm text-destructive">
-          Failed to load MCP servers. Check that the backend is reachable
-          and reload the page.
-        </div>
+        <p role="alert" className="text-sm text-destructive">
+          Failed to load MCP servers. Check that the backend is reachable and reload the page.
+        </p>
       ) : servers.length === 0 ? (
-        <EmptyState onCreate={() => setModalOpen(true)} />
+        <div className="text-center py-16 text-muted-foreground">
+          <Plug size={40} className="mx-auto mb-3 opacity-30" aria-hidden="true" />
+          <p>No MCP servers yet. Register one to make its tools available to your agents.</p>
+        </div>
       ) : (
         <div className="flex flex-col gap-3">
           {servers.map((s) => (
@@ -86,7 +79,6 @@ export default function McpServersView() {
         </div>
       )}
 
-      {/* ── Register modal ─────────────────────────────────────────── */}
       <Dialog.Root open={modalOpen} onOpenChange={setModalOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-[700] bg-foreground/40 backdrop-blur-sm" />
@@ -115,25 +107,6 @@ export default function McpServersView() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
-    </div>
-  );
-}
-
-function EmptyState({ onCreate }: { onCreate: () => void }) {
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border bg-card p-10 text-center">
-      <Plug size={28} aria-hidden="true" className="text-muted-foreground" />
-      <div>
-        <h2 className="text-sm font-medium">No MCP servers yet</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Register your first MCP server to make its tools available
-          to your agents.
-        </p>
-      </div>
-      <Button onClick={onCreate}>
-        <Plus size={14} aria-hidden="true" className="mr-1.5" />
-        Register your first MCP server
-      </Button>
     </div>
   );
 }
