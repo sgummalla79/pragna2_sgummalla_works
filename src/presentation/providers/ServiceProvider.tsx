@@ -9,9 +9,11 @@ import { ConversationRepository } from '@/infrastructure/repositories/Conversati
 import { EpisodeRepository } from '@/infrastructure/repositories/EpisodeRepository';
 import { FlowRepository } from '@/infrastructure/repositories/FlowRepository';
 import { LlmProviderRepository } from '@/infrastructure/repositories/LlmProviderRepository';
+import { McpServerRepository } from '@/infrastructure/repositories/McpServerRepository';
 import { ModelRepository } from '@/infrastructure/repositories/ModelRepository';
 import { ProviderRepository } from '@/infrastructure/repositories/ProviderRepository';
 import { SkillRepository } from '@/infrastructure/repositories/SkillRepository';
+import { ToolRepository } from '@/infrastructure/repositories/ToolRepository';
 import { UserAgentRepository } from '@/infrastructure/repositories/UserAgentRepository';
 import { AgentService } from '@/application/services/AgentService';
 import { AttachmentService } from '@/application/services/AttachmentService';
@@ -20,9 +22,11 @@ import { ConversationService } from '@/application/services/ConversationService'
 import { EpisodeService } from '@/application/services/EpisodeService';
 import { FlowService } from '@/application/services/FlowService';
 import { LlmProviderService } from '@/application/services/LlmProviderService';
+import { McpServerService } from '@/application/services/McpServerService';
 import { ModelService } from '@/application/services/ModelService';
 import { ProviderService } from '@/application/services/ProviderService';
 import { SkillService } from '@/application/services/SkillService';
+import { ToolService } from '@/application/services/ToolService';
 import { UserAgentService } from '@/application/services/UserAgentService';
 import { useAuthStore } from '@/presentation/store/authStore';
 import { ServiceContext } from './ServiceContext';
@@ -50,6 +54,8 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
     const agentRepo          = new AgentRepository(axiosClient);
     const userAgentRepo      = new UserAgentRepository(axiosClient);
     const attachmentRepo     = new AttachmentRepository(axiosClient);
+    const mcpServerRepo      = new McpServerRepository(axiosClient);
+    const toolRepo           = new ToolRepository(axiosClient);
 
     return {
       authService:         new AuthService(authRepo),
@@ -63,6 +69,8 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
       agentService:        new AgentService(agentRepo),
       userAgentService:    new UserAgentService(userAgentRepo),
       attachmentService:   new AttachmentService(attachmentRepo),
+      mcpServerService:    new McpServerService(mcpServerRepo),
+      toolService:         new ToolService(toolRepo),
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

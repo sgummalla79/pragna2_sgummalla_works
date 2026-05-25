@@ -16,6 +16,7 @@ const SETTINGS_NAV: SidebarItemConfig[] = [
   { type: 'divider' },
   { type: 'section', label: 'AI Setup' },
   { type: 'nav', to: ROUTES.SETTINGS_PROVIDERS, icon: <ProvidersIcon />, label: 'Providers' },
+  { type: 'nav', to: ROUTES.SETTINGS_MCP_SERVERS, icon: <McpServersIcon />, label: 'MCP Servers' },
   { type: 'section', label: 'Workflows' },
   { type: 'nav', to: ROUTES.SETTINGS_AGENTS, icon: <AgentsIcon />, label: 'Agents' },
   { type: 'nav', to: ROUTES.SETTINGS_FLOWS,  icon: <FlowsIcon />,  label: 'Flows' },
@@ -138,6 +139,22 @@ function ProfileIcon() {
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="8" r="4" />
       <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+  );
+}
+
+function McpServersIcon() {
+  // Plug glyph from lucide-react's `plug` shape, redrawn inline to
+  // match the rest of this file's icon style (sized 15, stroked
+  // currentColor). Visually distinct from ProvidersIcon (rack-panel
+  // stack) so the eye can sort the two AI-Setup rows.
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 22v-5" />
+      <path d="M9 8V2" />
+      <path d="M15 8V2" />
+      <path d="M18 8v4a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z" />
     </svg>
   );
 }

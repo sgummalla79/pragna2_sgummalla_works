@@ -23,6 +23,7 @@ import { useModels } from '@/presentation/hooks/models/useModels';
 import type { UserAgent } from '@/domain/types/userAgent.types';
 import { ROUTES } from '@/constants/routes';
 import { ChipInput } from './ChipInput';
+import { ToolPicker } from '@/presentation/components/settings/ToolPicker/ToolPicker';
 
 interface FormState {
   apiName: string;
@@ -315,15 +316,15 @@ export default function AgentEditorView() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="agent-tools">Tools (optional)</Label>
-                  <ChipInput
+                  <ToolPicker
                     id="agent-tools"
                     label="tool"
                     values={form.tools}
                     onChange={(tools) => setForm({ ...form, tools })}
-                    placeholder="skill api_names (Enter to add)"
+                    placeholder="Type to search tools (or paste an api_name)"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Skill <code>api_name</code>s the agent may invoke. R5 will plumb MCP servers through here.
+                    Tool <code>api_name</code>s the agent may invoke — built-ins (<code>ask_user</code>) and any tools you've opted in from your <a className="underline" href="/settings/mcp-servers">MCP servers</a>. Unknown chips render with a ⚠️ until the matching tool exists.
                   </p>
                 </div>
               </section>

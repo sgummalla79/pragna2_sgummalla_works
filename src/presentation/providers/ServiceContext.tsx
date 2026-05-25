@@ -6,9 +6,11 @@ import type { ConversationService } from '@/application/services/ConversationSer
 import type { EpisodeService } from '@/application/services/EpisodeService';
 import type { FlowService } from '@/application/services/FlowService';
 import type { LlmProviderService } from '@/application/services/LlmProviderService';
+import type { McpServerService } from '@/application/services/McpServerService';
 import type { ModelService } from '@/application/services/ModelService';
 import type { ProviderService } from '@/application/services/ProviderService';
 import type { SkillService } from '@/application/services/SkillService';
+import type { ToolService } from '@/application/services/ToolService';
 import type { UserAgentService } from '@/application/services/UserAgentService';
 
 export interface Services {
@@ -23,6 +25,10 @@ export interface Services {
   agentService: AgentService;
   userAgentService: UserAgentService;
   attachmentService: AttachmentService;
+  /** Wedge B.2 — MCP server registrations + lifecycle. */
+  mcpServerService: McpServerService;
+  /** Wedge B.2 — flat tool list (global + per-user) + per-tool toggle. */
+  toolService: ToolService;
 }
 
 export const ServiceContext = createContext<Services | null>(null);

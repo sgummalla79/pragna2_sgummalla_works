@@ -21,6 +21,8 @@ export const ROUTES = {
   SETTINGS_FLOW_EDITOR_NEW: '/settings/flows/new',
   SETTINGS_FLOW_EDITOR:     '/settings/flows/:flowId/edit',
   SETTINGS_SKILLS:    '/settings/skills',
+  /** Wedge B.2 — MCP server registrations + per-tool toggle. */
+  SETTINGS_MCP_SERVERS: '/settings/mcp-servers',
   SETTINGS_PROFILE:   '/settings/profile',
 
   // ── Dev / Design system ───────────────────────────────────────────────────

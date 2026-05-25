@@ -23,6 +23,7 @@ const AgentEditorView  = lazy(() => import('@/presentation/views/settings/Agents
 const FlowBuilderView  = lazy(() => import('@/presentation/views/settings/FlowBuilderView/FlowBuilderView'));
 const FlowEditorView   = lazy(() => import('@/presentation/views/settings/FlowEditorView/FlowEditorView'));
 const SkillsView       = lazy(() => import('@/presentation/views/settings/SkillsView/SkillsView'));
+const McpServersView   = lazy(() => import('@/presentation/views/settings/McpServersView/McpServersView'));
 const ProfileView      = lazy(() => import('@/presentation/views/settings/ProfileView/ProfileView'));
 
 // ── Dev / Design system ──────────────────────────────────────────────────────
@@ -75,6 +76,7 @@ export function AppRoutes() {
           <Route path={ROUTES.SETTINGS_FLOW_EDITOR_NEW} element={<FlowEditorView />} />
           <Route path={ROUTES.SETTINGS_FLOW_EDITOR}     element={<FlowEditorView />} />
           <Route path={ROUTES.SETTINGS_SKILLS}          element={<SkillsView />} />
+          <Route path={ROUTES.SETTINGS_MCP_SERVERS}     element={<McpServersView />} />
           <Route path={ROUTES.SETTINGS_PROFILE}   element={<ProfileView />} />
         </Route>
 
