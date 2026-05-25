@@ -81,6 +81,8 @@ The stateful core of the chat. One `HttpAgent` per `(agentName, accessToken, thr
 
 `options.threadId` pins the conversation id so resumed chats keep the same thread. `options.initialMessages` seeds the agent's message list — used to hydrate from persisted history on resume.
 
+**Wedge A.2 slash routing.** `send` inspects the trimmed message text against the user's enabled-skills list (via `useSkills()`). If the text starts with `/{api_name}` and that name matches a skill, the agent's URL is mutated for that single run to `${PRAGNA_BASE_URL}/skills/{api_name}` (the deterministic slash endpoint on the backend). The persisted user message keeps the slash text intact so the chat history shows what was invoked. The URL is restored in `onRunFinalized` via the same `overrideUrlRef` pattern `sendWithModel` uses. Unknown slash names fall through to the default agent (so `/foo` becomes natural-language input the LLM may interpret freely — matches Claude's behaviour).
+
 ### `useGreeting()`
 
 `src/presentation/views/chat/hooks/useGreeting.ts`
