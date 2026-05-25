@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import PragnaLogo from '@/assets/logo.svg?react';
 import { useLlmProvidersWithRegistrations } from '@/presentation/hooks/providers/useProviders';
+import { useServices } from '@/presentation/providers/ServiceContext';
 import { APP_NAME } from '@/constants/api';
 import { ROUTES } from '@/constants/routes';
 import { ChatInput } from './components/ChatInput';
@@ -44,6 +46,10 @@ export default function ChatLandingView() {
   const navigate = useNavigate();
   const greeting = useGreeting();
   const { data: providers = [], isLoading } = useLlmProvidersWithRegistrations();
+  const { conversationService } = useServices();
+  const queryClient = useQueryClient();
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   // R6a: every new conversation lands on the default agent — there is
   // no `?agent=` parameter to honour any more. The constant is still
@@ -77,19 +83,56 @@ export default function ChatLandingView() {
   const [landingThinkingEnabled, setLandingThinkingEnabled] = useState(false);
 
   const handleSend = useCallback(
-    (text: string, attachmentIds: string[]) => {
-      // Reuse the upload-target convo id as the URL slug so the
-      // attachments already point at the right conversation.
-      writePendingInitialMessage(pendingConvId, {
-        text,
-        agent: requestedAgent,
-        attachmentIds,
-        userModelId: landingUserModelId ?? undefined,
-        thinkingEnabled: landingThinkingEnabled,
-      });
-      navigate(`${ROUTES.CHAT}/${pendingConvId}`);
+    async (text: string, attachmentIds: string[]) => {
+      setSendError(null);
+      setCreating(true);
+      try {
+        // ── Eager-create the conversation row BEFORE navigation ─────
+        // The row must exist when ChatSessionView mounts so its
+        // conversation-scoped queries (messages / usage / episodes)
+        // don't 404 during the handoff. The lazy-create branch in
+        // ``_persist_turn_messages`` is a no-op once this runs.
+        // Idempotent on the BE — retries return the existing row.
+        await conversationService.create({
+          threadId: pendingConvId,
+          userModelId: landingUserModelId ?? null,
+          thinkingEnabled: landingThinkingEnabled,
+        });
+
+        // Refresh the sidebar list cache so the new row appears
+        // immediately AND so ``useConversation(id)`` (which reads
+        // from the list cache) doesn't return null on the
+        // session-view header.
+        await queryClient.invalidateQueries({
+          queryKey: ['conversations'],
+        });
+
+        // Now stash the pending message + navigate. The session view
+        // mounts with a conversationId guaranteed to exist.
+        writePendingInitialMessage(pendingConvId, {
+          text,
+          agent: requestedAgent,
+          attachmentIds,
+          userModelId: landingUserModelId ?? undefined,
+          thinkingEnabled: landingThinkingEnabled,
+        });
+        navigate(`${ROUTES.CHAT}/${pendingConvId}`);
+      } catch (err) {
+        // Loud failure: surface immediately. Don't navigate, don't
+        // stash the message — keep the user on landing so they can
+        // retry without losing the typed text (the ChatInput holds
+        // it). Silently retrying would mask real BE issues.
+        const detail =
+          (err as { response?: { data?: { detail?: string } } })?.response?.data
+            ?.detail ??
+          (err instanceof Error ? err.message : 'Failed to start chat.');
+        setSendError(String(detail));
+        setCreating(false);
+      }
     },
     [
+      conversationService,
+      queryClient,
       navigate,
       pendingConvId,
       requestedAgent,
@@ -124,7 +167,7 @@ export default function ChatLandingView() {
         <div className="w-full max-w-2xl mx-auto">
           <ChatInput
             onSend={handleSend}
-            disabled={!ready}
+            disabled={!ready || creating}
             conversationId={pendingConvId}
             rightActions={
               ready && requestedAgent === DEFAULT_AGENT_NAME ? (
@@ -169,6 +212,12 @@ export default function ChatLandingView() {
             {/* R6a removed the agent picker; the stale-agent banner that
                 lived here is no longer reachable because every new chat
                 lands on the default agent. */}
+            {sendError && (
+              <SetupBanner>
+                Could not start chat: {sendError}. Press send again to
+                retry.
+              </SetupBanner>
+            )}
           </ChatInput>
         </div>
       </div>

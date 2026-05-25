@@ -69,11 +69,14 @@ function renderView(opts: {
 describe('McpServersView — empty state', () => {
   it('shows the empty-state CTA when no servers exist', async () => {
     renderView({ servers: [] });
+    // Empty state text was reflowed during the ui-fixes alignment
+    // commit (ffbbefc) — it's now one combined sentence. Use a regex
+    // so the matcher survives further copy tweaks without breaking.
     expect(
-      await screen.findByText('No MCP servers yet'),
+      await screen.findByText(/No MCP servers yet/),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /Register your first MCP server/ }),
+      screen.getByRole('button', { name: /Register server/ }),
     ).toBeInTheDocument();
   });
 });
@@ -82,7 +85,7 @@ describe('McpServersView — populated state', () => {
   it('renders one card per server', async () => {
     renderView({ servers: [SAMPLE_SERVER] });
     expect(await screen.findByText('My Linear')).toBeInTheDocument();
-    expect(screen.queryByText('No MCP servers yet')).toBeNull();
+    expect(screen.queryByText(/No MCP servers yet/)).toBeNull();
   });
 });
 
@@ -92,7 +95,7 @@ describe('McpServersView — register modal', () => {
     renderView({ servers: [] });
     await user.click(
       await screen.findByRole('button', {
-        name: /Register your first MCP server/,
+        name: /Register server/,
       }),
     );
     expect(
@@ -112,7 +115,7 @@ describe('McpServersView — register modal', () => {
 
     await user.click(
       await screen.findByRole('button', {
-        name: /Register your first MCP server/,
+        name: /Register server/,
       }),
     );
     await user.type(screen.getByLabelText('Display name'), 'My Linear');

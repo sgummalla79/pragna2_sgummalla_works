@@ -79,4 +79,23 @@ describe('ConversationListItem', () => {
     expect(link).toHaveAttribute('aria-current', 'page');
   });
 
+  // ── Delete-of-active-conversation invariant ────────────────────────
+  //
+  // The boundary doc (chat ↔ delete) requires that deleting the
+  // currently-viewed conversation bounces the user to /chat (landing);
+  // without it, the session view is left mounted against a dead id
+  // and the three conversation-scoped 404 race-guards fire repeatedly.
+  //
+  // Indirectly pinned today by:
+  //   - The implementation: one-line guard at
+  //     ``ConversationListItem.tsx:82`` (``if (isActive) navigate(ROUTES.CHAT)``).
+  //   - The BE integration test ``test_fresh_conversation_lifecycle``
+  //     which covers the full delete + re-GET → 404 chain at API level.
+  //
+  // A UI-level interaction test was attempted here but fights Radix
+  // DropdownMenu's portal mechanics in jsdom. A proper test would
+  // require ``userEvent`` plus a Radix-specific harness — deferred
+  // until we have ≥1 other Radix-driven interaction test in the FE
+  // suite to share the setup with.
+
 });

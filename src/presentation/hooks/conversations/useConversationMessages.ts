@@ -42,6 +42,9 @@ export function useConversationMessages(
   const enabled = (options.enabled ?? true) && Boolean(conversationId);
   return useQuery<PersistedMessage[]>({
     queryKey: KEY(conversationId),
+    // 404 → empty list is handled at the REPO layer
+    // (``ConversationRepository.getMessages``) as a race-guard. Hook
+    // queryFn stays simple — never sees a 404.
     queryFn: () => conversationService.getMessages(conversationId!),
     enabled,
     staleTime: Infinity,

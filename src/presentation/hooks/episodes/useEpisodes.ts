@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import type {
   CreateEpisodePayload,
   EpisodeSnapshot,
@@ -60,16 +61,28 @@ export function useOpenEpisode(conversationId: string | undefined) {
     queryKey: openEpisodeQueryKey(conversationId),
     queryFn: async (): Promise<EpisodeSnapshot | null> => {
       if (!conversationId) return null;
-      const page = await episodeService.list(conversationId, {
-        limit: 1,
-        offset: 0,
-      });
-      const first = page.episodes[0];
-      if (!first) return null;
-      if (first.status === 'active' || first.status === 'awaiting_user') {
-        return first;
+      try {
+        const page = await episodeService.list(conversationId, {
+          limit: 1,
+          offset: 0,
+        });
+        const first = page.episodes[0];
+        if (!first) return null;
+        if (first.status === 'active' || first.status === 'awaiting_user') {
+          return first;
+        }
+        return null;
+      } catch (e) {
+        // Race-guard (NOT a lazy-create workaround). Eager creation
+        // means a fresh conversation has its row before the chat
+        // surface mounts. Remaining 404 cases: active-delete race
+        // (refetch between DELETE 204 and navigate-away) and
+        // multi-tab delete. No conversation means no episodes.
+        if (axios.isAxiosError(e) && e.response?.status === 404) {
+          return null;
+        }
+        throw e;
       }
-      return null;
     },
     enabled: Boolean(conversationId),
     // Episodes change as a side-effect of /pragna and /episodes routes

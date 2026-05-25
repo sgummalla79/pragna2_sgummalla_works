@@ -5,6 +5,7 @@ import type {
 import type {
   Conversation,
   ConversationUsage,
+  CreateConversationPayload,
   PersistedMessage,
   UpdateConversationPayload,
 } from '@/domain/types/conversation.types';
@@ -22,6 +23,10 @@ export class ConversationService {
 
   list(params?: ConversationListParams): Promise<Conversation[]> {
     return this.conversationRepository.list(params);
+  }
+
+  create(payload: CreateConversationPayload): Promise<Conversation> {
+    return this.conversationRepository.create(payload);
   }
 
   getUsage(conversationId: string): Promise<ConversationUsage> {

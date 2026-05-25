@@ -1,6 +1,7 @@
 import type {
   Conversation,
   ConversationUsage,
+  CreateConversationPayload,
   PersistedMessage,
   UpdateConversationPayload,
 } from '@/domain/types/conversation.types';
@@ -16,6 +17,18 @@ export interface ConversationListParams extends PaginatedParams {
 export interface IConversationRepository {
   /** List the authenticated user's conversations (newest first). */
   list(params?: ConversationListParams): Promise<Conversation[]>;
+  /**
+   * Eager-create a conversation row before the first message is sent.
+   * Called from ``ChatLandingView.handleSend`` BEFORE navigation so
+   * the chat surface mounts with a row that's guaranteed to exist.
+   * Replaces the prior lazy-create-on-first-send pattern that caused
+   * conversation-scoped queries to 404 during the handoff.
+   *
+   * Idempotent: a retry with the same ``threadId`` returns the
+   * existing row (BE returns 200 vs 201; both map to the same shape
+   * here).
+   */
+  create(payload: CreateConversationPayload): Promise<Conversation>;
   /** Aggregated per-conversation usage + totals. */
   getUsage(conversationId: string): Promise<ConversationUsage>;
   /** Persisted message log for a conversation, ordered by ``messageIndex``. */

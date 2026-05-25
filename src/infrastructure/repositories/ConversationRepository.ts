@@ -6,6 +6,7 @@ import type {
 import type {
   Conversation,
   ConversationUsage,
+  CreateConversationPayload,
   PersistedMessage,
   UpdateConversationPayload,
   UsageRecord,
@@ -126,6 +127,24 @@ export class ConversationRepository implements IConversationRepository {
     return data.map(mapConversation);
   }
 
+  async create(payload: CreateConversationPayload): Promise<Conversation> {
+    // Wire-format uses snake_case; convert at the boundary. BE returns
+    // 201 on fresh-create and 200 on idempotent retry — both map to
+    // the same response shape, so we don't branch on status here.
+    const body: Record<string, unknown> = { thread_id: payload.threadId };
+    if (payload.userModelId !== undefined) {
+      body.user_model_id = payload.userModelId;
+    }
+    if (payload.thinkingEnabled !== undefined) {
+      body.thinking_enabled = payload.thinkingEnabled;
+    }
+    const { data } = await this.http.post<ApiConversationResponse>(
+      '/api/conversations',
+      body,
+    );
+    return mapConversation(data);
+  }
+
   async getUsage(conversationId: string): Promise<ConversationUsage> {
     const { data } = await this.http.get<ApiConversationUsageResponse>(
       `/api/conversations/${conversationId}/usage`,
@@ -140,15 +159,15 @@ export class ConversationRepository implements IConversationRepository {
   }
 
   async getMessages(conversationId: string): Promise<PersistedMessage[]> {
-    // The chat surface routes to ``/chat/{uuid}`` BEFORE the backend has
-    // committed the conversation row (the landing-page handoff sets the
-    // URL synchronously when the user hits send; the row is materialised
-    // by the in-flight ``/pragna`` run). A 404 here therefore means
-    // "the row hasn't landed yet" — equivalent to "no messages yet" for
-    // the chat UI. Returning ``[]`` keeps React Query from surfacing the
-    // expected 404 as a query error. A 404 from a wrong-owner id also
-    // renders as an empty chat, which is acceptable (the user can't see
-    // someone else's history; they just see nothing).
+    // Race-guard, NOT a lazy-create workaround. Eager creation
+    // (``POST /api/conversations`` from ChatLandingView.handleSend)
+    // means the row always exists by the time the chat surface mounts.
+    // The remaining 404 cases are real races: (1) active-delete
+    // refetches that fire between DELETE 204 and navigate-away, and
+    // (2) multi-tab delete (tab B's queries 404 after tab A deletes).
+    // For both cases, "no conversation → no messages" is the correct
+    // zero-state. A 404 from a wrong-owner id also renders empty, which
+    // is acceptable — the user just sees nothing, no leak.
     try {
       const { data } = await this.http.get<ApiMessageResponse[]>(
         `/api/conversations/${conversationId}/messages`,

@@ -2,11 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import { ThinkingStrip } from '@/presentation/views/chat/components/ThinkingStrip';
 
-describe('ThinkingStrip (R7.1#3 follow-up)', () => {
-  it('renders nothing when label is null', () => {
-    const { container } = render(<ThinkingStrip label={null} />);
-    expect(container.firstChild).toBeNull();
-    expect(screen.queryByTestId('thinking-strip')).not.toBeInTheDocument();
+describe('ThinkingStrip (persistent Pragna indicator)', () => {
+  it('renders the logo even when label is null (idle "ready" state)', () => {
+    render(<ThinkingStrip label={null} />);
+    const strip = screen.getByTestId('thinking-strip');
+    expect(strip).toBeInTheDocument();
+    // No label text in idle state.
+    expect(strip.textContent).toBe('');
+    // Idle aria-label signals readiness, not in-progress work.
+    expect(strip).toHaveAttribute('aria-label', 'Ready for your next message');
   });
 
   it('renders the label when supplied', () => {
@@ -34,23 +38,25 @@ describe('ThinkingStrip (R7.1#3 follow-up)', () => {
     );
   });
 
-  it('unmounts (returns null) after the fade-out timer when label flips to null', async () => {
-    const { rerender, container } = render(
-      <ThinkingStrip label="Working..." />,
-    );
-    expect(container.firstChild).not.toBeNull();
+  it('stays mounted and collapses to idle when label flips to null', async () => {
+    const { rerender } = render(<ThinkingStrip label="Working..." />);
+    expect(screen.getByText('Working...')).toBeInTheDocument();
 
-    // Flip to null — strip fades, then unmounts after the 220ms timer.
     rerender(<ThinkingStrip label={null} />);
 
-    // Still mounted during the fade window (we render at opacity-0
-    // briefly so transitionend can fire).
-    expect(container.firstChild).not.toBeNull();
+    // Strip is still mounted (it's the persistent indicator now).
+    expect(screen.getByTestId('thinking-strip')).toBeInTheDocument();
 
+    // After the fade-out window, the label text drops out, leaving
+    // just the static logo + idle aria-label.
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 250));
     });
 
-    expect(container.firstChild).toBeNull();
+    expect(screen.queryByText('Working...')).not.toBeInTheDocument();
+    expect(screen.getByTestId('thinking-strip')).toHaveAttribute(
+      'aria-label',
+      'Ready for your next message',
+    );
   });
 });

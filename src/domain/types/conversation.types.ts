@@ -1,5 +1,20 @@
 import type { Attachment } from './attachment.types';
 
+/** Payload for ``POST /api/conversations`` (eager-create). */
+export interface CreateConversationPayload {
+  /** Client-supplied UUID used as both the row's primary key AND the
+   *  LangGraph checkpoint thread_id. Keeps the FE's ``/chat/{id}`` URL
+   *  stable across the POST → navigate transition (no need to learn
+   *  the id after the round trip). */
+  threadId: string;
+  /** Model the first chat turn will use. Nullable for resilience; the
+   *  landing form always supplies it in production paths. */
+  userModelId?: string | null;
+  /** Apply the user's first-turn Anthropic extended-thinking choice
+   *  at create time. Defaults to false. */
+  thinkingEnabled?: boolean;
+}
+
 export interface Conversation {
   id: string;
   flowId: string | null;

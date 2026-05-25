@@ -610,10 +610,28 @@ function ChatSurface({
                 running, or when the open episode is awaiting_user
                 (the HITLFormCard below the composer is the focal
                 point in that state — no second "waiting" indicator). */}
-            {status === 'running' &&
-              episodes.openEpisode?.status !== 'awaiting_user' && (
-                <ThinkingStrip label={progressLabel} />
-              )}
+            {/* Persistent Pragna indicator — always present at the
+                bottom of the message column so the chat surface always
+                shows the app logo (claude.ai-style "ready for your
+                question" affordance). Morphs to "thinking" (animated
+                logo + label text) when a run is in progress. Hidden
+                only during ``awaiting_user`` — the HITLFormCard is the
+                focal indicator in that state. */}
+            {episodes.openEpisode?.status !== 'awaiting_user' && (
+              <>
+                <ThinkingStrip
+                  label={status === 'running' ? progressLabel : null}
+                />
+                {/* Breathing-room spacer below the strip while running,
+                    so the live-tail scroll-to-bottom effect lands the
+                    indicator well above the composer instead of jamming
+                    it against the input edge. Idle keeps the existing
+                    ``pb-10`` rhythm with no extra spacer. */}
+                {status === 'running' && (
+                  <div className="h-40 shrink-0" aria-hidden="true" />
+                )}
+              </>
+            )}
           </div>
         )}
       </div>

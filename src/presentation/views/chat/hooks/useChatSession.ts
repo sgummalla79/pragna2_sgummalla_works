@@ -13,14 +13,10 @@ import { logger } from '@/infrastructure/logging/logger';
 // kebab-case rows (matches the BE's `SLASH_COMMAND_PATTERN`).
 const SLASH_COMMAND_RE = /^\/([a-z_][a-z0-9_-]*)(?:\s|$)/;
 
-// First sidebar refresh fires immediately on RUN_FINISHED so the user
-// sees the new conversation appear right away (title may still be null).
-// The backend's auto-title flow is fire-and-forget after persistence and
-// usually completes within 1-2s of the assistant response ending — a
-// second invalidation after this delay catches the title once it lands.
-// Tuned conservatively (3s) to ride past a slow first-turn title-gen
-// without making the sidebar feel laggy.
-const AUTO_TITLE_REFRESH_DELAY_MS = 3000;
+// Sidebar refresh fires immediately on RUN_FINISHED so the user sees
+// the new conversation appear right away. Auto-title is no longer
+// polled — the BE pushes the title via a TITLE_UPDATED custom event
+// before closing the SSE stream, handled in ``onCustomEvent`` below.
 
 /** A tool call rendered inline under an assistant turn. */
 export interface ChatToolCall {
@@ -270,15 +266,6 @@ export function useChatSession(
             queryKey: ['conversations', threadId, 'messages'],
           });
         }
-        // Second invalidation: rides past the backend's fire-and-forget
-        // auto-title flow so the sidebar refreshes once the title is in
-        // place. Cheap query; the cost is one extra request per turn.
-        const timer = window.setTimeout(() => {
-          qc.invalidateQueries({ queryKey: ['conversations'] });
-        }, AUTO_TITLE_REFRESH_DELAY_MS);
-        // No cleanup needed: setTimeout fires once, and on unmount the
-        // subscriber is detached so this branch can still run safely.
-        void timer;
       },
       onTextMessageStartEvent: () => {
         syncMessages();
@@ -342,13 +329,30 @@ export function useChatSession(
       // future event names without forcing every consumer to be
       // exhaustive.
       onCustomEvent: ({ event }) => {
-        if (event.name !== 'on_progress') return;
-        const value = event.value as { label?: unknown } | null | undefined;
-        const label =
-          value && typeof value === 'object' && typeof value.label === 'string'
-            ? value.label
-            : null;
-        if (label) setProgressLabel(label);
+        // on_progress — agent emitted a live thinking-strip label
+        if (event.name === 'on_progress') {
+          const value = event.value as { label?: unknown } | null | undefined;
+          const label =
+            value && typeof value === 'object' && typeof value.label === 'string'
+              ? value.label
+              : null;
+          if (label) setProgressLabel(label);
+          return;
+        }
+
+        // title_updated — BE pushes this right before closing the SSE
+        // stream when auto-title generated a title for a fresh
+        // conversation. Replaces the prior fire-and-forget + 3s polling
+        // race. Invalidation triggers a single refetch that picks up
+        // the new title in the sidebar immediately.
+        if (event.name === 'title_updated') {
+          qc.invalidateQueries({ queryKey: ['conversations'] });
+          return;
+        }
+
+        // Unknown custom events are ignored — keeps the door open for
+        // future event names without forcing every consumer to be
+        // exhaustive.
       },
     };
 

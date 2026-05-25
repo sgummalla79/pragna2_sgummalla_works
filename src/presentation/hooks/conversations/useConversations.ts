@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 import { useServices } from '@/presentation/providers/ServiceContext';
 import { DEFAULT_PAGE_SIZE } from '@/constants/pagination';
+import type { ConversationUsage } from '@/domain/types/conversation.types';
 
 const CONVERSATIONS_KEY = (page: number) => ['conversations', page] as const;
 const PINNED_KEY = ['conversations', 'pinned'] as const;
@@ -41,9 +43,31 @@ export function usePinnedConversations() {
 
 export function useConversationUsage(conversationId: string) {
   const { conversationService } = useServices();
-  return useQuery({
+  return useQuery<ConversationUsage>({
     queryKey: USAGE_KEY(conversationId),
-    queryFn: () => conversationService.getUsage(conversationId),
+    queryFn: async () => {
+      try {
+        return await conversationService.getUsage(conversationId);
+      } catch (e) {
+        // Race-guard (NOT a lazy-create workaround). Eager creation
+        // means a fresh conversation has its row before the chat
+        // surface mounts. Remaining 404 cases: (1) active-delete
+        // race (DELETE 204 → in-flight refetch → navigate), (2) cost
+        // chip on a sidebar row that was just deleted in another tab,
+        // (3) multi-tab delete. Zero-state is the right response —
+        // no conversation means no usage.
+        if (axios.isAxiosError(e) && e.response?.status === 404) {
+          return {
+            conversationId,
+            records: [],
+            totalInputTokens: 0,
+            totalOutputTokens: 0,
+            totalCostUsd: '0',
+          };
+        }
+        throw e;
+      }
+    },
     staleTime: 60_000,
     enabled: Boolean(conversationId),
   });

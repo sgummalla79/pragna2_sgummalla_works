@@ -115,3 +115,104 @@ describe('useCancelEpisode (R7.1#2 — DELETE /api/conversations/{id}/episodes/{
     });
   });
 });
+
+
+/* ── useOpenEpisode 404 handling ───────────────────────────────────────
+ * A fresh "+ New chat" generates a client-side thread_id. The
+ * conversation row is created lazily on first send, so the FE's initial
+ * useOpenEpisode query against /api/conversations/{id}/episodes returns
+ * 404 (conversation doesn't exist yet for this user). That 404 is the
+ * natural "no open episode" state — not a query error.
+ */
+
+import { useOpenEpisode } from '@/presentation/hooks/episodes/useEpisodes';
+
+describe('useOpenEpisode — fresh-conversation 404 handling', () => {
+  function makeListWrapper(opts: {
+    listImpl: (
+      conversationId: string,
+      params: { limit?: number; offset?: number },
+    ) => Promise<unknown>;
+  }) {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const list = vi.fn(opts.listImpl);
+    const services = {
+      episodeService: { list },
+    } as unknown as Services;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>
+        <ServiceContext.Provider value={services}>
+          {children}
+        </ServiceContext.Provider>
+      </QueryClientProvider>
+    );
+    return { wrapper, qc, list };
+  }
+
+  /** Build an axios-shaped error with a given HTTP status. The hook's
+   *  catch arm uses ``axios.isAxiosError`` so the shape (``isAxiosError:
+   *  true`` + ``response.status``) is what matters. */
+  function axiosLikeError(status: number): Error & {
+    isAxiosError: boolean;
+    response: { status: number };
+  } {
+    const err = new Error(`HTTP ${status}`) as Error & {
+      isAxiosError: boolean;
+      response: { status: number };
+    };
+    err.isAxiosError = true;
+    err.response = { status };
+    return err;
+  }
+
+  it('returns null when the episodes list endpoint 404s — the fresh-chat case', async () => {
+    const { wrapper, list } = makeListWrapper({
+      listImpl: () => Promise.reject(axiosLikeError(404)),
+    });
+
+    const { result } = renderHook(() => useOpenEpisode(CONVERSATION_ID), {
+      wrapper,
+    });
+
+    // Query resolves (not in error state) and returns null.
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+    expect(result.current.data).toBeNull();
+    expect(result.current.isError).toBe(false);
+    expect(list).toHaveBeenCalledTimes(1);
+  });
+
+  it('propagates non-404 errors so genuine failures stay visible', async () => {
+    const { wrapper } = makeListWrapper({
+      listImpl: () => Promise.reject(axiosLikeError(500)),
+    });
+
+    const { result } = renderHook(() => useOpenEpisode(CONVERSATION_ID), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+    // A 500 must not be silently swallowed — that would mask BE bugs.
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it('skips the query entirely when conversationId is undefined', async () => {
+    const { wrapper, list } = makeListWrapper({
+      listImpl: () => Promise.resolve({ episodes: [], limit: 1, offset: 0 }),
+    });
+
+    const { result } = renderHook(() => useOpenEpisode(undefined), {
+      wrapper,
+    });
+
+    // ``enabled: false`` keeps the query in idle (fetchStatus 'idle')
+    // and the queryFn never runs.
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(list).not.toHaveBeenCalled();
+  });
+});
