@@ -6,7 +6,7 @@ import type { AskUserSchema } from '@/presentation/views/chat/components/form/va
 function baseSchema(): AskUserSchema {
   return {
     fields: [
-      { name: 'comment', type: 'string', label: 'Comment', required: false },
+      { name: 'comment', type: 'text', label: 'Comment', required: false },
     ],
     allow_text_input: false,
     submit_label: undefined,

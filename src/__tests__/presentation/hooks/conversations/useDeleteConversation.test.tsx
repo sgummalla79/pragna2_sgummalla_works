@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect, vi, type Mock } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useDeleteConversation } from '@/presentation/hooks/conversations/useConversationMutations';
