@@ -79,14 +79,47 @@ export function useSetThinkingEnabled() {
   });
 }
 
-/** Hard-delete a conversation. FK cascade removes messages + usage rows. */
+/** Hard-delete a conversation. FK cascade removes messages + usage rows.
+ *
+ * Cache lifecycle is the load-bearing detail here:
+ *
+ *   * **onMutate (pre-DELETE):** cancel any in-flight conversation-scoped
+ *     queries for this id. Without this, a refetch that fired BEFORE we
+ *     issued DELETE can land AFTER the BE has dropped the row → 404 in
+ *     the network tab → ugly console noise even though the FE handles
+ *     it gracefully via the per-hook race-guards.
+ *   * **onSuccess (post-DELETE):** invalidate the list (sidebar reflects
+ *     the removal) AND ``removeQueries`` for every cache entry keyed
+ *     by ``['conversations', <id>, …]``. ``removeQueries`` (not
+ *     ``invalidateQueries``) so the entries are EVICTED rather than
+ *     marked-stale — invalidate would trigger a refetch that hits 404.
+ *
+ * Combined with the navigate-away-on-active-delete in
+ * ``ConversationListItem`` (line 82), the three 404s users used to see
+ * after a delete (/messages /usage /episodes) stop happening on the
+ * normal flow. The race-guards inside the three hooks become true
+ * multi-tab safety nets (tab B's queries 404 after tab A deletes —
+ * tab B's cache isn't being managed by tab A's mutation).
+ */
 export function useDeleteConversation() {
   const { conversationService } = useServices();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => conversationService.delete(id),
-    onSuccess: () => {
+    onMutate: async (id: string) => {
+      // Stop any in-flight refetches for this conversation BEFORE
+      // we drop the row. Otherwise a refetch that started during
+      // the DELETE round-trip lands after the row is gone → 404.
+      await qc.cancelQueries({ queryKey: ['conversations', id] });
+    },
+    onSuccess: (_data, id) => {
+      // Sidebar list refreshes (deleted row disappears).
       qc.invalidateQueries({ queryKey: ['conversations'] });
+      // Evict every conversation-scoped cache entry so no refetch
+      // can fire against the gone conversation: messages, usage,
+      // open-episode, per-episode, and any future
+      // ``['conversations', id, …]`` query.
+      qc.removeQueries({ queryKey: ['conversations', id] });
     },
   });
 }
