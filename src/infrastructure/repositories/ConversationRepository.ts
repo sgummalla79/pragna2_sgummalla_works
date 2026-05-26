@@ -71,6 +71,10 @@ interface ApiMessageResponse {
   message_index: number;
   created_at: string;
   modified_at: string;
+  /** BE migration 0022. ``null`` for non-assistant turns and for
+   *  historical rows. The FE renders a Continue affordance when this
+   *  reads ``'length'`` on an assistant turn. */
+  finish_reason: 'stop' | 'length' | 'tool_calls' | 'other' | null;
 }
 
 function mapConversation(raw: ApiConversationResponse): Conversation {
@@ -110,6 +114,11 @@ function mapMessage(raw: ApiMessageResponse): PersistedMessage {
     messageIndex: raw.message_index,
     createdAt: raw.created_at,
     modifiedAt: raw.modified_at,
+    // BE migration 0022 — present on fresh rows, ``null`` for legacy
+    // / non-assistant. The defensive ``?? null`` keeps the type
+    // exhaustive when older deployments return responses without the
+    // field at all.
+    finishReason: raw.finish_reason ?? null,
   };
 }
 

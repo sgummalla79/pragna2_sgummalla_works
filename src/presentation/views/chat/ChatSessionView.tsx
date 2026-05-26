@@ -278,6 +278,37 @@ function ChatSurface({
     return map;
   }, [persistedMessages]);
 
+  // BE migration 0022. Per-message finish_reason map sourced from the
+  // persisted server state. Drives the inline ``Continue`` button on
+  // assistant bubbles where the LLM ran out of output budget — the
+  // user clicks once, we send a tiny "continue" prompt, and the model
+  // picks up where it stopped. Only the LAST assistant message in the
+  // conversation is eligible; continuing in the middle of history
+  // would interleave turns in confusing ways.
+  const finishReasonByMessage = useMemo(() => {
+    const map = new Map<
+      string,
+      'stop' | 'length' | 'tool_calls' | 'other' | null
+    >();
+    for (const m of persistedMessages) {
+      map.set(m.id, m.finishReason);
+    }
+    return map;
+  }, [persistedMessages]);
+
+  // Resolve once: id of the chronologically last assistant message. The
+  // Continue button is shown ONLY against this message (even if older
+  // assistant turns also length-stopped historically) — continuing on
+  // a non-tail message would re-order the conversation.
+  const lastAssistantId = useMemo(() => {
+    for (let i = persistedMessages.length - 1; i >= 0; i--) {
+      if (persistedMessages[i].role === 'assistant') {
+        return persistedMessages[i].id;
+      }
+    }
+    return null;
+  }, [persistedMessages]);
+
   const { messages, status, error, progressLabel, send, sendWithModel, sendWithOverrides, stop, replaceMessages } = useChatSession(
     agentName,
     { threadId, initialMessages },
@@ -513,6 +544,15 @@ function ChatSurface({
           },
         );
       },
+      onContinue: () => {
+        // BE migration 0022. Length-stopped assistant — fire a tiny
+        // continuation prompt. The LLM picks up where it stopped
+        // because the prior (truncated) assistant message is still in
+        // its context window. Matches the ChatGPT/Claude.ai pattern
+        // exactly: a NEW assistant turn that continues the thought,
+        // not an in-place edit of the previous bubble.
+        send('continue');
+      },
     };
   }, [
     conversationId,
@@ -634,6 +674,10 @@ function ChatSurface({
                 availableModels={availableModels}
                 branchEnabled={prefs.branchEnabled}
                 conversationId={conversationId}
+                finishReason={finishReasonByMessage.get(m.id) ?? null}
+                isLastAssistant={
+                  m.role === 'assistant' && m.id === lastAssistantId
+                }
               />
             ))}
             {/* R7.1#3 follow-up — thinking strip rendered after the

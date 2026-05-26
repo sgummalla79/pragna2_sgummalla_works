@@ -91,6 +91,14 @@ export interface PersistedMessage {
   messageIndex: number;
   createdAt: string;
   modifiedAt: string;
+  /**
+   * BE migration 0022. For assistant turns, the normalised terminal
+   * stop signal — `'stop'` (natural), `'length'` (model hit
+   * max_tokens), `'tool_calls'`, or `'other'`. `null` for non-assistant
+   * turns and for historical rows. Drives the inline `Continue`
+   * affordance on assistant bubbles where `finishReason === 'length'`.
+   */
+  finishReason: 'stop' | 'length' | 'tool_calls' | 'other' | null;
 }
 
 /** Partial-update payload for ``PATCH /api/conversations/{id}``. */

@@ -26,6 +26,12 @@ export interface ChatMessageHandlers {
   onEdit: (messageId: string, newContent: string) => void;
   /** User: fork the conversation at this turn; parent navigates. */
   onBranch: (messageId: string) => void;
+  /** Assistant (BE migration 0022): the prior reply length-stopped —
+   *  send a tiny "continue" message so the LLM picks up where it
+   *  stopped. Renders as a `Continue` button below the bubble when the
+   *  bubble is the last assistant turn AND its finishReason is
+   *  ``'length'``. */
+  onContinue?: () => void;
 }
 
 interface ChatMessageProps {
@@ -70,6 +76,21 @@ interface ChatMessageProps {
    * is possible there anyway — the LLM hasn't run a turn).
    */
   conversationId?: string;
+  /**
+   * BE migration 0022. Provider's terminal stop signal for this
+   * assistant turn — ``'length'`` is the trigger for the Continue
+   * affordance. ``null`` for non-assistant turns, mid-stream turns,
+   * and historical rows. Ignored unless ``isLastAssistant`` is also
+   * true.
+   */
+  finishReason?: 'stop' | 'length' | 'tool_calls' | 'other' | null;
+  /**
+   * BE migration 0022. True only on the chronologically LAST
+   * assistant turn in the conversation. Continue only makes sense at
+   * the tail — clicking it in the middle would interleave a new turn
+   * between existing ones.
+   */
+  isLastAssistant?: boolean;
 }
 
 /**
@@ -91,6 +112,8 @@ export function ChatMessage({
   availableModels,
   attachments = [],
   conversationId,
+  finishReason,
+  isLastAssistant = false,
 }: ChatMessageProps) {
   const { attachmentService } = useServices();
   // R6a: load the user's flows once per render and surface the
@@ -305,6 +328,32 @@ export function ChatMessage({
             )}
           </div>
         )}
+
+        {/* BE migration 0022 — Continue affordance. Shown only when the
+            assistant ran out of output budget (finishReason==='length')
+            AND this is the chronologically last assistant turn. The
+            click sends a tiny "continue" message; the LLM picks up
+            where it stopped because the truncated bubble is still in
+            its context window. */}
+        {!editing &&
+          message.role === 'assistant' &&
+          isLastAssistant &&
+          finishReason === 'length' &&
+          handlers?.onContinue && (
+            <div className="flex items-center gap-2 justify-start mt-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handlers.onContinue!()}
+                aria-label="Continue the previous reply"
+              >
+                Continue
+              </Button>
+              <span className="text-[11px] text-muted-foreground">
+                Response was cut short.
+              </span>
+            </div>
+          )}
       </div>
     </div>
   );
