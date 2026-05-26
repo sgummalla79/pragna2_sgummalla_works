@@ -93,8 +93,16 @@ export default function ChatSessionView() {
     useLlmProvidersWithRegistrations();
   const { data: conversation, isLoading: conversationLoading } =
     useConversation(conversationId);
+  // Always-on (when conversationId is defined). The earlier
+  // ``{ enabled: !isBrandNew }`` guard pre-dated eager-create — back
+  // when the conversation row was created lazily inside ``/pragna``,
+  // a fresh chat's first GET /messages would 404. With eager-create
+  // (commit bbaf69f) the row exists before this view mounts, so the
+  // guard now only causes harm: persistedMessages stays empty for
+  // the lifetime of the session, which breaks the post-resume sync
+  // in the useEffect below (no signal that new messages persisted).
   const { data: persistedMessages, isLoading: messagesLoading } =
-    useConversationMessages(conversationId, { enabled: !isBrandNew });
+    useConversationMessages(conversationId);
   // Flows feed the resumed-conversation agent resolution: the persisted
   // ``conversation.flowId`` (a UUID) is mapped to the flow's name, and
   // the name is what ``useChatSession`` needs when constructing the
