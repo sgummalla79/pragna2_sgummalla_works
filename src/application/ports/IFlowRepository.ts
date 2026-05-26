@@ -1,4 +1,10 @@
-import type { AddEdgePayload, AddNodePayload, CreateFlowPayload, Flow } from '@/domain/types/flow.types';
+import type {
+  AddEdgePayload,
+  AddNodePayload,
+  CreateFlowPayload,
+  Flow,
+  UpdateFlowSlashExposurePayload,
+} from '@/domain/types/flow.types';
 import type { YamlValidationResult } from '@/domain/types/flowYaml.types';
 
 /** Save-from-YAML result the route returns alongside its HTTP status. */
@@ -41,5 +47,14 @@ export interface IFlowRepository {
   updatePositions(
     flowId: string,
     positions: Record<string, { x: number; y: number }>,
+  ): Promise<Flow>;
+
+  /** Toggle slash exposure + set / clear ``slash_api_name`` on a flow.
+   *  Backed by ``PATCH /api/flows/{id}/slash-exposure``. Resolves to
+   *  the updated Flow. Throws 422 on validation failure, 409 on
+   *  per-user slash-name collision. */
+  updateSlashExposure(
+    flowId: string,
+    payload: UpdateFlowSlashExposurePayload,
   ): Promise<Flow>;
 }

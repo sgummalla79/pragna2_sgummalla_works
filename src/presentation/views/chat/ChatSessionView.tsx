@@ -104,9 +104,10 @@ export default function ChatSessionView() {
   const { data: persistedMessages, isLoading: messagesLoading } =
     useConversationMessages(conversationId);
   // Flows feed the resumed-conversation agent resolution: the persisted
-  // ``conversation.flowId`` (a UUID) is mapped to the flow's name, and
-  // the name is what ``useChatSession`` needs when constructing the
-  // HttpAgent URL (``/pragna/agents/{name}``).
+  // ``conversation.flowId`` (a UUID) is mapped to the flow's name for
+  // logging context. The default chat path always hits /pragna/chat;
+  // slash dispatch happens per-turn inside ``useChatSession`` (see
+  // SLASH_COMMAND_RE there) and routes to /pragna/flows/{name}.
   const { data: flows = [], isLoading: flowsLoading } = useFlows();
 
   // Resolve which agent this conversation runs against. Three-step

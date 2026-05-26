@@ -1,5 +1,4 @@
 import { createContext, useContext } from 'react';
-import type { AgentService } from '@/application/services/AgentService';
 import type { AttachmentService } from '@/application/services/AttachmentService';
 import type { AuthService } from '@/application/services/AuthService';
 import type { ConversationService } from '@/application/services/ConversationService';
@@ -8,8 +7,8 @@ import type { FlowService } from '@/application/services/FlowService';
 import type { LlmProviderService } from '@/application/services/LlmProviderService';
 import type { McpServerService } from '@/application/services/McpServerService';
 import type { ModelService } from '@/application/services/ModelService';
+import type { PragnaFlowsService } from '@/application/services/PragnaFlowsService';
 import type { ProviderService } from '@/application/services/ProviderService';
-import type { SkillService } from '@/application/services/SkillService';
 import type { ToolService } from '@/application/services/ToolService';
 import type { UserAgentService } from '@/application/services/UserAgentService';
 
@@ -20,9 +19,9 @@ export interface Services {
   modelService: ModelService;
   flowService: FlowService;
   episodeService: EpisodeService;
-  skillService: SkillService;
   conversationService: ConversationService;
-  agentService: AgentService;
+  /** Slash-exposed flow discovery for the chat input's slash popover. */
+  pragnaFlowsService: PragnaFlowsService;
   userAgentService: UserAgentService;
   attachmentService: AttachmentService;
   /** Wedge B.2 — MCP server registrations + lifecycle. */

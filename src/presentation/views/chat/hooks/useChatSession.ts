@@ -3,14 +3,15 @@ import { HttpAgent } from '@ag-ui/client';
 import type { AgentSubscriber, Message } from '@ag-ui/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { PRAGNA_BASE_URL } from '@/constants/api';
-import { useSkills } from '@/presentation/hooks/skills/useSkills';
+import { usePragnaSlashFlows } from '@/presentation/hooks/pragnaFlows/usePragnaSlashFlows';
 import { useAuthStore } from '@/presentation/store/authStore';
 import { logger } from '@/infrastructure/logging/logger';
 
-// Wedge A.2 — match `/{name}` at the start of a message, optionally followed
-// by `<space>{rest}`. Permissive on the name character set so legacy
-// snake_case skill rows continue to slash-dispatch alongside new
-// kebab-case rows (matches the BE's `SLASH_COMMAND_PATTERN`).
+// Match `/{name}` at the start of a message, optionally followed by
+// `<space>{rest}`. Permissive on the name character set so legacy
+// snake_case slash names (predating the kebab-case rule) continue to
+// route alongside new kebab-case names (matches the BE's
+// `SLASH_COMMAND_PATTERN`).
 const SLASH_COMMAND_RE = /^\/([a-z_][a-z0-9_-]*)(?:\s|$)/;
 
 // Sidebar refresh fires immediately on RUN_FINISHED so the user sees
@@ -180,31 +181,40 @@ export function useChatSession(
   // routes this single run through the override model. The original
   // URL is captured here and restored in onRunFinalized so the next
   // plain `send` reverts to the conversation's persisted preference.
-  // Wedge A.2 — `send` also mutates this URL when the user's message
-  // starts with `/{api_name}` matching one of their enabled skills,
-  // routing the run to `${PRAGNA_BASE_URL}/skills/{api_name}` instead.
-  // Same restore mechanism.
+  // `send` also mutates this URL when the user's message starts with
+  // `/{slash_api_name}` matching one of their slash-exposed flows,
+  // routing the run to `${PRAGNA_BASE_URL}/flows/{slash_api_name}`
+  // instead. Same restore mechanism.
   const overrideUrlRef = useRef<string | null>(null);
 
-  // Wedge A.2 — user's enabled skills, keyed by api_name. Used at send
+  // User's slash-exposed flows, keyed by slash_api_name. Used at send
   // time to decide whether a `/{name}` prefix should route to the
-  // deterministic /pragna/skills/{name} endpoint vs falling through to
-  // /pragna/agents/default (where the LLM may or may not pick the skill
-  // based on intent). Cached via React Query (staleTime: 30s in
-  // useSkills) so repeated sends don't refetch.
-  const { data: allSkills = [] } = useSkills();
-  const slashSkillNames = useMemo(() => {
+  // deterministic /pragna/flows/{name} endpoint vs falling through to
+  // /pragna/chat (where the LLM may or may not pick the flow as a
+  // bound tool based on intent). Cached via React Query (staleTime:
+  // 30s in usePragnaSlashFlows) so repeated sends don't refetch.
+  const { data: allSlashFlows = [] } = usePragnaSlashFlows();
+  const slashFlowNames = useMemo(() => {
     const names = new Set<string>();
-    for (const s of allSkills) {
-      if (s.enabled) names.add(s.name);
+    for (const f of allSlashFlows) {
+      names.add(f.slash_api_name);
     }
     return names;
-  }, [allSkills]);
+  }, [allSlashFlows]);
 
   const agent = useMemo<HttpAgent | null>(() => {
     if (!accessToken) return null;
+    // The chat surface always invokes /pragna/chat by default. Slash
+    // dispatch overrides the URL per-run inside ``send`` (see below);
+    // the original URL is restored in onRunFinalized so subsequent
+    // turns revert to the default-chat path.
+    // The ``agentName`` parameter is kept for caller compatibility +
+    // logging context, but no longer drives URL selection (the
+    // /pragna/agents/{name} legacy route was removed in the
+    // skills-collapse refactor).
+    void agentName;
     return new HttpAgent({
-      url: `${PRAGNA_BASE_URL}/agents/${encodeURIComponent(agentName)}`,
+      url: `${PRAGNA_BASE_URL}/chat`,
       headers: { Authorization: `Bearer ${accessToken}` },
       threadId,
       initialMessages,
@@ -385,21 +395,21 @@ export function useChatSession(
       if (!agent || !trimmed) return;
       if (status === 'running') return;
 
-      // Wedge A.2 — if the message starts with `/{name}` where ``name``
-      // matches an enabled skill, route this single run to the
-      // deterministic slash endpoint. The persisted user message keeps
-      // the slash text intact so the chat history shows what was
-      // invoked. URL restoration happens in onRunFinalized (same
+      // If the message starts with `/{name}` where ``name`` matches a
+      // slash-exposed flow, route this single run to the deterministic
+      // /pragna/flows/{name} endpoint. The persisted user message
+      // keeps the slash text intact so the chat history shows what
+      // was invoked. URL restoration happens in onRunFinalized (same
       // overrideUrlRef path that sendWithModel uses).
       const slashMatch = SLASH_COMMAND_RE.exec(trimmed);
       if (
         slashMatch &&
-        slashSkillNames.has(slashMatch[1]) &&
+        slashFlowNames.has(slashMatch[1]) &&
         overrideUrlRef.current === null
       ) {
-        const apiName = slashMatch[1];
+        const slashName = slashMatch[1];
         overrideUrlRef.current = agent.url;
-        agent.url = `${PRAGNA_BASE_URL}/skills/${encodeURIComponent(apiName)}`;
+        agent.url = `${PRAGNA_BASE_URL}/flows/${encodeURIComponent(slashName)}`;
       }
 
       agent.messages.push({
@@ -429,7 +439,7 @@ export function useChatSession(
         );
       });
     },
-    [agent, status, syncMessages, slashSkillNames],
+    [agent, status, syncMessages, slashFlowNames],
   );
 
   const sendWithModel = useCallback(

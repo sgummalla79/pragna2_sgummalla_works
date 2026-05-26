@@ -8,6 +8,7 @@ import type {
   Flow,
   FlowEdge,
   FlowNode,
+  UpdateFlowSlashExposurePayload,
 } from '@/domain/types/flow.types';
 import type { YamlValidationResult } from '@/domain/types/flowYaml.types';
 import { EDGE_CONDITIONS } from '@/constants/edgeConditions';
@@ -33,6 +34,8 @@ interface ApiFlowResponse {
   display_name: string;
   description: string | null;
   enabled: boolean;
+  slash_api_name: string | null;
+  exposed_as_slash: boolean;
   metadata: Record<string, unknown>;
   definition: string | null;
   nodes: ApiFlowNodeResponse[];
@@ -63,6 +66,8 @@ function mapFlow(raw: ApiFlowResponse): Flow {
     displayName: raw.display_name,
     description: raw.description,
     enabled: raw.enabled,
+    slashApiName: raw.slash_api_name,
+    exposedAsSlash: raw.exposed_as_slash,
     metadata: raw.metadata,
     definition: raw.definition,
     nodes: raw.nodes.map(mapNode),
@@ -159,6 +164,21 @@ export class FlowRepository implements IFlowRepository {
     const { data } = await this.http.patch<ApiFlowResponse>(
       `/api/flows/${flowId}`,
       { metadata: { positions } },
+    );
+    return mapFlow(data);
+  }
+
+  async updateSlashExposure(
+    flowId: string,
+    payload: UpdateFlowSlashExposurePayload,
+  ): Promise<Flow> {
+    const body: Record<string, unknown> = {};
+    if (payload.slashApiName !== undefined) body.slash_api_name = payload.slashApiName;
+    if (payload.exposedAsSlash !== undefined) body.exposed_as_slash = payload.exposedAsSlash;
+    if (payload.clearSlashApiName) body.clear_slash_api_name = true;
+    const { data } = await this.http.patch<ApiFlowResponse>(
+      `/api/flows/${flowId}/slash-exposure`,
+      body,
     );
     return mapFlow(data);
   }

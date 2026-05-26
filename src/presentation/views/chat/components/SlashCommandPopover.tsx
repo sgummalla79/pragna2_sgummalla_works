@@ -1,15 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import type { Skill } from '@/domain/types/skill.types';
+import type { PragnaSlashFlow } from '@/domain/types/pragnaSlashFlow.types';
 
 interface Props {
-  /** Filtered skills to show (already capped). */
-  items: Skill[];
+  /** Filtered slash flows to show (already capped). */
+  items: PragnaSlashFlow[];
   /** Currently highlighted index. Parent owns navigation state so the
    *  textarea's keyDown handler can drive ArrowUp/Down/Enter. */
   selectedIndex: number;
   /** Called when the user clicks (or keyboard-confirms) an item. */
-  onSelect: (skill: Skill) => void;
+  onSelect: (flow: PragnaSlashFlow) => void;
   /** Hover synchronisation — clicking would auto-select the hovered item
    *  but we also want keyboard navigation to follow mouse position when
    *  the user wiggles the cursor. */
@@ -17,13 +17,13 @@ interface Props {
 }
 
 /**
- * R4 #2 slash-command discovery popover.
+ * Slash-command discovery popover.
  *
  * Floats just above the chat composer when the user types `/` at the
- * start of a word. Lists the user's enabled skills filtered by prefix
- * match against the text after the slash. Selection inserts
- * ``/<skill.name> `` at the cursor; the LLM recognises its own tool
- * names and dispatches to the right skill mid-turn.
+ * start of a word. Lists the user's slash-exposed flows filtered by
+ * prefix match against the text after the slash. Selection inserts
+ * ``/<flow.slash_api_name> `` at the cursor; the chat send hook routes
+ * the run to ``POST /pragna/flows/{slash_api_name}``.
  *
  * Stateless: navigation + selection state lives in the parent so the
  * textarea's keyDown handler stays single-sourced.
@@ -55,11 +55,11 @@ export function SlashCommandPopover({
       )}
     >
       <ul className="max-h-[16rem] overflow-y-auto p-1 m-0 list-none">
-        {items.map((skill, idx) => {
+        {items.map((flow, idx) => {
           const active = idx === selectedIndex;
           return (
             <li
-              key={skill.id}
+              key={flow.slash_api_name}
               ref={active ? selectedRef : null}
               role="option"
               aria-selected={active}
@@ -67,7 +67,7 @@ export function SlashCommandPopover({
                 // mousedown (not click) so the textarea doesn't lose
                 // focus + close the popover before the select fires.
                 e.preventDefault();
-                onSelect(skill);
+                onSelect(flow);
               }}
               onMouseEnter={() => onHoverIndex(idx)}
               className={cn(
@@ -78,11 +78,11 @@ export function SlashCommandPopover({
               )}
             >
               <span className="font-mono text-[13px] font-semibold">
-                /{skill.name}
+                /{flow.slash_api_name}
               </span>
-              {skill.description && (
+              {flow.description && (
                 <span className="text-[11px] text-muted-foreground line-clamp-2">
-                  {skill.description}
+                  {flow.description}
                 </span>
               )}
             </li>

@@ -22,7 +22,6 @@ const AgentsView       = lazy(() => import('@/presentation/views/settings/Agents
 const AgentEditorView  = lazy(() => import('@/presentation/views/settings/AgentsView/AgentEditorView'));
 const FlowBuilderView  = lazy(() => import('@/presentation/views/settings/FlowBuilderView/FlowBuilderView'));
 const FlowEditorView   = lazy(() => import('@/presentation/views/settings/FlowEditorView/FlowEditorView'));
-const SkillsView       = lazy(() => import('@/presentation/views/settings/SkillsView/SkillsView'));
 const McpServersView   = lazy(() => import('@/presentation/views/settings/McpServersView/McpServersView'));
 const ProfileView      = lazy(() => import('@/presentation/views/settings/ProfileView/ProfileView'));
 
@@ -75,7 +74,6 @@ export function AppRoutes() {
           <Route path={ROUTES.SETTINGS_FLOWS}           element={<FlowBuilderView />} />
           <Route path={ROUTES.SETTINGS_FLOW_EDITOR_NEW} element={<FlowEditorView />} />
           <Route path={ROUTES.SETTINGS_FLOW_EDITOR}     element={<FlowEditorView />} />
-          <Route path={ROUTES.SETTINGS_SKILLS}          element={<SkillsView />} />
           <Route path={ROUTES.SETTINGS_MCP_SERVERS}     element={<McpServersView />} />
           <Route path={ROUTES.SETTINGS_PROFILE}   element={<ProfileView />} />
         </Route>
@@ -84,7 +82,6 @@ export function AppRoutes() {
         <Route path={ROUTES.PROVIDERS}     element={<Navigate to={ROUTES.SETTINGS_PROVIDERS} replace />} />
         <Route path={ROUTES.FLOWS}         element={<Navigate to={ROUTES.SETTINGS_FLOWS}     replace />} />
         <Route path={ROUTES.FLOW_DETAIL}   element={<Navigate to={ROUTES.SETTINGS_FLOWS}     replace />} />
-        <Route path={ROUTES.SKILLS}        element={<Navigate to={ROUTES.SETTINGS_SKILLS}    replace />} />
         <Route path={ROUTES.CONVERSATIONS} element={<Navigate to={ROUTES.CHAT} replace />} />
 
         {/* ── Design system showcase (no auth guard — dev only) ── */}

@@ -9,9 +9,9 @@ import {
 } from 'react';
 import { ArrowUp, Paperclip, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useSkills } from '@/presentation/hooks/skills/useSkills';
+import { usePragnaSlashFlows } from '@/presentation/hooks/pragnaFlows/usePragnaSlashFlows';
 import { useUploadAttachment } from '@/presentation/hooks/attachments/useUploadAttachment';
-import type { Skill } from '@/domain/types/skill.types';
+import type { PragnaSlashFlow } from '@/domain/types/pragnaSlashFlow.types';
 import type { Attachment } from '@/domain/types/attachment.types';
 import { AttachmentChip } from './AttachmentChip';
 import { SlashCommandPopover } from './SlashCommandPopover';
@@ -271,25 +271,26 @@ export function ChatInput({
     };
   }, []);
 
-  // ── R4 #2: slash-command discovery ──────────────────────────────────
+  // ── Slash-command discovery ─────────────────────────────────────────
   // Track an active `/` at the current cursor position (must be the
   // start of a word — start-of-string or preceded by whitespace).
   // The popover is rendered above the composer when active and there
-  // are matching enabled skills; keyboard nav + Enter accept happen
-  // inside the textarea's own keyDown handler so focus never moves.
-  const { data: allSkills = [] } = useSkills();
+  // are matching slash-exposed flows; keyboard nav + Enter accept
+  // happen inside the textarea's own keyDown handler so focus never
+  // moves.
+  const { data: allSlashFlows = [] } = usePragnaSlashFlows();
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashStart, setSlashStart] = useState(-1);
   const [slashQuery, setSlashQuery] = useState('');
   const [slashIndex, setSlashIndex] = useState(0);
 
-  const filteredSkills = useMemo<Skill[]>(() => {
+  const filteredSlashFlows = useMemo<PragnaSlashFlow[]>(() => {
     if (!slashOpen) return [];
     const q = slashQuery.toLowerCase();
-    return allSkills
-      .filter((s) => s.enabled && s.name.toLowerCase().startsWith(q))
+    return allSlashFlows
+      .filter((f) => f.slash_api_name.toLowerCase().startsWith(q))
       .slice(0, SLASH_MAX_ITEMS);
-  }, [allSkills, slashOpen, slashQuery]);
+  }, [allSlashFlows, slashOpen, slashQuery]);
 
   // Detect / dismiss the popover whenever the value changes. The cursor
   // position is read off the live DOM element since the textarea owns
@@ -324,15 +325,15 @@ export function ChatInput({
   }, [value]);
 
   const acceptSlash = useCallback(
-    (skill: Skill) => {
+    (flow: PragnaSlashFlow) => {
       const before = value.slice(0, slashStart);
       const after = value.slice(slashStart + 1 + slashQuery.length);
-      const next = `${before}/${skill.name} ${after}`;
+      const next = `${before}/${flow.slash_api_name} ${after}`;
       setValue(next);
       setSlashOpen(false);
       // Place cursor right after the inserted name (and trailing space)
       // so the user can keep typing the prompt without a manual click.
-      const caret = before.length + 1 + skill.name.length + 1;
+      const caret = before.length + 1 + flow.slash_api_name.length + 1;
       requestAnimationFrame(() => {
         const el = textareaRef.current;
         if (!el) return;
@@ -379,25 +380,25 @@ export function ChatInput({
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
       // Popover-aware key handling. ArrowUp/Down navigate, Enter/Tab
-      // accept the highlighted skill, Escape closes. All only when the
+      // accept the highlighted slash flow, Escape closes. All only when the
       // popover is actually showing something — otherwise these keys
       // get their normal textarea behaviour.
-      if (slashOpen && filteredSkills.length > 0) {
+      if (slashOpen && filteredSlashFlows.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          setSlashIndex((i) => (i + 1) % filteredSkills.length);
+          setSlashIndex((i) => (i + 1) % filteredSlashFlows.length);
           return;
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault();
           setSlashIndex((i) =>
-            i === 0 ? filteredSkills.length - 1 : i - 1,
+            i === 0 ? filteredSlashFlows.length - 1 : i - 1,
           );
           return;
         }
         if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey) {
           e.preventDefault();
-          acceptSlash(filteredSkills[slashIndex]);
+          acceptSlash(filteredSlashFlows[slashIndex]);
           return;
         }
         if (e.key === 'Escape') {
@@ -411,7 +412,7 @@ export function ChatInput({
         submit();
       }
     },
-    [slashOpen, filteredSkills, slashIndex, acceptSlash, submit],
+    [slashOpen, filteredSlashFlows, slashIndex, acceptSlash, submit],
   );
 
   // Re-focus the textarea on the falling edge of ``disabled`` — first
@@ -481,9 +482,9 @@ export function ChatInput({
           }
         }}
       >
-        {slashOpen && filteredSkills.length > 0 && (
+        {slashOpen && filteredSlashFlows.length > 0 && (
           <SlashCommandPopover
-            items={filteredSkills}
+            items={filteredSlashFlows}
             selectedIndex={slashIndex}
             onSelect={acceptSlash}
             onHoverIndex={setSlashIndex}

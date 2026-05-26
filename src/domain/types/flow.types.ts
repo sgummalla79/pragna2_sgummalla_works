@@ -27,11 +27,27 @@ export interface Flow {
   displayName: string;
   description: string | null;
   enabled: boolean;
+  /** User-facing /slash command this flow answers to. NULL unless
+   *  ``exposedAsSlash`` is true. */
+  slashApiName: string | null;
+  /** When true: (a) reachable via POST /pragna/flows/{slashApiName}
+   *  AND (b) auto-bound as a LangChain tool on the default chat
+   *  agent so the LLM may invoke it from natural-language intent. */
+  exposedAsSlash: boolean;
   metadata: Record<string, unknown>;
   /** Verbatim YAML the flow was authored from, when present. */
   definition: string | null;
   nodes: FlowNode[];
   edges: FlowEdge[];
+}
+
+/** Payload for PATCH /api/flows/{id}/slash-exposure. All fields
+ *  optional; ``undefined`` leaves the corresponding server field
+ *  unchanged. ``clearSlashApiName`` forces it to NULL. */
+export interface UpdateFlowSlashExposurePayload {
+  slashApiName?: string;
+  exposedAsSlash?: boolean;
+  clearSlashApiName?: boolean;
 }
 
 export interface CreateFlowPayload {

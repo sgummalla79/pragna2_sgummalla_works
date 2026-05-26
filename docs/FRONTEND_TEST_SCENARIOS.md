@@ -196,35 +196,42 @@ every chat by default.
 
 ---
 
-## Scenario 3 — Run a slash command (skill)
+## Scenario 3 — Run a slash command (slash-exposed flow)
 
 ### Goal
-Create a custom slash command (e.g. `/research`) and prove that typing
-it in the chat triggers a different code path than a normal message.
+Expose one of your flows as a `/slash` command (e.g. `/research`) and
+prove that typing it in the chat dispatches that flow directly rather
+than going through the normal default chat path.
+
+> Note: the legacy "Skills" page was retired in the collapse-skills
+> refactor — slash exposure is now a property of the Flow itself. You
+> need a Flow before you can do this scenario. If you don't have one
+> handy, create the simplest possible flow first: Settings → Flows →
+> "New flow" → save with the default YAML.
 
 ### Arrange (one-time setup for this scenario)
 
-You need to create a skill first. Do this once and you can re-use it
-for every Scenario 3 run.
-
 1. Click the **gear icon** in the bottom-left (Settings).
-2. In the settings sidebar, click **Skills** (under "Workflows").
-3. Click the **New skill** button (top-right).
-4. Fill in the form:
-   - **Slash command name**: `research`
-   - **Description**: `Run a short research summary on a topic.`
-   - **Model (optional)**: pick the model you enabled in setup step E,
-     or leave as "None" (the chat default will be used).
-5. Click **Create skill**.
-6. A new card appears showing **/research** in the skill list.
-7. Click the **app logo** (top-left) to return to chat.
+2. In the settings sidebar, click **Flows** (under "Workflows").
+3. Find the flow you want to expose (or create one as noted above).
+4. In that flow's card, look for the **"Expose as /slash command"**
+   row at the bottom:
+   - Tick the checkbox **"Expose as /slash command"**.
+   - In the slash-name input that lights up, type: `research`
+   - Click **Save**. The card now shows a `/research` badge.
+   - If the Save button stays disabled, check the inline message:
+     a missing flow description is the most common blocker (the
+     LLM uses it as the tool description for slash-bound flows).
+5. Click the **app logo** (top-left) to return to chat.
 
 ### Act
 
 1. Click **+ New chat** in the sidebar.
 2. Click the text box at the bottom.
-3. Type exactly (with the slash at the start): `/research what is
-   retrieval-augmented generation?`
+3. Start typing `/` — the slash-command popover should appear above
+   the composer with your `/research` entry. Pick it (Enter, or
+   click), then continue typing: `what is retrieval-augmented
+   generation?`
 4. Press **Enter**.
 
 ### Assert
@@ -232,47 +239,50 @@ for every Scenario 3 run.
 - [ ] Your message appears on the right side, **including the literal
   `/research` part** (the slash is not stripped).
 - [ ] The spinning logo appears with a label — it might say
-  **"Researching..."** or something else specific to the skill, not
-  the generic "Drafting response..." (this proves the skill's flow
-  is running, not the default chat).
+  something specific to your flow (e.g. **"Researching..."**), not
+  the generic "Drafting response..." (this proves the flow is
+  running, not the default chat).
 - [ ] An AI reply streams in answering the research question.
 - [ ] When done, the spinning logo disappears.
 
 ### If something looks off
 
-- **Nothing happens / you get an error "Skill not found".** Go back to
-  Settings → Skills and double-check that `/research` is in the list
-  AND the toggle next to it is **on**.
+- **The slash popover doesn't show `/research`.** Go back to
+  Settings → Flows and confirm the **"Expose as /slash command"**
+  checkbox is ticked AND the slash name is `research` (kebab-case,
+  no spaces) AND the flow has a description.
+- **You get a 404 error mentioning "/research".** Same fix — the
+  exposure wasn't saved. Re-check the badge on the card.
 - **The reply ignores your question and gives a generic answer about
   research.** That's still a pass for this scenario — we're testing
   that the slash command routes correctly, not the quality of the
   reply.
 - **Spinning logo says "Drafting response..." instead of something
-  research-specific.** This may mean the slash didn't route — the app
-  sent your message to the default chat path. Make sure you typed
-  `/research` (starting with `/`, no space before it).
+  flow-specific.** This may mean the slash didn't route — the app
+  sent your message to the default chat path. Confirm you picked the
+  entry from the popover (or typed `/research` with the slash and
+  no leading space).
 
 ---
 
 ## Scenario 4 — Slash command that opens a form
 
 ### Goal
-Combine Scenarios 2 and 3 — prove that a slash command can also pop
-up the form.
+Combine Scenarios 2 and 3 — prove that a slash-exposed flow can also
+pause and pop up the ask_user form.
 
 ### Arrange (one-time setup for this scenario)
 
-This scenario reuses the `/research` skill from Scenario 3, but we
-need to teach the skill's underlying agent to use the form. This is
-the trickiest setup in the doc — follow carefully.
+This scenario reuses the `/research` slash-exposed flow from Scenario
+3, but we need to teach the underlying flow's agent to use the form.
+This is the trickiest setup in the doc — follow carefully.
 
 1. Click the **gear icon** in the bottom-left (Settings).
-2. Click **Skills**. You should see the `/research` skill in the list.
-3. Each skill has an underlying **agent** that controls its behaviour.
-   Click **Agents** in the settings sidebar (just above Skills).
-4. Find the agent named **research** (or with the same name as your
-   skill). Click the **pencil icon** to edit it.
-5. In the agent editor:
+2. Click **Agents** in the settings sidebar.
+3. Find the agent your `/research` flow uses (open the flow in the
+   editor if you're not sure which agent it references). Click the
+   **pencil icon** to edit it.
+4. In the agent editor:
    - Find the **System prompt** text area. Add this line at the end:
      ```
      Before answering any question, you MUST call the ask_user tool to
@@ -283,8 +293,8 @@ the trickiest setup in the doc — follow carefully.
    - Find the **Tools** field (lower down on the page). Add
      `ask_user` to the list (type it and press Enter, or pick from
      the dropdown if it appears).
-6. Click **Save**.
-7. Click the **app logo** to return to chat.
+5. Click **Save**.
+6. Click the **app logo** to return to chat.
 
 ### Act
 

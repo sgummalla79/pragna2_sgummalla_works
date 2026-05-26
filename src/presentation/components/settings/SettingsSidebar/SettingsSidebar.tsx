@@ -20,7 +20,6 @@ const SETTINGS_NAV: SidebarItemConfig[] = [
   { type: 'section', label: 'Workflows' },
   { type: 'nav', to: ROUTES.SETTINGS_AGENTS, icon: <AgentsIcon />, label: 'Agents' },
   { type: 'nav', to: ROUTES.SETTINGS_FLOWS,  icon: <FlowsIcon />,  label: 'Flows' },
-  { type: 'nav', to: ROUTES.SETTINGS_SKILLS, icon: <SkillsIcon />, label: 'Skills' },
   { type: 'section', label: 'Account' },
   { type: 'nav', to: ROUTES.SETTINGS_APPEARANCE, icon: <AppearanceIcon />, label: 'Appearance' },
   { type: 'nav', to: ROUTES.SETTINGS_PROFILE, icon: <ProfileIcon />, label: 'Profile' },
@@ -100,23 +99,6 @@ function FlowsIcon() {
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="18" cy="18" r="3" /><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" />
       <path d="M6 9v6M13 6h3a2 2 0 0 1 2 2v7" />
-    </svg>
-  );
-}
-
-function SkillsIcon() {
-  // svgrepo "skill" — hand holding a gear. Two paths: the small inner
-  // shape (gear axis dot) + a compound outer shape whose ``fill-rule:
-  // evenodd`` carves out the gear's teeth as a see-through region.
-  // Filled with ``currentColor`` so the silhouette tracks the sidebar
-  // foreground in either mode; the carved teeth automatically render
-  // as the sidebar background colour, giving the "white outline + black
-  // gear in dark mode / reverse in light mode" two-tone the user asked
-  // for without needing explicit per-path theme fills.
-  return (
-    <svg width="15" height="15" viewBox="18 16 64 68" fill="currentColor" aria-hidden="true">
-      <path fillRule="evenodd" d="M43.84,46.76a5.35,5.35,0,1,1,5.46-5.34A5.41,5.41,0,0,1,43.84,46.76Z" />
-      <path fillRule="evenodd" d="M77.33,55.7,70.06,44.9V44A24,24,0,0,0,46.19,20a22,22,0,0,0-5.67.7A23.89,23.89,0,0,0,22.31,44a21.92,21.92,0,0,0,3.58,12.7c4.18,6,7,10.8,5.27,17.3a4.58,4.58,0,0,0,.9,4.2A4.43,4.43,0,0,0,35.74,80h19.6A4.72,4.72,0,0,0,60,76.2a5,5,0,0,0,.2-1.2,2.37,2.37,0,0,1,2.39-2H64a4.72,4.72,0,0,0,4.68-3.4A41.31,41.31,0,0,0,70.16,60h5.17a2.78,2.78,0,0,0,2.19-1.6A2.86,2.86,0,0,0,77.33,55.7ZM57.49,47.33l-1,1.57a2.22,2.22,0,0,1-1.76.94,2.38,2.38,0,0,1-.72-.16l-2.65-1a11.64,11.64,0,0,1-3.85,2.2l-.48,2.91a2,2,0,0,1-2,1.65h-2a2,2,0,0,1-2-1.65l-.48-2.91a10,10,0,0,1-3.69-2l-2.81,1a2.38,2.38,0,0,1-.72.16,2.1,2.1,0,0,1-1.76-1l-1-1.65a1.94,1.94,0,0,1,.48-2.51l2.33-1.89a10.11,10.11,0,0,1-.24-2.12,9.41,9.41,0,0,1,.24-2L31.1,36.88a1.92,1.92,0,0,1-.48-2.51l1-1.65a2,2,0,0,1,1.76-1,2.38,2.38,0,0,1,.72.16l2.81,1a11.52,11.52,0,0,1,3.69-2.12L41,28a1.91,1.91,0,0,1,2-1.57h2a1.92,1.92,0,0,1,2,1.49l.48,2.83a11.31,11.31,0,0,1,3.69,2l2.81-1a2.38,2.38,0,0,1,.72-.16,2.1,2.1,0,0,1,1.76,1l1,1.65A2,2,0,0,1,57,36.8l-2.33,1.89a9.56,9.56,0,0,1,.24,2.12,9.41,9.41,0,0,1-.24,2L57,44.74A2,2,0,0,1,57.49,47.33Z" />
     </svg>
   );
 }

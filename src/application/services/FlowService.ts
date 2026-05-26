@@ -4,6 +4,7 @@ import type {
   AddNodePayload,
   CreateFlowPayload,
   Flow,
+  UpdateFlowSlashExposurePayload,
 } from '@/domain/types/flow.types';
 import type { YamlValidationResult } from '@/domain/types/flowYaml.types';
 
@@ -51,5 +52,12 @@ export class FlowService {
     positions: Record<string, { x: number; y: number }>,
   ): Promise<Flow> {
     return this.flowRepository.updatePositions(flowId, positions);
+  }
+
+  updateSlashExposure(
+    flowId: string,
+    payload: UpdateFlowSlashExposurePayload,
+  ): Promise<Flow> {
+    return this.flowRepository.updateSlashExposure(flowId, payload);
   }
 }

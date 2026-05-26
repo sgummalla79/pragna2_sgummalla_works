@@ -19,7 +19,7 @@ export interface UserAgent {
   systemPrompt: string;
   /** Optional structured-output schema (reserved for R5+). */
   outputSchema: Record<string, unknown> | null;
-  /** Skill api_names the agent may invoke. Empty for R3.5. */
+  /** Tool api_names the agent may invoke (from the ``tools`` table). */
   tools: string[];
   /** Routing labels the agent may emit. Empty = leaf node; non-empty
    *  drives conditional edges in flows. */

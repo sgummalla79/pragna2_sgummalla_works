@@ -11,7 +11,7 @@ export interface Model {
   costPerOutputToken: string;
   /** Master toggle. Auto-discovered models start false — users must opt in. */
   enabled: boolean;
-  /** Surface this model to the chat agent and /skill-name invocations. */
+  /** Surface this model to the default chat agent (POST /pragna/chat). */
   availableForChat: boolean;
   /** Allow this model to be selected as a flow-node model. */
   availableForFlows: boolean;

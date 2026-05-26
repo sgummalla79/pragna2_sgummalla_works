@@ -20,7 +20,6 @@ export const ROUTES = {
   SETTINGS_FLOWS:           '/settings/flows',
   SETTINGS_FLOW_EDITOR_NEW: '/settings/flows/new',
   SETTINGS_FLOW_EDITOR:     '/settings/flows/:flowId/edit',
-  SETTINGS_SKILLS:    '/settings/skills',
   /** Wedge B.2 — MCP server registrations + per-tool toggle. */
   SETTINGS_MCP_SERVERS: '/settings/mcp-servers',
   SETTINGS_PROFILE:   '/settings/profile',
@@ -32,7 +31,6 @@ export const ROUTES = {
   PROVIDERS:     '/providers',
   FLOWS:         '/flows',
   FLOW_DETAIL:   '/flows/:flowId',
-  SKILLS:        '/skills',
   CONVERSATIONS: '/conversations',
 } as const;
 

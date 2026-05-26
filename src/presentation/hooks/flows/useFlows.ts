@@ -1,6 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useServices } from '@/presentation/providers/ServiceContext';
-import type { AddEdgePayload, AddNodePayload, CreateFlowPayload } from '@/domain/types/flow.types';
+import type {
+  AddEdgePayload,
+  AddNodePayload,
+  CreateFlowPayload,
+  UpdateFlowSlashExposurePayload,
+} from '@/domain/types/flow.types';
 
 const FLOWS_KEY = ['flows'] as const;
 const flowKey = (id: string) => ['flows', id] as const;
@@ -132,6 +137,31 @@ export function useUpdateFlowPositions() {
     }) => flowService.updatePositions(flowId, positions),
     onSuccess: (flow) => {
       queryClient.invalidateQueries({ queryKey: flowKey(flow.id) });
+    },
+  });
+}
+
+/** Toggle ``/slash`` exposure on a flow + set/clear its slash name.
+ *
+ *  Backed by ``PATCH /api/flows/{id}/slash-exposure``. Invalidates
+ *  both the flows list AND ``['pragna', 'flows']`` (the chat input's
+ *  slash-popover cache) so a newly exposed flow shows up in the
+ *  popover without a page reload. */
+export function useUpdateFlowSlashExposure() {
+  const { flowService } = useServices();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      flowId,
+      payload,
+    }: {
+      flowId: string;
+      payload: UpdateFlowSlashExposurePayload;
+    }) => flowService.updateSlashExposure(flowId, payload),
+    onSuccess: (flow) => {
+      queryClient.invalidateQueries({ queryKey: FLOWS_KEY });
+      queryClient.invalidateQueries({ queryKey: flowKey(flow.id) });
+      queryClient.invalidateQueries({ queryKey: ['pragna', 'flows'] });
     },
   });
 }

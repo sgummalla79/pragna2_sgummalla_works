@@ -6,6 +6,7 @@ import { ROUTES } from '@/constants/routes';
 import { Button } from '@/presentation/components/ui/Button';
 import { Badge } from '@/presentation/components/ui/Badge';
 import { Card, CardContent } from '@/presentation/components/ui/Card';
+import { SlashExposureRow } from './SlashExposureRow';
 
 /**
  * Flow listing. Authoring lives in the YAML editor at
@@ -55,50 +56,53 @@ export default function FlowBuilderView() {
             return (
               <li key={f.id}>
                 <Card>
-                  <CardContent className="flex items-center justify-between py-4">
-                    <GitBranch
-                      size={22}
-                      className="shrink-0 mr-3 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                    <Link
-                      to={editPath}
-                      className="flex-1 no-underline text-foreground hover:opacity-80"
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium">{f.displayName}</p>
-                        <Badge variant={f.enabled ? 'default' : 'secondary'}>
-                          {f.enabled ? 'Enabled' : 'Disabled'}
-                        </Badge>
+                  <CardContent className="flex flex-col py-4">
+                    <div className="flex items-center justify-between">
+                      <GitBranch
+                        size={22}
+                        className="shrink-0 mr-3 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                      <Link
+                        to={editPath}
+                        className="flex-1 no-underline text-foreground hover:opacity-80"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium">{f.displayName}</p>
+                          <Badge variant={f.enabled ? 'default' : 'secondary'}>
+                            {f.enabled ? 'Enabled' : 'Disabled'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{f.apiName}</p>
+                        {f.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{f.description}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {f.nodes.length} nodes · {f.edges.length} edges
+                        </p>
+                      </Link>
+                      <div className="flex items-center gap-1 ml-2">
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Edit ${f.displayName}`}
+                        >
+                          <Link to={editPath}>
+                            <Pencil size={16} aria-hidden="true" />
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteFlow.mutate(f.id)}
+                          aria-label={`Delete flow ${f.displayName}`}
+                        >
+                          <Trash2 size={16} aria-hidden="true" />
+                        </Button>
                       </div>
-                      <p className="text-xs text-muted-foreground">{f.apiName}</p>
-                      {f.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{f.description}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {f.nodes.length} nodes · {f.edges.length} edges
-                      </p>
-                    </Link>
-                    <div className="flex items-center gap-1 ml-2">
-                      <Button
-                        asChild
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Edit ${f.displayName}`}
-                      >
-                        <Link to={editPath}>
-                          <Pencil size={16} aria-hidden="true" />
-                        </Link>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteFlow.mutate(f.id)}
-                        aria-label={`Delete flow ${f.displayName}`}
-                      >
-                        <Trash2 size={16} aria-hidden="true" />
-                      </Button>
                     </div>
+                    <SlashExposureRow flow={f} />
                   </CardContent>
                 </Card>
               </li>

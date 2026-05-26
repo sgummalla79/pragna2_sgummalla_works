@@ -9,7 +9,6 @@
  *   PRV   – LLM provider management
  *   MDL   – model management
  *   FLW   – flow (pipeline) management
- *   SKL   – skill management
  *   CNV   – conversation / usage
  *   CHT   – chat interface
  *   NET   – network / HTTP layer
@@ -47,11 +46,6 @@ export const ERRORS = {
   FLW_004: { code: 'FLW_004', message: 'Failed to delete flow.', severity: 'error' },
   FLW_005: { code: 'FLW_005', message: 'Failed to add node to flow.', severity: 'error' },
   FLW_006: { code: 'FLW_006', message: 'Failed to add edge to flow.', severity: 'error' },
-
-  // ── Skills ────────────────────────────────────────────────────────────────
-  SKL_001: { code: 'SKL_001', message: 'Failed to load skills.', severity: 'error' },
-  SKL_002: { code: 'SKL_002', message: 'Failed to create skill.', severity: 'error' },
-  SKL_003: { code: 'SKL_003', message: 'Failed to remove skill.', severity: 'error' },
 
   // ── Conversations ─────────────────────────────────────────────────────────
   CNV_001: { code: 'CNV_001', message: 'Failed to load conversations.', severity: 'error' },
