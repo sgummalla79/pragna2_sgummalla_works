@@ -199,69 +199,200 @@ every chat by default.
 ## Scenario 3 — Run a slash command (slash-exposed flow)
 
 ### Goal
-Expose one of your flows as a `/slash` command (e.g. `/research`) and
-prove that typing it in the chat dispatches that flow directly rather
-than going through the normal default chat path.
+Build a flow from scratch, expose it as `/research`, and prove that
+typing `/research <question>` in the chat dispatches that flow
+directly (not the normal default chat path).
 
-> Note: the legacy "Skills" page was retired in the collapse-skills
-> refactor — slash exposure is now a property of the Flow itself. You
-> need a Flow before you can do this scenario. If you don't have one
-> handy, create the simplest possible flow first: Settings → Flows →
-> "New flow" → save with the default YAML.
+> Note: the legacy "Skills" page was retired. Slash exposure is now a
+> property of a Flow, and a Flow references an Agent by name. So you
+> will build, in order: **1) enable a model for flows → 2) create an
+> agent → 3) create a flow → 4) expose the flow as a slash command →
+> 5) test it.** Do every part below — none are optional. Every field
+> value is spelled out exactly; type them literally.
 
 ### Arrange (one-time setup for this scenario)
 
+#### Part 1 — Enable a model for Flows
+
+(The first-time setup only enabled your model for chat. Flows use a
+separate "Available for flows" flag.)
+
 1. Click the **gear icon** in the bottom-left (Settings).
-2. In the settings sidebar, click **Flows** (under "Workflows").
-3. Find the flow you want to expose (or create one as noted above).
-4. In that flow's card, look for the **"Expose as /slash command"**
-   row at the bottom:
-   - Tick the checkbox **"Expose as /slash command"**.
-   - In the slash-name input that lights up, type: `research`
-   - Click **Save**. The card now shows a `/research` badge.
-   - If the Save button stays disabled, check the inline message:
-     a missing flow description is the most common blocker (the
-     LLM uses it as the tool description for slash-bound flows).
-5. Click the **app logo** (top-left) to return to chat.
+2. Click **Providers** in the settings sidebar (under "AI Setup").
+3. Click the tile for the provider you connected earlier (e.g.
+   Anthropic).
+4. In the model list, find the model you enabled in first-time setup
+   (e.g. `claude-sonnet-4-5`).
+5. Tick the **"Available for flows"** checkbox next to that model
+   (in addition to the "Available for chat" checkbox you already
+   ticked). The model now has BOTH checkboxes ticked.
+
+#### Part 2 — Create an agent (flows reference agents by api_name)
+
+1. In the settings sidebar, click **Agents** (under "AI Setup").
+2. Click the **+ New agent** button (top-right of the page).
+3. Fill in every field with exactly these values:
+   - **API name:** `research-agent`
+   - **Display name:** `Research Agent`
+   - **Description (optional):** `Answers research questions in
+     plain English.`
+   - **Model:** click the dropdown and pick the same model you just
+     enabled for flows (e.g. `claude-sonnet-4-5`). If the dropdown
+     says "No models are enabled for Flows", go back to Part 1.
+   - **Emit labels:** leave empty (no chips).
+   - **Tools:** leave empty (no chips).
+   - **System prompt** (paste this exactly, including the line
+     break):
+     ```
+     You are a careful researcher. Answer the user's question in 3 to 5 sentences using plain English. If the question is unclear, make a reasonable assumption and state it.
+     ```
+4. Click **Save** (top-right). You should be sent back to the Agents
+   list and see a card titled "Research Agent" with `research-agent`
+   underneath.
+
+#### Part 3 — Create a flow that uses that agent
+
+1. In the settings sidebar, click **Flows** (under "Workflows").
+2. Click the **+ New flow** button (top-right).
+3. The YAML editor opens with a starter template. **Select all the
+   text inside the editor (Cmd+A on Mac, Ctrl+A on Windows) and
+   delete it.**
+4. Paste this YAML exactly (every character matters, including
+   indentation — YAML is whitespace-sensitive):
+   ```yaml
+   api_name: research-flow
+   display_name: Research Flow
+   description: Quick research answers on any topic.
+
+   flow:
+     nodes:
+       - {node_id: research_1, agent: research-agent}
+     edges:
+       - {from: __start__, to: research_1}
+       - {from: research_1, to: __end__}
+   ```
+5. Click the **Validate** button (top-right). A green banner should
+   say **"Looks good — ready to save."** If you see red errors,
+   re-check that you pasted the YAML exactly — indentation under
+   `nodes:` and `edges:` must be two spaces.
+6. Click the **Save** button (top-right). The banner should change
+   to **"Created 'Research Flow'."** The right-hand preview should
+   now show a small two-node graph: `__start__ → research_1 →
+   __end__`.
+
+#### Part 4 — Expose the flow as `/research`
+
+1. Click the **back arrow** (top-left, next to "Edit flow") to
+   return to the Flows list.
+2. You should now see a card titled **"Research Flow"** with
+   `research-flow` underneath.
+3. At the bottom of that card, find the **"Expose as /slash
+   command"** row.
+4. **Tick the checkbox** "Expose as /slash command".
+5. In the text input that becomes editable (it has a `/` prefix and
+   placeholder "kebab-case-name"), type exactly: `research`
+6. Click the **Save** button on that row.
+7. After ~1 second, a **`/research` badge** appears at the top of
+   the row. That confirms the exposure was saved.
+
+   If the Save button is disabled or you see a warning ("Add a flow
+   description before exposing"), go back to Part 3 — the flow's
+   `description:` line is missing.
+
+#### Part 5 — Return to chat and refresh
+
+1. Click the **app logo** in the top-left to leave Settings and
+   return to the chat screen.
+2. **Hard-refresh the page** (Cmd+Shift+R on Mac, Ctrl+Shift+R on
+   Windows). This is important — the chat caches the list of
+   slash-exposed flows, and a freshly-exposed slash may not show up
+   until the cache is refreshed. Without this refresh the test can
+   silently fall back to the LLM-driven path (see gotchas below).
 
 ### Act
 
 1. Click **+ New chat** in the sidebar.
 2. Click the text box at the bottom.
-3. Start typing `/` — the slash-command popover should appear above
-   the composer with your `/research` entry. Pick it (Enter, or
-   click), then continue typing: `what is retrieval-augmented
+3. Type the `/` character. A popover should appear above the
+   composer listing available slash commands — you should see
+   **/research** in that list. **If `/research` is NOT in the
+   popover, STOP** — see gotchas below before continuing. Sending
+   anyway will not exercise this scenario.
+4. Click the **/research** entry (or press Enter while it's
+   highlighted). The text box should now contain `/research ` (with
+   a trailing space).
+5. Continue typing after the slash: `what is retrieval-augmented
    generation?`
-4. Press **Enter**.
+6. The full text in the box should now read:
+   `/research what is retrieval-augmented generation?`
+7. Press **Enter**.
 
 ### Assert
 
-- [ ] Your message appears on the right side, **including the literal
-  `/research` part** (the slash is not stripped).
-- [ ] The spinning logo appears with a label — it might say
-  something specific to your flow (e.g. **"Researching..."**), not
-  the generic "Drafting response..." (this proves the flow is
-  running, not the default chat).
-- [ ] An AI reply streams in answering the research question.
-- [ ] When done, the spinning logo disappears.
+- [ ] Your message appears as a bubble on the right side, **and the
+  bubble text includes the literal `/research` prefix** (the slash
+  is not stripped or hidden).
+- [ ] The spinning logo appears with a label that mentions your
+  agent — it should say **"Research Agent..."** (because the agent's
+  display name is "Research Agent"), NOT the generic "Drafting
+  response...". If it says "Drafting response...", the slash didn't
+  route — see the gotchas below.
+- [ ] **No tool-call card appears in the chat.** Specifically, you
+  should NOT see a card labelled `tool` with `research` and a JSON
+  blob like `{"topic":"..."}`. If you see that, the run went through
+  the wrong path — see the "tool-call card appears" gotcha below.
+- [ ] Within a few seconds, an AI reply streams in as a bubble on
+  the left side, answering the question about retrieval-augmented
+  generation.
+- [ ] The reply is roughly 3–5 sentences (per the agent's system
+  prompt).
+- [ ] When streaming finishes, the spinning logo + label
+  **disappears**.
+- [ ] The **Stop** button (where Send was during streaming) turns
+  back into a **Send** arrow.
 
 ### If something looks off
 
-- **The slash popover doesn't show `/research`.** Go back to
-  Settings → Flows and confirm the **"Expose as /slash command"**
-  checkbox is ticked AND the slash name is `research` (kebab-case,
-  no spaces) AND the flow has a description.
-- **You get a 404 error mentioning "/research".** Same fix — the
-  exposure wasn't saved. Re-check the badge on the card.
-- **The reply ignores your question and gives a generic answer about
-  research.** That's still a pass for this scenario — we're testing
-  that the slash command routes correctly, not the quality of the
-  reply.
-- **Spinning logo says "Drafting response..." instead of something
-  flow-specific.** This may mean the slash didn't route — the app
-  sent your message to the default chat path. Confirm you picked the
-  entry from the popover (or typed `/research` with the slash and
-  no leading space).
+- **`/research` doesn't appear in the slash popover when you type
+  `/`.** Go back to Settings → Flows. Confirm: (a) the "Expose as
+  /slash command" checkbox is still ticked, (b) the slash name
+  reads exactly `research`, (c) the `/research` badge is visible on
+  the card. If any are missing, the Save in Part 4 didn't go
+  through — try again.
+- **You get a red error message mentioning "404" and "/research".**
+  Same root cause as above — the exposure wasn't saved.
+- **Red error message mentioning "no model" or "user model not
+  found".** Go back to Part 1 — your model isn't enabled for flows.
+- **Spinning logo says "Drafting response..." (the default), not
+  "Research Agent...".** The slash didn't route. Make sure you
+  picked `/research` from the popover (or typed `/research ` with a
+  trailing space before the question). A message like `Research
+  what is RAG?` (no leading slash) goes to the default chat path.
+- **A tool-call card appears in the chat showing `tool` /
+  `research` / `{"topic":"..."}`.** This means the chat used the
+  LLM-driven path instead of the deterministic slash path. The
+  LLM saw your `/research` text and decided to call the
+  slash-exposed flow as a tool — which is technically valid
+  backend behavior but is NOT what Scenario 3 is testing. Root
+  cause is almost always **stale slash-popover cache**: you
+  exposed `/research` and sent a message before the chat
+  refetched the slash list. **Fix:**
+  1. Go back to Settings → Flows and confirm the `/research`
+     badge is still on the card.
+  2. Return to chat and **hard-refresh the page** (Cmd+Shift+R /
+     Ctrl+Shift+R).
+  3. Open a fresh **+ New chat**, type `/`, and verify
+     `/research` now appears in the popover before typing
+     anything else.
+  4. Pick it from the popover, then continue typing your
+     question, then Enter.
+  If after a hard refresh the popover still doesn't show
+  `/research`, the BE doesn't think it's exposed — report this as
+  a bug with a screenshot of the Flow card showing (or not
+  showing) the `/research` badge.
+- **Reply doesn't quite answer the question but is research-y.**
+  That's a pass for THIS scenario — we're testing routing, not
+  reply quality.
 
 ---
 
@@ -269,64 +400,102 @@ than going through the normal default chat path.
 
 ### Goal
 Combine Scenarios 2 and 3 — prove that a slash-exposed flow can also
-pause and pop up the ask_user form.
+pause mid-run and pop up the ask_user form, then resume with the
+submitted values.
 
 ### Arrange (one-time setup for this scenario)
 
-This scenario reuses the `/research` slash-exposed flow from Scenario
-3, but we need to teach the underlying flow's agent to use the form.
-This is the trickiest setup in the doc — follow carefully.
+This scenario **requires Scenario 3's setup to be complete first**
+(model enabled for flows, `research-agent` created, `research-flow`
+created, `/research` exposed). If you haven't done Scenario 3 yet,
+go do it now — Scenario 4 will not work without it.
+
+Now we extend the `research-agent` so it pauses for a form before
+answering. Exact steps:
 
 1. Click the **gear icon** in the bottom-left (Settings).
 2. Click **Agents** in the settings sidebar.
-3. Find the agent your `/research` flow uses (open the flow in the
-   editor if you're not sure which agent it references). Click the
-   **pencil icon** to edit it.
-4. In the agent editor:
-   - Find the **System prompt** text area. Add this line at the end:
+3. Find the card titled **"Research Agent"** (api_name
+   `research-agent`). Click the **pencil icon** on that card to
+   open the agent editor.
+4. Update **two fields only** — leave every other field as it is:
+   - **System prompt:** select all the text in the system prompt
+     textarea (click into it, then Cmd+A / Ctrl+A) and replace it
+     with exactly this:
      ```
-     Before answering any question, you MUST call the ask_user tool to
-     ask the user for two things: the topic to research, and the
-     desired depth (short, medium, long). Then incorporate their
-     answers into your reply.
+     You are a careful researcher. Before answering anything, you MUST call the ask_user tool exactly once to collect two values from the user: (1) "topic" — the topic to research (text, required); (2) "depth" — the desired depth, one of "short", "medium", or "long" (text, required). After the user submits the form, write a research answer about their topic at roughly their chosen depth (short = 2 sentences, medium = 4 sentences, long = 7 sentences).
      ```
-   - Find the **Tools** field (lower down on the page). Add
-     `ask_user` to the list (type it and press Enter, or pick from
-     the dropdown if it appears).
-5. Click **Save**.
-6. Click the **app logo** to return to chat.
+   - **Tools:** click into the Tools chip input. Type `ask_user`
+     (lowercase, with the underscore) and press **Enter** to commit
+     it as a chip. A chip labelled `ask_user` should now appear
+     above the input. Do NOT add any other tools.
+5. Click the **Save** button (top-right). You should be returned to
+   the Agents list. The "Research Agent" card should still be
+   there.
+6. Click the **app logo** (top-left) to return to chat.
 
 ### Act
 
 1. Click **+ New chat** in the sidebar.
 2. Click the text box at the bottom.
-3. Type: `/research`
-4. Press **Enter**.
+3. Type the `/` character. The slash popover should appear listing
+   **/research**.
+4. Click **/research** (or press Enter while it's highlighted). The
+   composer should now show `/research ` (with a trailing space).
+5. Press **Enter** WITHOUT typing anything after the slash. (We're
+   not giving the agent a topic on purpose — it should ask for one
+   via the form.)
 
 ### Assert
 
-- [ ] Your message (`/research`) appears on the right side.
-- [ ] The spinning logo appears briefly with a research-specific label.
-- [ ] A **form pops up** above the text box with two fields — one for
-  topic, one for depth.
-- [ ] Fill in: topic = `quantum computing` (or anything), depth =
-  `short`. Click **Submit**.
-- [ ] The form disappears.
-- [ ] The spinning logo reappears.
-- [ ] An AI reply streams in that's about your chosen topic at roughly
-  your chosen depth.
+- [ ] Your message appears as a bubble on the right side, showing
+  literally `/research`.
+- [ ] The spinning logo + label **"Research Agent..."** appears
+  briefly.
+- [ ] Within a few seconds, a **form pops up** above the text box.
+  It must contain exactly **two input fields**: one labelled
+  **topic** (or "Topic") and one labelled **depth** (or "Depth").
+- [ ] The spinning logo + "Research Agent..." text **disappears**
+  while the form is showing (the form replaces it as the
+  "what's-happening-now" indicator).
+- [ ] A **Submit** button is visible at the bottom of the form
+  (label may also be "Send" or "Continue").
+- [ ] Fill in the fields with these exact values:
+  - **topic:** `quantum computing`
+  - **depth:** `short`
+- [ ] Click **Submit**.
+- [ ] The form **disappears**.
+- [ ] The spinning logo + "Research Agent..." label **reappears**
+  briefly.
+- [ ] An AI reply streams in as a bubble on the left side. The
+  reply must:
+  - mention **quantum computing** (the topic you gave),
+  - be approximately **2 sentences long** (because depth = short).
+- [ ] When the reply finishes, the spinning logo disappears and the
+  Stop button reverts to a Send arrow.
 
 ### If something looks off
 
-- **No form appears, AI just answers.** Edit the agent again
-  (Settings → Agents → edit) and make sure the system-prompt
-  instruction about ask_user is there, AND `ask_user` is in the
-  Tools list. Both are needed.
-- **Form appears but only has one field.** The AI is choosing what
-  fields to show based on the system prompt — re-read the prompt
-  text in step 5 and make sure it mentions BOTH "topic" AND "depth".
-- **Form pops up correctly but submitting throws an error.** Note the
-  error text exactly and report it — this is a real bug.
+- **No form appears — the AI just streams an answer directly.** The
+  agent either lost its tool or its system prompt. Go back to
+  Settings → Agents → edit "Research Agent" and confirm BOTH (a)
+  the system prompt still contains the "you MUST call the ask_user
+  tool" sentence, AND (b) there is an `ask_user` chip in the Tools
+  field. Both are required — having only one will not work.
+- **Form pops up but with only ONE field, or with extra fields.**
+  The agent's system prompt drives the form shape. Re-open the
+  agent and confirm the system prompt mentions BOTH "topic" AND
+  "depth" by those exact names.
+- **You see a red error mentioning "tool not found" or
+  "ask_user".** The chip wasn't saved — re-edit the agent and add
+  the `ask_user` chip again, then Save.
+- **Form pops up correctly but clicking Submit throws an error.**
+  Copy the exact error text and the failed field name, and report
+  it — this is a real bug.
+- **You click Cancel on the form.** A confirmation dialog should
+  appear; confirming should add a small grey "You cancelled..."
+  breadcrumb in the chat and the spinning logo should disappear.
+  This is also a valid sub-check.
 
 ---
 
