@@ -330,21 +330,25 @@ function EditorInner({ flowId }: EditorProps) {
       </div>
 
       {/* ── Banner + error list ────────────────────────────────────────── */}
+      {/* Asymmetric on purpose: success uses the soft-tint convention
+          already in McpServersView + ProviderTile (subtle, reassuring),
+          errors are loud (solid destructive bg) so they outrank success
+          in the visual hierarchy — matches industry-standard UX. */}
       {(banner || errors.length > 0) && (
-        <div className="border-b border-border bg-card/40 px-4 py-2 space-y-1.5">
+        <div className="border-b border-border px-4 py-2 space-y-2">
           {banner && (
             <div
               role="status"
               className={
                 banner.kind === 'ok'
-                  ? 'flex items-center gap-2 text-sm text-primary'
-                  : 'flex items-center gap-2 text-sm text-destructive'
+                  ? 'flex items-center gap-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success'
+                  : 'flex items-center gap-2 rounded-md bg-destructive px-3 py-2 text-sm text-destructive-foreground'
               }
             >
               {banner.kind === 'ok' ? (
-                <CheckCircle2 size={14} aria-hidden="true" />
+                <CheckCircle2 size={16} aria-hidden="true" />
               ) : (
-                <AlertCircle size={14} aria-hidden="true" />
+                <AlertCircle size={16} aria-hidden="true" />
               )}
               <span>{banner.text}</span>
             </div>
