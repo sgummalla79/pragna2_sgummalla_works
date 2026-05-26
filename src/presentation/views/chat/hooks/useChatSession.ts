@@ -120,6 +120,25 @@ export interface ChatSessionApi {
    * — re-calling with the same content is harmless.
    */
   replaceMessages: (messages: Message[]) => void;
+  /**
+   * Per-streaming-message producer-model attribution. Keyed by the
+   * AG-UI streaming ``message_id`` (LangChain ``lc_run--...`` shape),
+   * value is the producing agent's ``user_models.id`` (string UUID).
+   * Populated as ``TEXT_MESSAGE_START`` events arrive, by snapshotting
+   * the latest ``model_attribution`` CustomEvent emitted by the BE
+   * agent node.
+   *
+   * Why this exists: the BE persists each message with a fresh
+   * ``uuid.uuid4()`` that does NOT equal the streaming id, so the
+   * persisted-messages map (keyed by BE UUID) never matches an
+   * in-memory message until ``replaceMessages`` swaps in the BE
+   * ids — which happens AFTER the post-run refetch lands (~300ms
+   * after RUN_FINISHED). Without this streaming-time map, the badge
+   * renders the conversation's default model for that window, then
+   * flips to the producer model. With it, the lookup hits
+   * immediately on RUN_FINISHED — no visible flip.
+   */
+  streamingModelByMessageId: Map<string, string>;
 }
 
 export interface UseChatSessionOptions {
@@ -175,6 +194,23 @@ export function useChatSession(
   // toolCallId → ChatToolCall, accumulated across the run so partial-args
   // events can update the right call regardless of arrival interleaving.
   const toolCallsRef = useRef<Map<string, ChatToolCall>>(new Map());
+
+  // Streaming-time per-message model attribution. Mirrors the BE
+  // ``_TurnAccumulator`` rolling state — every agent node on the BE
+  // emits a ``model_attribution`` CustomEvent carrying its
+  // ``model_entity_id`` BEFORE the LLM call (and hence before the
+  // matching ``TEXT_MESSAGE_START``). We track the latest value in
+  // ``lastModelEntityIdRef`` and stamp it onto the streaming
+  // message id when ``TEXT_MESSAGE_START`` fires. The map is the
+  // FE counterpart of the BE's per-slot attribution stamp: it
+  // lets the badge render the correct producer model the instant
+  // streaming finishes, BEFORE the post-run ``GET /messages``
+  // refetch lands (which would otherwise cause a ~300ms flip from
+  // the conversation's default model to the actual producer once
+  // the BE refetch arrives).
+  const lastModelEntityIdRef = useRef<string | null>(null);
+  const [streamingModelByMessageId, setStreamingModelByMessageId] =
+    useState<Map<string, string>>(() => new Map());
 
   // R4 #1 regen-with-model: when `sendWithModel` runs, it mutates
   // `agent.url` to include `?user_model_id=<id>` so the pragna route
@@ -257,6 +293,13 @@ export function useChatSession(
         // R7.1#3 — reset on every new run so the strip starts fresh,
         // not carrying the last label from the prior turn.
         setProgressLabel(null);
+        // Streaming-time model attribution map. Reset between runs:
+        // by the time onRunInitialized fires for the NEXT run, the
+        // previous run's BE refetch has landed and ``replaceMessages``
+        // has swapped in BE-canonical ids, so the streaming-id
+        // entries are no longer consulted. Clearing bounds growth.
+        lastModelEntityIdRef.current = null;
+        setStreamingModelByMessageId(new Map());
       },
       onRunFailed: ({ error: e }) => {
         setStatus('error');
@@ -293,8 +336,23 @@ export function useChatSession(
           });
         }
       },
-      onTextMessageStartEvent: () => {
+      onTextMessageStartEvent: ({ event }) => {
         syncMessages();
+        // Snapshot the rolling per-run ``model_attribution`` value
+        // onto this message's streaming id. The BE emits a
+        // ``model_attribution`` custom event in the same agent-node
+        // ``__call__`` that produces this text — ALWAYS BEFORE the
+        // matching ``TEXT_MESSAGE_START``, so the ref is populated
+        // by the time we land here. After this, the render-time
+        // lookup at the streaming id resolves to the producer model.
+        const modelId = lastModelEntityIdRef.current;
+        if (modelId) {
+          setStreamingModelByMessageId((prev) => {
+            const next = new Map(prev);
+            next.set(event.messageId, modelId);
+            return next;
+          });
+        }
       },
       onTextMessageContentEvent: () => {
         syncMessages();
@@ -373,6 +431,30 @@ export function useChatSession(
         // the new title in the sidebar immediately.
         if (event.name === 'title_updated') {
           qc.invalidateQueries({ queryKey: ['conversations'] });
+          return;
+        }
+
+        // model_attribution — BE emits this from every agent node
+        // before its LLM call, carrying ``{model_entity_id}``. The
+        // value is the ``user_models.id`` (string UUID) the node's
+        // LLM is bound to. Track latest in a ref; the next
+        // ``TEXT_MESSAGE_START`` snapshots it onto the streaming
+        // message id. Powers the no-flip badge render: by the time
+        // the run ends and the badge renders against the streaming
+        // id, the map already holds the producer model id.
+        if (event.name === 'model_attribution') {
+          const value = event.value as
+            | { model_entity_id?: unknown }
+            | null
+            | undefined;
+          const modelId =
+            value &&
+            typeof value === 'object' &&
+            typeof value.model_entity_id === 'string' &&
+            value.model_entity_id
+              ? value.model_entity_id
+              : null;
+          if (modelId) lastModelEntityIdRef.current = modelId;
           return;
         }
 
@@ -535,6 +617,7 @@ export function useChatSession(
     sendWithOverrides,
     stop,
     replaceMessages,
+    streamingModelByMessageId,
   };
 }
 

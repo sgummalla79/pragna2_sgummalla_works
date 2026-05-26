@@ -309,7 +309,7 @@ function ChatSurface({
     return null;
   }, [persistedMessages]);
 
-  const { messages, status, error, progressLabel, send, sendWithModel, sendWithOverrides, stop, replaceMessages } = useChatSession(
+  const { messages, status, error, progressLabel, send, sendWithModel, sendWithOverrides, stop, replaceMessages, streamingModelByMessageId } = useChatSession(
     agentName,
     { threadId, initialMessages },
   );
@@ -699,7 +699,23 @@ function ChatSurface({
                 key={m.id}
                 message={m}
                 userModelId={
+                  // Fallback chain, ordered most-authoritative first:
+                  //   1. BE-persisted per-message attribution (keyed by
+                  //      ``persistedMessages[i].id`` — BE UUIDs). Hits
+                  //      after the post-run refetch lands AND
+                  //      ``replaceMessages(initialMessages)`` has
+                  //      swapped streaming ids for BE UUIDs.
+                  //   2. Streaming-time attribution (keyed by AG-UI
+                  //      ``message_id`` — LangChain ``lc_run--...``).
+                  //      Hits in the window between RUN_FINISHED and
+                  //      the refetch landing — the gap that previously
+                  //      showed a visible flip to the conversation
+                  //      default before the producer model resolved.
+                  //   3. Conversation default — last-resort fallback
+                  //      for mid-stream renders where neither map has
+                  //      seen the message yet.
                   userModelIdByMessage.get(m.id) ??
+                  streamingModelByMessageId.get(m.id) ??
                   conversation?.userModelId ??
                   null
                 }
