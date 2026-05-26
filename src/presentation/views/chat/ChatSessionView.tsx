@@ -324,19 +324,53 @@ function ChatSurface({
   // mismatch and pushes the fresh server state into the agent so the
   // chat surface renders the new turns.
   //
+  // Also reconciles a more subtle id-mismatch case that surfaces
+  // on EVERY non-default-chat run:
+  //
+  // * The AG-UI stream emits ``TEXT_MESSAGE_START`` with the
+  //   LangChain AIMessage id (e.g. ``lc_run--019e64c2-...``). The
+  //   in-memory ``messages`` array uses those ids.
+  // * The backend persists each row with a fresh ``uuid.uuid4()``
+  //   (see ``SqlMessageRepository.append_many``). The API returns
+  //   those UUIDs as ``id``, which feeds ``persistedMessages``.
+  // * Per-message lookups (``userModelIdByMessage.get(m.id)``,
+  //   ``finishReasonByMessage.get(m.id)``) key on the persisted id.
+  // * When in-memory ids are LangChain ids and lookup keys are BE
+  //   UUIDs, every lookup misses and the JSX falls back to
+  //   ``conversation?.userModelId`` (default-chat model). For slash
+  //   flow turns, that mis-attributes the bubble — Gemini-produced
+  //   content shows the Haiku badge. Title looked fine because it
+  //   reads ``conversation.title`` directly, no per-message lookup.
+  //
+  // The fix is to swap in the persistedMessages-derived list once
+  // the run settles. That replaces the LangChain ids with BE UUIDs;
+  // subsequent renders match.
+  //
   // Guards:
   //   - ``status !== 'running'``: never overwrite an in-flight live
   //     stream (the agent's state is authoritative during /pragna).
-  //   - ``persistedMessages.length > messages.length``: only act when
-  //     persistence has MORE turns than the agent. The opposite
-  //     (agent has more during streaming, before refetch) is fine —
-  //     the refetch will catch up; we don't want to truncate.
+  //   - ``persistedMessages.length > messages.length``: original
+  //     resume backfill path. Persistence has MORE turns; swap so
+  //     the new turns appear.
+  //   - Otherwise (sizes match), swap iff the LAST message's id
+  //     differs — that's the id-reconciliation case. Cheap check
+  //     since same-size + same-tail-id means we've already swapped
+  //     or there's nothing to do.
   useEffect(() => {
     if (status === 'running') return;
+    if (messages.length === 0) return;
     if (persistedMessages.length > messages.length) {
       replaceMessages(initialMessages);
+      return;
     }
-  }, [persistedMessages, messages.length, status, initialMessages, replaceMessages]);
+    if (persistedMessages.length === messages.length) {
+      const lastInMemory = messages[messages.length - 1];
+      const lastPersisted = persistedMessages[persistedMessages.length - 1];
+      if (lastInMemory.id !== lastPersisted.id) {
+        replaceMessages(initialMessages);
+      }
+    }
+  }, [persistedMessages, messages, status, initialMessages, replaceMessages]);
 
   // R6b — open-episode lookup + form state for the HITL pause flow.
   // ``useEpisodes`` fetches the most-recent episode for this conversation
