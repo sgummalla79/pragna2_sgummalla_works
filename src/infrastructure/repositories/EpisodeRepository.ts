@@ -30,6 +30,51 @@ import type {
  * for a proper SSE consumer if mid-pause progress UI becomes important.
  *
  * The read endpoints (``get`` + ``list``) are plain JSON.
+ *
+ * ── ARCHITECTURAL DEBT (logged 2026-05-25) ────────────────────────
+ *
+ * The buffer-as-text approach above means /resume's SSE events NEVER
+ * flow through the chat surface's :class:`HttpAgent`, which is the
+ * runtime source of truth for ``ChatSessionView``'s rendered messages.
+ * The agent's in-memory ``messages`` array stays at the pre-pause
+ * state (e.g. [user prompt, assistant tool-call]) even though the
+ * server just persisted the form-submission user turn and the
+ * assistant's final reply.
+ *
+ * The current workaround (see ``ChatSessionView.tsx``'s post-resume
+ * useEffect calling ``chatSession.replaceMessages``) syncs the agent
+ * from ``persistedMessages`` AFTER ``useResumeEpisode.onSuccess``
+ * invalidates the messages query. That chain is correct but
+ * fragile — if any link breaks (invalidation removed, effect dep
+ * array wrong, persistedMessages query gets re-disabled by some
+ * other guard), the post-form-submit reply stops rendering until
+ * the user manually refreshes. The fragility is pinned in CI by
+ * the ``useResumeEpisode — onSuccess invalidation set`` tests in
+ * ``useEpisodes.test.tsx``.
+ *
+ * The architecturally clean fix is to make /resume's SSE flow
+ * through the agent the same way /pragna's does. Sketch:
+ *
+ *   1. Stop using axios for /resume. Use ``fetch`` (or another
+ *      streaming-capable client) with ``responseType``-equivalent
+ *      that yields a ``ReadableStream`` of bytes.
+ *   2. Parse the SSE event stream incrementally (look at
+ *      ``@ag-ui/client``'s ``parseSSEStream`` / ``transformHttpEventStream``
+ *      — they're exported and battle-tested in the /pragna path).
+ *   3. Feed events into the agent. The HttpAgent base class
+ *      processes events via its ``apply`` pipeline (subscribers
+ *      ``onMessagesChanged`` etc.). Simplest: build a thin
+ *      adapter that calls ``agent.addMessage(...)`` or fires the
+ *      same events the /pragna SSE flow would.
+ *   4. Drop the ``replaceMessages`` sync + the post-resume useEffect
+ *      + the ``isBrandNew`` removal (the latter is now correct on
+ *      its own merits but was made urgent by this bug).
+ *
+ * This is a 50-100 line change spread across this file +
+ * ``useChatSession`` + ``ChatSessionView``. It eliminates a bug
+ * CLASS (two sources of truth for the message list) rather than
+ * patching individual symptoms. Deferred until a session with
+ * time to plan it properly and add E2E tests.
  */
 export class EpisodeRepository implements IEpisodeRepository {
   constructor(private readonly axiosClient: AxiosInstance) {}

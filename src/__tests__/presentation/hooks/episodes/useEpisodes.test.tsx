@@ -117,6 +117,143 @@ describe('useCancelEpisode (R7.1#2 — DELETE /api/conversations/{id}/episodes/{
 });
 
 
+/* ── useResumeEpisode — cache lifecycle ─────────────────────────────────
+ * Pins the four invalidations that fire on a successful /resume.
+ * These collaborate with the post-resume render chain:
+ *   ['conversations', id, 'messages']  → useConversationMessages
+ *     refetches with the new turns the /resume just persisted
+ *   ['conversations', id, 'single']    → ChatHeader's title refreshes
+ *   list (predicate, length === 2)     → sidebar title refreshes
+ *   openEpisodeQueryKey                → HITLFormCard tears down
+ *   episodeQueryKey                    → episode detail view (if any)
+ *
+ * If ANY of the first three is removed by a future change, the
+ * post-form-submit assistant reply will stop rendering automatically
+ * (it'll only appear on browser refresh) — the failure mode the user
+ * hit during the 2026-05-25 stabilization push. This test catches
+ * that regression in CI.
+ */
+
+import { useResumeEpisode } from '@/presentation/hooks/episodes/useEpisodes';
+
+describe('useResumeEpisode — onSuccess invalidation set', () => {
+  function makeResumeWrapper(opts: {
+    resumeImpl?: (
+      cid: string,
+      eid: string,
+      payload: unknown,
+    ) => Promise<void>;
+  } = {}) {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const resume = vi.fn(
+      opts.resumeImpl ??
+        ((_c: string, _e: string, _p: unknown) => Promise.resolve()),
+    );
+    const services = {
+      episodeService: { resume },
+    } as unknown as Services;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>
+        <ServiceContext.Provider value={services}>
+          {children}
+        </ServiceContext.Provider>
+      </QueryClientProvider>
+    );
+    return { wrapper, qc, resume };
+  }
+
+  it('invalidates per-conversation messages (drives the post-resume agent re-sync)', async () => {
+    const { wrapper, qc } = makeResumeWrapper();
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(
+      () => useResumeEpisode(CONVERSATION_ID, EPISODE_ID),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync({ form: {}, text: '' });
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['conversations', CONVERSATION_ID, 'messages'],
+    });
+  });
+
+  it('invalidates per-conversation "single" (drives the ChatHeader title refresh)', async () => {
+    const { wrapper, qc } = makeResumeWrapper();
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(
+      () => useResumeEpisode(CONVERSATION_ID, EPISODE_ID),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync({ form: {}, text: '' });
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['conversations', CONVERSATION_ID, 'single'],
+    });
+  });
+
+  it('invalidates ONLY list queries via predicate (sidebar title refresh, no per-conv prefix-match)', async () => {
+    const { wrapper, qc } = makeResumeWrapper();
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(
+      () => useResumeEpisode(CONVERSATION_ID, EPISODE_ID),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync({ form: {}, text: '' });
+    });
+
+    // Find the predicate-form invalidate call (distinguished by having
+    // a ``predicate`` key rather than ``queryKey``).
+    const predicateCall = invalidateSpy.mock.calls.find(
+      (args) => typeof (args[0] as { predicate?: unknown })?.predicate === 'function',
+    );
+    expect(predicateCall).toBeDefined();
+    const predicate = (predicateCall![0] as {
+      predicate: (q: { queryKey: readonly unknown[] }) => boolean;
+    }).predicate;
+    // List keys (length === 2) match.
+    expect(predicate({ queryKey: ['conversations', 0] })).toBe(true);
+    expect(predicate({ queryKey: ['conversations', 'pinned'] })).toBe(true);
+    // Per-conv subqueries (length === 3) MUST NOT match — matching them
+    // would trigger refetches on still-mounted observers, the
+    // anti-pattern documented in docs/integration-contracts.md §3.
+    expect(predicate({ queryKey: ['conversations', CONVERSATION_ID, 'messages'] })).toBe(false);
+    expect(predicate({ queryKey: ['conversations', CONVERSATION_ID, 'usage'] })).toBe(false);
+    expect(predicate({ queryKey: ['conversations', CONVERSATION_ID, 'single'] })).toBe(false);
+    // Unrelated query keys MUST NOT match.
+    expect(predicate({ queryKey: ['providers'] })).toBe(false);
+  });
+
+  it('invalidates the open-episode + per-episode queries (HITLFormCard tears down)', async () => {
+    const { wrapper, qc } = makeResumeWrapper();
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    const { result } = renderHook(
+      () => useResumeEpisode(CONVERSATION_ID, EPISODE_ID),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync({ form: {}, text: '' });
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: openEpisodeQueryKey(CONVERSATION_ID),
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: episodeQueryKey(CONVERSATION_ID, EPISODE_ID),
+    });
+  });
+});
+
+
 /* ── useOpenEpisode 404 handling ───────────────────────────────────────
  * A fresh "+ New chat" generates a client-side thread_id. The
  * conversation row is created lazily on first send, so the FE's initial
