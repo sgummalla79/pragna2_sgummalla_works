@@ -169,6 +169,31 @@ export function useResumeEpisode(
     },
     onSuccess: () => {
       if (!conversationId) return;
+      // Optimistically clear the open-episode cache BEFORE the
+      // invalidate-driven refetch fires. Without this, the cache
+      // still holds the pre-submit row (status=awaiting_user,
+      // schema set) for the ~100-300ms window between the
+      // mutation resolving and the /episodes refetch landing. The
+      // ChatSessionView form-render gate
+      // (``hitlSchema && !resume.isPending``) flips back to TRUE
+      // in that window because:
+      //   * resume.isPending is now false (mutation done)
+      //   * cached openEpisode still has awaiting_user → hitlSchema
+      //     is still derived from it
+      //   * → form briefly re-renders before the refetch clears it
+      // That's the "form flashes for a sec or 2" symptom.
+      //
+      // Setting the cache to null here makes hitlSchema null
+      // immediately. The invalidate-driven refetch lands shortly
+      // after with the REAL post-submit episode (either null when
+      // the run completed, or a new awaiting_user row for a
+      // subsequent ask_user pause). Net effect: no flash on the
+      // completed path; a clean transition to the next form on
+      // the chained-pause path.
+      queryClient.setQueryData(
+        openEpisodeQueryKey(conversationId),
+        null,
+      );
       queryClient.invalidateQueries({
         queryKey: ['conversations', conversationId, 'messages'],
       });
