@@ -180,6 +180,27 @@ export function useResumeEpisode(
           queryKey: episodeQueryKey(conversationId, episodeId),
         });
       }
+      // Refresh BOTH title-displaying surfaces. The BE writes the
+      // conversation's title in the resume endpoint's auto-title call
+      // (when this was the first turn pair against the conversation —
+      // common case for ask_user pauses on a brand-new chat), but the
+      // resume SSE stream is buffered as opaque text by the FE
+      // EpisodeRepository, so we can't react to a TITLE_UPDATED event
+      // mid-stream. Instead, refetch the list (sidebar) + the per-conv
+      // 'single' query (ChatHeader) after the resume HTTP call
+      // completes so the freshly-written title surfaces immediately.
+      //
+      // List-only via predicate (length === 2) to avoid prefix-matching
+      // per-conv subqueries — matches the pattern in
+      // useDeleteConversation and is documented in
+      // docs/integration-contracts.md §3.
+      queryClient.invalidateQueries({
+        predicate: (q) =>
+          q.queryKey[0] === 'conversations' && q.queryKey.length === 2,
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['conversations', conversationId, 'single'],
+      });
     },
   });
 }
