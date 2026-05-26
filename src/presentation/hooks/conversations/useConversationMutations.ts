@@ -81,25 +81,46 @@ export function useSetThinkingEnabled() {
 
 /** Hard-delete a conversation. FK cascade removes messages + usage rows.
  *
- * Cache lifecycle is the load-bearing detail here:
+ * Cache lifecycle is the load-bearing detail here. Two earlier shapes
+ * were wrong, both because they triggered refetches against
+ * still-mounted observers:
  *
- *   * **onMutate (pre-DELETE):** cancel any in-flight conversation-scoped
- *     queries for this id. Without this, a refetch that fired BEFORE we
- *     issued DELETE can land AFTER the BE has dropped the row → 404 in
- *     the network tab → ugly console noise even though the FE handles
- *     it gracefully via the per-hook race-guards.
- *   * **onSuccess (post-DELETE):** invalidate the list (sidebar reflects
- *     the removal) AND ``removeQueries`` for every cache entry keyed
- *     by ``['conversations', <id>, …]``. ``removeQueries`` (not
- *     ``invalidateQueries``) so the entries are EVICTED rather than
- *     marked-stale — invalidate would trigger a refetch that hits 404.
+ *   * ``removeQueries({ queryKey: ['conversations', id] })`` —
+ *     react-query's documented behaviour: removing a cache entry that
+ *     has ACTIVE subscribers triggers an immediate refetch on those
+ *     subscribers (unless ``staleTime: Infinity``). The sidebar's
+ *     ``useConversationUsage(deletedId)`` observer in
+ *     ``ConversationListItem`` was still mounted when ``onSuccess``
+ *     ran → refetch → 404 in the network tab.
+ *   * ``invalidateQueries({ queryKey: ['conversations'] })`` (broad
+ *     prefix match) — invalidates EVERY key starting with
+ *     ``['conversations']``, including ``['conversations', id, …]``.
+ *     Same outcome: still-mounted observers refetch immediately.
  *
- * Combined with the navigate-away-on-active-delete in
- * ``ConversationListItem`` (line 82), the three 404s users used to see
- * after a delete (/messages /usage /episodes) stop happening on the
- * normal flow. The race-guards inside the three hooks become true
- * multi-tab safety nets (tab B's queries 404 after tab A deletes —
- * tab B's cache isn't being managed by tab A's mutation).
+ * Correct pattern (the one this hook ships):
+ *
+ *   * **onMutate (pre-DELETE):** ``cancelQueries`` on the per-conv
+ *     subtree to abort any in-flight refetch that would otherwise
+ *     land AFTER the BE has dropped the row.
+ *   * **onSuccess (post-DELETE):** invalidate ONLY the list queries
+ *     (``['conversations', 0]``, ``['conversations', 'pinned']``,
+ *     etc. — length-2 keys). Skip the per-conv subtree entirely.
+ *     The list refetch returns without the deleted row → sidebar
+ *     re-renders → ``ConversationListItem`` for the deleted row
+ *     unmounts → its ``useConversationUsage`` observer detaches
+ *     naturally → orphan cache entries are harmless and get GC'd.
+ *     For the chat view (the OTHER subscriber to ``['conversations',
+ *     id, …]``), ``ConversationListItem.handleDeleteConfirm``
+ *     navigates AWAY from ``/chat/<id>`` BEFORE awaiting this
+ *     mutation, so its observers (``useConversation``,
+ *     ``useConversationMessages``, ``useOpenEpisode``) detach before
+ *     the cache touches them.
+ *
+ * Together these two collaborators (navigate-first + list-only
+ * invalidate) leave no live observer pointing at the deleted id by
+ * the time the cache work runs, so no refetch fires. The race-guards
+ * inside the per-conv hooks (404 → zero-state) remain as multi-tab
+ * safety nets only — they should never fire on the single-tab flow.
  */
 export function useDeleteConversation() {
   const { conversationService } = useServices();
@@ -112,14 +133,16 @@ export function useDeleteConversation() {
       // the DELETE round-trip lands after the row is gone → 404.
       await qc.cancelQueries({ queryKey: ['conversations', id] });
     },
-    onSuccess: (_data, id) => {
-      // Sidebar list refreshes (deleted row disappears).
-      qc.invalidateQueries({ queryKey: ['conversations'] });
-      // Evict every conversation-scoped cache entry so no refetch
-      // can fire against the gone conversation: messages, usage,
-      // open-episode, per-episode, and any future
-      // ``['conversations', id, …]`` query.
-      qc.removeQueries({ queryKey: ['conversations', id] });
+    onSuccess: () => {
+      // Invalidate ONLY list queries (length-2 keys like
+      // ``['conversations', 0]`` and ``['conversations', 'pinned']``).
+      // A broad ``invalidateQueries({ queryKey: ['conversations'] })``
+      // prefix-matches the per-conv subtree too, which triggers
+      // refetches on still-mounted observers → 404. See docstring.
+      qc.invalidateQueries({
+        predicate: (q) =>
+          q.queryKey[0] === 'conversations' && q.queryKey.length === 2,
+      });
     },
   });
 }

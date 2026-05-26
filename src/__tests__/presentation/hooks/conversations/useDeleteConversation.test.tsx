@@ -6,14 +6,22 @@
  *   1. ``onMutate`` cancels in-flight queries scoped to this conversation
  *      so a refetch in flight when DELETE is fired doesn't land AFTER
  *      the row is dropped (which would be a 404).
- *   2. ``onSuccess`` invalidates ``['conversations']`` (sidebar refresh).
- *   3. ``onSuccess`` REMOVES the ``['conversations', id]`` subtree from
- *      cache so no later refetch can fire against the gone row.
+ *   2. ``onSuccess`` invalidates ONLY list queries (length-2 keys like
+ *      ``['conversations', 0]`` and ``['conversations', 'pinned']``).
+ *      A broad ``invalidateQueries({ queryKey: ['conversations'] })``
+ *      prefix-matches the per-conv subtree (``['conversations', id,
+ *      'usage']`` etc.) and triggers refetches on still-mounted
+ *      observers → 404. Hence the predicate-based scoping.
+ *   3. ``onSuccess`` does NOT call ``removeQueries`` on the per-conv
+ *     subtree. react-query's documented behaviour: removing a cache
+ *     entry that has active subscribers triggers an immediate refetch
+ *     on those subscribers → 404. The sidebar's
+ *     ``useConversationUsage(deletedId)`` observer is still mounted
+ *     when ``onSuccess`` runs; it detaches naturally when the list
+ *     refetch removes the row and the sidebar re-renders.
  *
- * If any of these regress, the three 404s users used to see after
- * delete (/messages /usage /episodes) come back. Tests pin the
- * mutation-side fix; the race-guards inside the hooks remain as
- * multi-tab safety nets.
+ * If any of these regress, the /usage 404 users used to see after
+ * deleting the active conversation comes back.
  */
 
 import { describe, it, expect, vi, type Mock } from 'vitest';
@@ -72,7 +80,7 @@ describe('useDeleteConversation', () => {
     expect(cancelOrder).toBeLessThan(deleteOrder);
   });
 
-  it('invalidates the conversations list on success (sidebar refresh)', async () => {
+  it('invalidates ONLY list queries on success (predicate-scoped)', async () => {
     const { wrapper, invalidateSpy } = setup();
     const { result } = renderHook(() => useDeleteConversation(), { wrapper });
 
@@ -80,12 +88,32 @@ describe('useDeleteConversation', () => {
       await result.current.mutateAsync(CONVERSATION_ID);
     });
 
-    expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ['conversations'],
-    });
+    // Predicate must be present — broad ``queryKey: ['conversations']``
+    // is the wrong shape (prefix-matches the per-conv subtree). Verify
+    // the actual call used a ``predicate`` function.
+    expect(invalidateSpy).toHaveBeenCalledTimes(1);
+    const call = invalidateSpy.mock.calls[0][0] as {
+      predicate?: (q: { queryKey: readonly unknown[] }) => boolean;
+      queryKey?: unknown;
+    };
+    expect(call.predicate).toBeTypeOf('function');
+    expect(call.queryKey).toBeUndefined();
+
+    // Spot-check the predicate's behaviour:
+    //   - ``['conversations', 0]`` (paged list) → true
+    //   - ``['conversations', 'pinned']`` (pinned list) → true
+    //   - ``['conversations', '<id>', 'usage']`` (per-conv) → false
+    //   - ``['conversations', '<id>', 'messages']`` (per-conv) → false
+    //   - ``['providers']`` (unrelated) → false
+    const predicate = call.predicate!;
+    expect(predicate({ queryKey: ['conversations', 0] })).toBe(true);
+    expect(predicate({ queryKey: ['conversations', 'pinned'] })).toBe(true);
+    expect(predicate({ queryKey: ['conversations', CONVERSATION_ID, 'usage'] })).toBe(false);
+    expect(predicate({ queryKey: ['conversations', CONVERSATION_ID, 'messages'] })).toBe(false);
+    expect(predicate({ queryKey: ['providers'] })).toBe(false);
   });
 
-  it('REMOVES the conversation-scoped cache subtree on success', async () => {
+  it('does NOT call removeQueries on the per-conv subtree', async () => {
     const { wrapper, removeSpy } = setup();
     const { result } = renderHook(() => useDeleteConversation(), { wrapper });
 
@@ -93,13 +121,14 @@ describe('useDeleteConversation', () => {
       await result.current.mutateAsync(CONVERSATION_ID);
     });
 
-    // removeQueries (NOT invalidateQueries) — invalidate would mark
-    // stale + trigger a refetch that hits 404; remove evicts so no
-    // refetch can fire. This is the single most important assertion
-    // for the post-delete 404 fix.
-    expect(removeSpy).toHaveBeenCalledWith({
-      queryKey: ['conversations', CONVERSATION_ID],
-    });
+    // ``removeQueries`` on an actively-subscribed cache entry
+    // triggers an immediate refetch on the subscriber (react-query's
+    // documented behaviour). The sidebar's
+    // ``useConversationUsage(deletedId)`` observer is still mounted
+    // at this point — if we removed its cache, it would refetch
+    // → 404. Cache cleanup happens via natural unmount once the list
+    // refetch removes the row from the sidebar.
+    expect(removeSpy).not.toHaveBeenCalled();
   });
 
   it('does NOT invalidate or remove cache on DELETE failure', async () => {
