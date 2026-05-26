@@ -401,14 +401,21 @@ export function useChatSession(
       // keeps the slash text intact so the chat history shows what
       // was invoked. URL restoration happens in onRunFinalized (same
       // overrideUrlRef path that sendWithModel uses).
+      //
+      // Slash takes precedence over any model / thinking overrides
+      // sendWithOverrides set just above: a slash dispatch runs the
+      // flow agent against its own configured model, so the per-turn
+      // ?user_model_id / ?thinking_enabled query params don't apply.
+      // If overrideUrlRef.current is already populated (sendWithOverrides
+      // captured the base URL before mutating agent.url with query
+      // params), keep that capture so onRunFinalized restores the same
+      // original URL in either path.
       const slashMatch = SLASH_COMMAND_RE.exec(trimmed);
-      if (
-        slashMatch &&
-        slashFlowNames.has(slashMatch[1]) &&
-        overrideUrlRef.current === null
-      ) {
+      if (slashMatch && slashFlowNames.has(slashMatch[1])) {
         const slashName = slashMatch[1];
-        overrideUrlRef.current = agent.url;
+        if (overrideUrlRef.current === null) {
+          overrideUrlRef.current = agent.url;
+        }
         agent.url = `${PRAGNA_BASE_URL}/flows/${encodeURIComponent(slashName)}`;
       }
 
