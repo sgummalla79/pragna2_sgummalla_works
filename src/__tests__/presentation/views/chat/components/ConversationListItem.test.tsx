@@ -82,13 +82,20 @@ describe('ConversationListItem', () => {
   // ── Delete-of-active-conversation invariant ────────────────────────
   //
   // The boundary doc (chat ↔ delete) requires that deleting the
-  // currently-viewed conversation bounces the user to /chat (landing);
-  // without it, the session view is left mounted against a dead id
-  // and the three conversation-scoped 404 race-guards fire repeatedly.
+  // currently-viewed conversation bounces the user to /chat (landing)
+  // BEFORE the DELETE round-trip starts. The earlier shape (await
+  // mutateAsync → navigate) left the chat session view mounted across
+  // the DELETE; its hooks (messages, usage, open-episode) re-fetched
+  // when ``onSuccess`` evicted the cache, hitting the just-deleted
+  // row → 404. Reordered to navigate-first so the view unmounts and
+  // its query observers detach before cache eviction.
   //
   // Indirectly pinned today by:
-  //   - The implementation: one-line guard at
-  //     ``ConversationListItem.tsx:82`` (``if (isActive) navigate(ROUTES.CHAT)``).
+  //   - The implementation: navigate-before-mutate ordering at
+  //     ``ConversationListItem.tsx`` ``handleDeleteConfirm``.
+  //   - The hook-level tests in
+  //     ``useDeleteConversation.test.tsx`` which pin
+  //     ``cancelQueries`` + ``removeQueries`` semantics.
   //   - The BE integration test ``test_fresh_conversation_lifecycle``
   //     which covers the full delete + re-GET → 404 chain at API level.
   //

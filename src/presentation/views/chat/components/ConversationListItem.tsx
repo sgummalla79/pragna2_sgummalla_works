@@ -75,11 +75,13 @@ export function ConversationListItem({ conversation }: ConversationListItemProps
   async function handleDeleteConfirm() {
     setDeleting(true);
     try {
+      // Navigate FIRST when the deleted conversation is the one on screen.
+      // Otherwise the session view stays mounted across the DELETE round-trip;
+      // its hooks (messages, usage, open-episode) re-fetch after onSuccess
+      // evicts the cache, hitting the just-deleted row → 404.
+      if (isActive) navigate(ROUTES.CHAT);
       await del.mutateAsync(conversation.id);
       setConfirmDeleteOpen(false);
-      // If the currently-open chat was deleted, bounce to the landing
-      // so we're not left rendering a session view pointed at a dead id.
-      if (isActive) navigate(ROUTES.CHAT);
     } finally {
       setDeleting(false);
     }
