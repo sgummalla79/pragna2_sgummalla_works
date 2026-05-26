@@ -5,6 +5,7 @@ import { Button } from '@/presentation/components/ui/Button';
 import { Textarea } from '@/presentation/components/ui/Textarea';
 import { useFlows } from '@/presentation/hooks/flows/useFlows';
 import { useServices } from '@/presentation/providers/ServiceContext';
+import { INTERRUPT_TOOL_NAMES } from '@/constants/interruptTools';
 import { AttachmentChip } from './AttachmentChip';
 import { FlowProposalCard } from './FlowProposalCard';
 import { MessageActions } from './MessageActions';
@@ -239,6 +240,16 @@ export function ChatMessage({
             {message.role === 'assistant' && message.toolCalls && (
               <div className={message.content ? 'mt-1' : ''}>
                 {message.toolCalls.map((call) => {
+                  // Interrupt-driven tools (ask_user etc.) get their own
+                  // dedicated UI elsewhere — HITLFormCard renders below
+                  // the composer once the episode flips to
+                  // awaiting_user. Suppressing the generic badge here
+                  // avoids showing the raw tool-call JSON next to the
+                  // form. See src/constants/interruptTools.ts for the
+                  // list and how to extend it.
+                  if (INTERRUPT_TOOL_NAMES.has(call.name)) {
+                    return null;
+                  }
                   // R6a: tool calls whose name matches one of the user's
                   // flow api_names are propose-flow proposals — render
                   // the confirmation card instead of the default badge.
