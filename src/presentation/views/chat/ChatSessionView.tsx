@@ -741,20 +741,48 @@ function ChatSurface({
                 bottom of the message column so the chat surface always
                 shows the app logo (claude.ai-style "ready for your
                 question" affordance). Morphs to "thinking" (animated
-                logo + label text) when a run is in progress. Hidden
-                only during ``awaiting_user`` — the HITLFormCard is the
-                focal indicator in that state. */}
-            {episodes.openEpisode?.status !== 'awaiting_user' && (
+                logo + label text) when a run is in progress.
+                Hidden only when:
+                  - ``openEpisode.status === 'awaiting_user'`` AND the
+                    resume mutation is NOT in flight (the form is the
+                    focal indicator in that state).
+                During a resume run (form just submitted, BE flips
+                episode to ``active`` but the FE cache still says
+                ``awaiting_user`` until it refetches) the form is
+                hidden via ``episodes.resume.isPending`` below, and
+                the strip should take over so the user sees the
+                "agent is working" state. Without this, the user
+                stares at a frozen form for 10+ seconds while the
+                LLM runs and the SSE stream is buffered opaquely by
+                EpisodeRepository — feels like the app is hung. */}
+            {(episodes.openEpisode?.status !== 'awaiting_user' ||
+              episodes.resume.isPending) && (
               <>
                 <ThinkingStrip
-                  label={status === 'running' ? progressLabel : null}
+                  label={
+                    status === 'running'
+                      ? progressLabel
+                      : episodes.resume.isPending
+                      ? // /resume's SSE events don't flow through
+                        // ``useChatSession`` (the EpisodeRepository
+                        // buffers the stream as opaque text — see
+                        // ``reference-sse-through-agent-refactor``
+                        // memory). progressLabel stays null. Use a
+                        // generic fallback so the strip animates +
+                        // text reads while the resume is in flight.
+                        // The proper fix is the SSE-through-agent
+                        // refactor; until then, this stops the
+                        // "frozen form" UX.
+                        'Working...'
+                      : null
+                  }
                 />
                 {/* Breathing-room spacer below the strip while running,
                     so the live-tail scroll-to-bottom effect lands the
                     indicator well above the composer instead of jamming
                     it against the input edge. Idle keeps the existing
                     ``pb-10`` rhythm with no extra spacer. */}
-                {status === 'running' && (
+                {(status === 'running' || episodes.resume.isPending) && (
                   <div className="h-40 shrink-0" aria-hidden="true" />
                 )}
               </>
@@ -793,7 +821,19 @@ function ChatSurface({
               form's ``text`` field; when false, the composer is
               hidden entirely so the user can only submit via the
               form. */}
-          {hitlSchema && (
+          {/* Hide the form the INSTANT the user submits (resume
+              mutation in flight). The BE has already flipped the
+              episode to ``active`` at the start of /resume, but the
+              FE's cache still reads ``awaiting_user`` until the
+              mutation's onSuccess fires + the /episodes refetch
+              lands — that's after the WHOLE SSE stream completes
+              (~10-15s for a Gemini 2.5 Pro research run). Without
+              this guard, the form sat frozen for the full LLM
+              duration. ChatGPT/Claude.ai dismiss the form
+              immediately on submit; this gate matches that UX.
+              When the resume is in flight, the ThinkingStrip above
+              takes over as the focal indicator. */}
+          {hitlSchema && !episodes.resume.isPending && (
             <HITLFormCard
               schema={hitlSchema}
               values={hitlValues}
