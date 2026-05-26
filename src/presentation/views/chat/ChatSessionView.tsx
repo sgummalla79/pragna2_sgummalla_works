@@ -269,10 +269,34 @@ function ChatSurface({
     return map;
   }, [persistedMessages]);
 
-  const { messages, status, error, progressLabel, send, sendWithModel, sendWithOverrides, stop } = useChatSession(
+  const { messages, status, error, progressLabel, send, sendWithModel, sendWithOverrides, stop, replaceMessages } = useChatSession(
     agentName,
     { threadId, initialMessages },
   );
+
+  // After /resume completes, the buffered SSE stream is discarded by
+  // EpisodeRepository — it never flows through the HttpAgent — so
+  // ``agent.messages`` stays at the pre-pause state (e.g. 2 entries:
+  // user prompt + assistant tool-call) even though persistence now
+  // has the form submission + the assistant's final reply.
+  // ``useResumeEpisode.onSuccess`` invalidates the messages query, so
+  // ``persistedMessages`` refreshes; this effect detects the size
+  // mismatch and pushes the fresh server state into the agent so the
+  // chat surface renders the new turns.
+  //
+  // Guards:
+  //   - ``status !== 'running'``: never overwrite an in-flight live
+  //     stream (the agent's state is authoritative during /pragna).
+  //   - ``persistedMessages.length > messages.length``: only act when
+  //     persistence has MORE turns than the agent. The opposite
+  //     (agent has more during streaming, before refetch) is fine —
+  //     the refetch will catch up; we don't want to truncate.
+  useEffect(() => {
+    if (status === 'running') return;
+    if (persistedMessages.length > messages.length) {
+      replaceMessages(initialMessages);
+    }
+  }, [persistedMessages, messages.length, status, initialMessages, replaceMessages]);
 
   // R6b — open-episode lookup + form state for the HITL pause flow.
   // ``useEpisodes`` fetches the most-recent episode for this conversation

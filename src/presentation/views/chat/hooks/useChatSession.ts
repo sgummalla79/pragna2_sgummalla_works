@@ -103,6 +103,22 @@ export interface ChatSessionApi {
   ) => void;
   /** Abort the current run. Safe to call when no run is active. */
   stop: () => void;
+  /**
+   * Replace the agent's in-memory ``messages`` array wholesale and sync
+   * to React state. Use after an out-of-band turn lands in persistence
+   * — concretely, after a successful ``POST /episodes/{id}/resume``
+   * call, whose SSE response is buffered as opaque text by
+   * :class:`EpisodeRepository` and therefore bypasses the HttpAgent
+   * entirely. Without this call, the chat surface keeps showing the
+   * pre-resume state because ``agent.messages`` was never updated
+   * with the post-form-submit assistant reply.
+   *
+   * Callers should pass the AG-UI-shaped messages they want to
+   * become the new in-memory state (typically the
+   * ``persistedMessages.map(persistedToAGUIMessage)`` output). Idempotent
+   * — re-calling with the same content is harmless.
+   */
+  replaceMessages: (messages: Message[]) => void;
 }
 
 export interface UseChatSessionOptions {
@@ -480,6 +496,18 @@ export function useChatSession(
     }
   }, [agent, status]);
 
+  // Sync persisted messages into the agent's in-memory list. Needed
+  // after /resume completes (its SSE stream is buffered by
+  // EpisodeRepository, never flows through the agent). Idempotent.
+  const replaceMessages = useCallback(
+    (replacement: Message[]) => {
+      if (!agent) return;
+      agent.setMessages(replacement);
+      syncMessages();
+    },
+    [agent, syncMessages],
+  );
+
   return {
     messages,
     status,
@@ -489,6 +517,7 @@ export function useChatSession(
     sendWithModel,
     sendWithOverrides,
     stop,
+    replaceMessages,
   };
 }
 
