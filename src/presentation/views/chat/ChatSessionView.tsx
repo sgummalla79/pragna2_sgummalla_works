@@ -391,6 +391,19 @@ function ChatSurface({
       ?.schema;
     return raw ?? null;
   }, [episodes.openEpisode]);
+
+  // UI-presence view of the schema: null the moment the user submits so
+  // the form vanishes AND the composer reclaims its slot in the same
+  // render. Without this, the openEpisode cache still holds
+  // ``awaiting_user`` for the ~10-15s window between the resume mutation
+  // firing and its onSuccess landing — long enough that the band below
+  // the messages would render as an empty strip (form hidden by the
+  // ``!resume.isPending`` gate, composer hidden because raw hitlSchema
+  // still implies form-mode). Behaviour decisions (``canSubmitHitl``,
+  // ``submitHitl``) keep using raw ``hitlSchema`` — they need the
+  // schema definition itself, not its UI-visible state.
+  const activeFormSchema =
+    hitlSchema && !episodes.resume.isPending ? hitlSchema : null;
   const [hitlValues, setHitlValues] = useState<Record<string, unknown>>({});
   const [hitlTouched, setHitlTouched] = useState<Record<string, boolean>>({});
   const [hitlComposerText, setHitlComposerText] = useState('');
@@ -822,20 +835,24 @@ function ChatSurface({
               hidden entirely so the user can only submit via the
               form. */}
           {/* Hide the form the INSTANT the user submits (resume
-              mutation in flight). The BE has already flipped the
-              episode to ``active`` at the start of /resume, but the
-              FE's cache still reads ``awaiting_user`` until the
-              mutation's onSuccess fires + the /episodes refetch
-              lands — that's after the WHOLE SSE stream completes
-              (~10-15s for a Gemini 2.5 Pro research run). Without
-              this guard, the form sat frozen for the full LLM
-              duration. ChatGPT/Claude.ai dismiss the form
-              immediately on submit; this gate matches that UX.
-              When the resume is in flight, the ThinkingStrip above
-              takes over as the focal indicator. */}
-          {hitlSchema && !episodes.resume.isPending && (
+              mutation in flight). ``activeFormSchema`` collapses to
+              null while ``resume.isPending`` is true so the form
+              vanishes and the composer (gated on the same value
+              below) reappears in the same render. The BE has already
+              flipped the episode to ``active`` at the start of
+              /resume, but the FE cache still reads ``awaiting_user``
+              until the mutation's onSuccess fires + the /episodes
+              refetch lands — that's after the WHOLE SSE stream
+              completes (~10-15s for a Gemini 2.5 Pro research run).
+              Without this gate, the form sat frozen for the full
+              LLM duration. ChatGPT/Claude.ai dismiss the form
+              immediately on submit; this matches that UX. While
+              the resume is in flight, the ThinkingStrip above takes
+              over as the focal indicator and the composer surfaces
+              a Stop button. */}
+          {activeFormSchema && (
             <HITLFormCard
-              schema={hitlSchema}
+              schema={activeFormSchema}
               values={hitlValues}
               onValuesChange={setHitlValues}
               textValue={hitlComposerText}
@@ -863,23 +880,39 @@ function ChatSurface({
           {/* The composer hides only when an HITL pause is active AND
               the schema disallows free text. In every other case it
               stays visible — either as a normal chat composer or as
-              the form's free-text field (form-mode). */}
-          {(!hitlSchema || hitlSchema.allow_text_input) && (
+              the form's free-text field (form-mode). Keyed off
+              ``activeFormSchema`` so that during a resume
+              ``isPending`` window the composer reclaims its slot
+              immediately and surfaces the Stop button instead of
+              leaving an empty band for the full LLM-run duration. */}
+          {(!activeFormSchema || activeFormSchema.allow_text_input) && (
           <ChatInput
             onSend={send}
-            // R7.1#3 cancel UX v2. Two cases:
-            //   1) Flow episode active — fire the cancel mutation so
-            //      the BE flips status, writes the "You cancelled X"
-            //      transcript message, and signals task.cancel(). Then
-            //      close the SSE stream locally so the UI returns to
-            //      idle without waiting for the BE round-trip.
-            //   2) Default chat generating (no episode) — just close
+            // R7.1#3 cancel UX v2 + resume-Stop extension. Three cases:
+            //   1) Resume mutation in flight (form just submitted,
+            //      LLM running). The BE has flipped the episode to
+            //      ``active`` at the start of /resume, but the FE's
+            //      openEpisode cache still reads ``awaiting_user``
+            //      until the post-mutation refetch lands. So the
+            //      cached-status guard below would silently miss
+            //      this case; we branch on ``resume.isPending``
+            //      directly and fire cancel unconditionally.
+            //      ``useChatSession.stop()`` is a no-op here (the
+            //      resume doesn't go through HttpAgent), so skip it.
+            //   2) Flow episode active outside of a resume (the
+            //      lazy-create default-agent path). Cache and BE
+            //      agree on ``active``; fire cancel + stop.
+            //   3) Default chat generating (no episode) — just close
             //      the SSE locally. Matches ChatGPT / Claude.ai: the
             //      partial assistant response stays in the transcript;
             //      no system message.
             onStop={
               ready
                 ? () => {
+                    if (episodes.resume.isPending) {
+                      episodes.cancel.mutate();
+                      return;
+                    }
                     if (
                       episodes.openEpisode &&
                       episodes.openEpisode.status === 'active'
@@ -890,16 +923,28 @@ function ChatSurface({
                   }
                 : undefined
             }
-            // Disable when streaming a response OR when the user hasn't
-            // finished setup. Keeps the composer visible (with the
-            // gating banner inline) so prior history stays readable.
-            disabled={status === 'running' || !ready}
+            // Disable when streaming a response OR a resume run is in
+            // flight OR the user hasn't finished setup. Keeps the
+            // composer visible (with the gating banner inline) so
+            // prior history stays readable, and lets ChatInput's
+            // ``showStop = disabled && onStop && !formMode`` logic
+            // surface the Stop button uniformly across default-chat
+            // and resume runs. Textarea remains draftable when Stop
+            // is showing — matches existing default-chat UX where
+            // the user can compose the next message while the
+            // current run is still streaming.
+            disabled={status === 'running' || episodes.resume.isPending || !ready}
             // R6b — in form-mode the composer is controlled, and the
             // send button submits the HITL form via ``submitHitl``.
-            value={hitlSchema ? hitlComposerText : undefined}
-            onValueChange={hitlSchema ? setHitlComposerText : undefined}
+            // Gated on ``activeFormSchema`` (not raw ``hitlSchema``)
+            // so the composer drops out of form-mode the instant the
+            // user submits — otherwise the textarea would render
+            // controlled-with-stale-text + show the form submit
+            // button during the resume window, which is wrong.
+            value={activeFormSchema ? hitlComposerText : undefined}
+            onValueChange={activeFormSchema ? setHitlComposerText : undefined}
             formMode={
-              hitlSchema
+              activeFormSchema
                 ? {
                     onSubmit: (text) => {
                       setHitlComposerText(text);
