@@ -4,6 +4,8 @@ A manual test script for the chat feature, written for someone seeing
 the app for the first time. No coding, no developer tools, no command
 line — just clicks and reads.
 
+> **Companion doc:** [FRONTEND_TEST_SCENARIOS_GAPS.md](FRONTEND_TEST_SCENARIOS_GAPS.md) lists agentic-flow patterns (e.g. Tree of Thought, Multi-Agent Debate, Event-Driven triggers, cross-conversation memory) that aren't currently testable, what primitive is missing, and what would need to ship to enable them.
+
 Each scenario walks through one user-visible behaviour from start to
 finish. Pick any scenario, follow the steps in order, and tick off the
 checks at the bottom. If a check fails, the scenario fails — note what
@@ -499,6 +501,632 @@ answering. Exact steps:
 
 ---
 
+## Scenario 5 — Sequential pipeline (research → summarize)
+
+### Goal
+Prove that a flow can chain two agents in sequence — the first
+researches a topic, the second condenses the result into one sentence.
+You should see TWO assistant bubbles back-to-back, one per node.
+
+### Arrange (one-time setup for this scenario)
+
+Requires Scenario 3 Part 1 (model enabled for flows). You do NOT need
+the `research-agent` or `research-flow` from Scenario 3 — this
+scenario inlines its own agents inside the flow YAML.
+
+#### Find your model api_name
+
+The YAML below references your model by its `api_name`. To find it:
+
+1. Click **gear icon** → **Providers** in settings.
+2. Click the tile for the provider you connected (e.g. Anthropic).
+3. Hover over the model you enabled for flows. The small grey text
+   under the display name is the `api_name` (e.g.
+   `claude-sonnet-4-5`).
+4. Copy it. You'll paste it into the YAML below wherever you see
+   `<YOUR_MODEL_API_NAME>`.
+
+#### Create the flow
+
+1. Click **gear icon** → **Flows** → **+ New flow**.
+2. Select-all and delete the starter template.
+3. Paste this YAML exactly. Replace **both** occurrences of
+   `<YOUR_MODEL_API_NAME>` with the value you copied above.
+   ```yaml
+   api_name: research-pipeline
+   display_name: Research Pipeline
+   description: Researches a topic, then condenses to one sentence.
+
+   agents:
+     - api_name: pipeline-researcher
+       display_name: Pipeline Researcher
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         You are a researcher. Write 3 to 5 sentences explaining the user's topic in plain English. Do NOT add a summary or conclusion line — output ONLY the explanation paragraph.
+     - api_name: pipeline-summarizer
+       display_name: Pipeline Summarizer
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         The previous assistant turn contains a research passage. Condense it into EXACTLY ONE sentence (max 25 words) that captures the most important fact. Output ONLY the one-sentence summary — no preface, no list, no quote of the original.
+   flow:
+     nodes:
+       - {node_id: research_1, agent: pipeline-researcher}
+       - {node_id: summarize_1, agent: pipeline-summarizer}
+     edges:
+       - {from: __start__, to: research_1}
+       - {from: research_1, to: summarize_1}
+       - {from: summarize_1, to: __end__}
+   ```
+4. Click **Validate** — green "Looks good — ready to save."
+5. Click **Save** — banner says "Created 'Research Pipeline'."
+6. Click the **back arrow** to return to the Flows list.
+7. On the "Research Pipeline" card, tick **"Expose as /slash
+   command"**, type exactly: `research-pipeline`, click **Save** on
+   that row. A `/research-pipeline` badge appears.
+8. Click the **app logo** to return to chat.
+9. **Hard-refresh** the page (Cmd+Shift+R / Ctrl+Shift+R).
+
+### Act
+
+1. Click **+ New chat** in the sidebar.
+2. Click the text box at the bottom.
+3. Type `/` — the slash popover should list **/research-pipeline**.
+4. Click **/research-pipeline**. The composer reads
+   `/research-pipeline ` (with trailing space).
+5. Continue typing: `what is photosynthesis?`
+6. Full text in the box: `/research-pipeline what is photosynthesis?`
+7. Press **Enter**.
+
+### Assert
+
+- [ ] Your message appears as a bubble on the right, **including the
+  literal `/research-pipeline` prefix**.
+- [ ] The spinning logo + label **"Pipeline Researcher..."** appears.
+- [ ] Within a few seconds, an AI reply streams in as a bubble on
+  the left — **3 to 5 sentences** about photosynthesis.
+- [ ] When that bubble finishes, the spinning logo + label changes
+  to **"Pipeline Summarizer..."** (the second node's display name).
+- [ ] A SECOND AI bubble appears below the first — **one sentence**
+  summary of the same topic.
+- [ ] When the second bubble finishes, the spinning logo
+  disappears.
+- [ ] The Stop button reverts to a Send arrow.
+
+### If something looks off
+
+- **Validation fails on `user_model: <YOUR_MODEL_API_NAME>`.** The
+  literal `<YOUR_MODEL_API_NAME>` placeholder is still in the YAML —
+  replace both occurrences with your actual model api_name (Part 1
+  of Arrange above).
+- **Validation says "Unknown user_model".** The string you pasted
+  isn't an api_name on one of your enabled, available-for-flows
+  models. Re-check the Providers page — look at the grey text below
+  the model display name.
+- **Only ONE assistant bubble appears instead of two.** The
+  researcher's reply included a summary line, so the summarizer had
+  nothing distinct to add (or it returned an empty reply). Re-read
+  the bubbles — if both fit in one bubble that's a routing bug;
+  report it. If the bubble content covers BOTH the research and the
+  summary, the researcher ignored the "no summary" instruction —
+  retry with a different topic.
+- **Second bubble re-states the entire first bubble.** The
+  summarizer ignored the "ONE sentence" instruction. Acceptable as
+  a partial pass — the pipeline ran end-to-end, which is what this
+  scenario tests.
+
+---
+
+## Scenario 6 — Reflection / revision loop (drafter ↔ reviewer)
+
+### Goal
+Prove that a flow can LOOP: a drafter writes a haiku, a reviewer
+checks it, and if the reviewer rejects, the flow re-enters the
+drafter to revise — until the reviewer approves. Tests conditional
+back-edges, not just forward edges.
+
+### Arrange (one-time setup for this scenario)
+
+Requires Scenario 3 Part 1 (model enabled for flows). Find your model
+api_name as in Scenario 5's Arrange.
+
+#### Create the flow
+
+1. Click **gear icon** → **Flows** → **+ New flow**.
+2. Select-all + delete the starter template.
+3. Paste this YAML, replacing both `<YOUR_MODEL_API_NAME>`
+   occurrences:
+   ```yaml
+   api_name: revise-loop
+   display_name: Revise Loop
+   description: Drafts a haiku and revises until a reviewer approves.
+
+   agents:
+     - api_name: haiku-drafter
+       display_name: Haiku Drafter
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         Write a haiku (3 lines, roughly 5/7/5 syllables) on the user's topic. If a reviewer has previously critiqued an earlier draft, address every concern in your revision. Output ONLY the haiku — no preface, no commentary.
+     - api_name: haiku-reviewer
+       display_name: Haiku Reviewer
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         The previous turn contains a haiku. Verify (a) exactly 3 lines, (b) roughly 5/7/5 syllables. If BOTH pass, write the single word "Approved." then end your reply with <<emit:passed>>. If either fails, write ONE short sentence stating what's wrong, then end with <<emit:failed>>.
+       emits: [passed, failed]
+   flow:
+     nodes:
+       - {node_id: draft_1, agent: haiku-drafter}
+       - {node_id: review_1, agent: haiku-reviewer}
+     edges:
+       - {from: __start__, to: draft_1}
+       - {from: draft_1, to: review_1}
+       - {from: review_1, to: __end__, condition: passed}
+       - {from: review_1, to: draft_1, condition: failed}
+   ```
+4. **Validate** → **Save** → back-arrow → tick **Expose as /slash
+   command**, slash name `revise`, **Save** the row.
+5. App logo → hard-refresh.
+
+### Act
+
+1. **+ New chat**.
+2. Type `/`, pick **/revise** from the popover.
+3. Type after the slash: `the autumn moon`. Full text:
+   `/revise the autumn moon`.
+4. **Enter**.
+
+### Assert
+
+- [ ] Your message appears as a bubble on the right with the
+  literal `/revise` prefix.
+- [ ] The spinning logo + label **"Haiku Drafter..."** appears.
+- [ ] A draft haiku appears as a bubble on the left — 3 lines.
+- [ ] The label changes to **"Haiku Reviewer..."** and a second
+  bubble streams in. It either:
+  - says exactly **"Approved."** (one word, possibly with
+    `<<emit:passed>>` visible in the text), OR
+  - states one short critique sentence (possibly with
+    `<<emit:failed>>` visible).
+- [ ] If the reviewer **approved**, the flow ends — spinning logo
+  disappears, Stop reverts to Send. Done.
+- [ ] If the reviewer **rejected**, the spinning logo flips back
+  to **"Haiku Drafter..."** within a beat and a NEW draft bubble
+  streams in (a revision). Followed by another reviewer bubble.
+- [ ] The loop continues until reviewer **approves** (usually
+  within 1–3 revisions for this prompt). Final state: an
+  "Approved." bubble, spinning logo gone.
+
+### If something looks off
+
+- **The reviewer NEVER approves and the flow keeps looping.**
+  LangGraph's default recursion limit (25 steps) eventually halts
+  the run. If you see >5 draft/review cycles, the reviewer is too
+  strict for this topic — try a different topic (e.g.
+  `cherry blossoms`) which haiku models tend to handle cleanly.
+- **The reviewer's reply contains `<<emit:passed>>` or
+  `<<emit:failed>>` visibly in the bubble.** That's expected —
+  the emit token is part of the reply text today. It's the
+  routing signal; the bubble itself isn't hiding it.
+- **Only one draft + one reviewer bubble appear, then the flow
+  ends WITHOUT either an Approved or a revision.** The reviewer
+  forgot to include the emit token. The flow then takes the
+  `default` (unmatched) edge — but neither edge above is marked
+  `default`, so the run terminates. Retry; LLMs occasionally drop
+  the token.
+- **The spinning logo says "Drafting response..." instead of
+  "Haiku Drafter...".** The slash didn't route. See Scenario 3
+  gotchas.
+
+---
+
+## Scenario 7 — In-flow routing (router agent → specialist by topic)
+
+### Goal
+Prove that a "router" agent can classify the user's question and
+hand off to one of three specialist agents via conditional edges.
+Different questions exercise different downstream branches.
+
+### Arrange (one-time setup for this scenario)
+
+Requires Scenario 3 Part 1. Find your model api_name as in
+Scenario 5.
+
+#### Create the flow
+
+1. Settings → Flows → **+ New flow**.
+2. Select-all + delete starter template.
+3. Paste this YAML, replacing every `<YOUR_MODEL_API_NAME>`:
+   ```yaml
+   api_name: triage
+   display_name: Triage Router
+   description: Classifies the user's question into code, math, or general and routes to a specialist.
+
+   agents:
+     - api_name: triage-router
+       display_name: Triage Router
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         Classify the user's question into EXACTLY ONE of: "code" (anything about programming), "math" (numbers, equations, formulas), or "general" (everything else). Reply with one short sentence stating your classification — e.g. "Classified as code." — then end with <<emit:code>>, <<emit:math>>, or <<emit:general>>. Do NOT answer the question yourself.
+       emits: [code, math, general]
+     - api_name: triage-coder
+       display_name: Coder Specialist
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         You are a programming specialist. Answer the user's question with concise code or a 1-2 sentence explanation. Begin your reply with the literal text "[CODE]".
+     - api_name: triage-mathematician
+       display_name: Math Specialist
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         You are a math specialist. Answer with the relevant formula or short calculation. Begin your reply with the literal text "[MATH]".
+     - api_name: triage-generalist
+       display_name: Generalist
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         Answer the user's question in 1-2 plain sentences. Begin your reply with the literal text "[GENERAL]".
+   flow:
+     nodes:
+       - {node_id: router_1, agent: triage-router}
+       - {node_id: coder_1, agent: triage-coder}
+       - {node_id: math_1, agent: triage-mathematician}
+       - {node_id: general_1, agent: triage-generalist}
+     edges:
+       - {from: __start__, to: router_1}
+       - {from: router_1, to: coder_1, condition: code}
+       - {from: router_1, to: math_1, condition: math}
+       - {from: router_1, to: general_1, condition: general}
+       - {from: coder_1, to: __end__}
+       - {from: math_1, to: __end__}
+       - {from: general_1, to: __end__}
+   ```
+4. **Validate** → **Save** → back-arrow → tick **Expose as /slash
+   command**, slash name `triage`, **Save** the row.
+5. App logo → hard-refresh.
+
+### Act
+
+Run the test **three times** — once per branch — to prove the
+router routes correctly for each kind of question.
+
+Run A — code:
+1. **+ New chat**, type `/`, pick **/triage**, then continue with
+   `how do I reverse a string in python?`. **Enter**.
+
+Run B — math:
+2. **+ New chat**, type `/`, pick **/triage**, then continue with
+   `what is the value of pi squared?`. **Enter**.
+
+Run C — general:
+3. **+ New chat**, type `/`, pick **/triage**, then continue with
+   `what is the capital of Japan?`. **Enter**.
+
+### Assert (apply to each of the three runs)
+
+- [ ] Your message appears with the `/triage` prefix.
+- [ ] The spinning logo + label **"Triage Router..."** appears.
+- [ ] A short router bubble streams in containing something like
+  "Classified as code." (or math / general — matching the
+  question type).
+- [ ] The label changes to the matching specialist:
+  - Run A → **"Coder Specialist..."**
+  - Run B → **"Math Specialist..."**
+  - Run C → **"Generalist..."**
+- [ ] A second bubble streams in starting with the corresponding
+  literal prefix: **`[CODE]`** / **`[MATH]`** / **`[GENERAL]`**.
+- [ ] Spinning logo disappears, Stop reverts to Send.
+
+### If something looks off
+
+- **The router classified correctly but the WRONG specialist
+  ran.** The conditional-edge mapping is broken — capture the
+  router bubble's text (it shows what was classified) and report.
+- **Run hangs after the router bubble — no specialist bubble.**
+  The router's emit token didn't match any conditional edge. Most
+  likely the router forgot to include `<<emit:...>>`. Retry the
+  run with a fresh chat.
+- **All three runs end up in the Generalist branch regardless of
+  question.** Either (a) the router is always emitting `general`
+  (model can't distinguish — try a stronger model), or (b) the
+  `general` edge was somehow marked the default and is matching
+  every fall-through. Check the YAML.
+
+---
+
+## Scenario 8 — Plan & Execute (planner → executor)
+
+### Goal
+Prove that one agent can produce a structured plan as text and a
+downstream agent can read it from conversation history and act on
+it. The two agents are distinct nodes with different roles.
+
+### Arrange (one-time setup for this scenario)
+
+Requires Scenario 3 Part 1. Find your model api_name as in
+Scenario 5.
+
+#### Create the flow
+
+1. Settings → Flows → **+ New flow**.
+2. Select-all + delete starter template.
+3. Paste, replacing every `<YOUR_MODEL_API_NAME>`:
+   ```yaml
+   api_name: plan-and-do
+   display_name: Plan & Do
+   description: A planner outlines steps, then an executor performs them.
+
+   agents:
+     - api_name: plan-planner
+       display_name: Planner
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         The user asks you to perform a task. Do NOT perform it yourself. Output a numbered list of 3 to 5 concrete steps that an executor would follow. Begin with the literal line "Plan:" then list each step on its own line ("1. ...", "2. ...", etc.). No commentary after the list.
+     - api_name: plan-executor
+       display_name: Executor
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         The previous assistant turn contains a "Plan:" with numbered steps. Execute each step by writing exactly one line per step that begins with "Step N:" and describes what you did in 5-10 words (you have no real tools — narrate plausibly). End your reply with the single word "Done." on its own line.
+   flow:
+     nodes:
+       - {node_id: plan_1, agent: plan-planner}
+       - {node_id: exec_1, agent: plan-executor}
+     edges:
+       - {from: __start__, to: plan_1}
+       - {from: plan_1, to: exec_1}
+       - {from: exec_1, to: __end__}
+   ```
+4. **Validate** → **Save** → back-arrow → tick **Expose as /slash
+   command**, slash name `plan-and-do`, **Save** the row.
+5. App logo → hard-refresh.
+
+### Act
+
+1. **+ New chat**, type `/`, pick **/plan-and-do**.
+2. Continue typing: `organise a small birthday party for ten guests`.
+3. **Enter**.
+
+### Assert
+
+- [ ] Your message appears with the `/plan-and-do` prefix.
+- [ ] The spinning logo + label **"Planner..."** appears.
+- [ ] A bubble streams in that **starts with the literal `Plan:`**
+  and contains a numbered list of 3 to 5 steps.
+- [ ] The label changes to **"Executor..."**.
+- [ ] A SECOND bubble streams in that contains lines starting with
+  `Step 1:`, `Step 2:`, ... matching the planner's step count,
+  AND ends with `Done.`.
+- [ ] Spinning logo disappears, Stop reverts to Send.
+
+### If something looks off
+
+- **Only one bubble appears and it contains BOTH the plan AND the
+  execution.** The planner ignored "Do NOT perform it yourself" and
+  the executor had nothing to add (or echoed). Acceptable as a
+  partial pass — the flow ran two nodes; the LLM merged the roles.
+- **Executor's step count doesn't match the planner's.** The
+  executor mis-counted or stopped early. Re-read both bubbles —
+  this is a content issue, not a flow issue. Pass.
+- **Executor's reply doesn't mention specific steps from the
+  plan.** The executor isn't reading conversation history properly,
+  OR the planner's output didn't follow the "Plan:" format the
+  executor expects. Re-run; if it persists, file as a bug.
+
+---
+
+## Scenario 9 — Multi-pause HITL (two ask_user forms in one flow)
+
+### Goal
+Prove that a single flow run can pause TWICE — once at each of two
+different nodes — and the same chat surface handles both forms in
+sequence within one episode.
+
+### Arrange (one-time setup for this scenario)
+
+Requires Scenario 3 Part 1. Find your model api_name as in
+Scenario 5.
+
+#### Create the flow
+
+1. Settings → Flows → **+ New flow**.
+2. Select-all + delete starter template.
+3. Paste, replacing every `<YOUR_MODEL_API_NAME>`:
+   ```yaml
+   api_name: two-stage-form
+   display_name: Two-Stage Form
+   description: Collect identity, then preferences, then summarise.
+
+   agents:
+     - api_name: stage-1-collector
+       display_name: Stage 1 Collector
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         You collect basic identity. You MUST call the ask_user tool EXACTLY ONCE to collect: (1) "name" — first name (text, required); (2) "city" — city the user lives in (text, required). After the user submits the form, write ONE short line: "Got it: <name> in <city>." then stop. Do NOT call ask_user a second time.
+       tools: [ask_user]
+     - api_name: stage-2-collector
+       display_name: Stage 2 Collector
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         You collect an activity preference. You MUST call the ask_user tool EXACTLY ONCE to collect: (1) "activity" — favourite weekend activity (text, required). After the user submits, write one summary sentence that mentions the activity AND repeats the earlier name + city from the conversation. End with "All done." Do NOT call ask_user a second time.
+       tools: [ask_user]
+   flow:
+     nodes:
+       - {node_id: stage1_1, agent: stage-1-collector}
+       - {node_id: stage2_1, agent: stage-2-collector}
+     edges:
+       - {from: __start__, to: stage1_1}
+       - {from: stage1_1, to: stage2_1}
+       - {from: stage2_1, to: __end__}
+   ```
+4. **Validate** → **Save** → back-arrow → tick **Expose as /slash
+   command**, slash name `two-stage-form`, **Save** the row.
+5. App logo → hard-refresh.
+
+### Act
+
+1. **+ New chat**, type `/`, pick **/two-stage-form**.
+2. Press **Enter** without typing anything after the slash. Full
+   text in the box: `/two-stage-form`.
+
+### Assert
+
+- [ ] Your message appears with the `/two-stage-form` prefix.
+- [ ] The spinning logo + label **"Stage 1 Collector..."** appears.
+- [ ] **First form** pops up above the composer with two fields:
+  `name` and `city`. Fill in: `Alex` and `Berlin`. Click **Submit**.
+- [ ] The form disappears. The composer reclaims its slot
+  immediately (with a **Stop** button visible — NOT an empty
+  band).
+- [ ] The label briefly stays **"Stage 1 Collector..."** then a
+  short bubble streams in: `Got it: Alex in Berlin.`.
+- [ ] The label changes to **"Stage 2 Collector..."**.
+- [ ] **Second form** pops up with ONE field: `activity`. Fill in:
+  `cycling`. Click **Submit**.
+- [ ] The form disappears, composer + Stop reappear immediately
+  (same as the first transition).
+- [ ] A final bubble streams in containing **all three values**:
+  the activity (cycling), the name (Alex), AND the city (Berlin),
+  ending with `All done.`.
+- [ ] Spinning logo disappears, Stop reverts to Send.
+
+### If something looks off
+
+- **After submitting the first form, the SAME form re-appears with
+  the same fields.** The stage-1 LLM called `ask_user` a second
+  time instead of moving on. The system prompt says "EXACTLY ONCE"
+  — the LLM ignored it. Retry; if it persists, try a stronger
+  model. This is an LLM-compliance issue, not a flow bug.
+- **First form submits, no in-between bubble, second form appears
+  directly.** Stage-1 finished without writing its "Got it:" line.
+  Acceptable — the flow advanced. Continue with the second form.
+- **Empty composer band appears between form submit and the next
+  bubble/form.** This is the bug fixed by commit `0e87e85`
+  (May 2026) — if you see it, the FE regressed. Report it.
+- **Final bubble doesn't mention name OR city.** Stage-2 ignored
+  earlier conversation history. Re-read the bubble — if `cycling`
+  is present but not Alex / Berlin, mark as a partial pass and
+  note the omission.
+- **Form appears with 3+ fields instead of 2 (first) or 1
+  (second).** The agent's prompt drove the wrong schema shape.
+  Re-open the agent in settings, verify the prompt matches what
+  you pasted exactly.
+
+---
+
+## Scenario 10 — Aggregator (parallel fan-out + synthesis)
+
+### Goal
+Prove that a flow can fan-out the user's question to three agents
+running in PARALLEL, each producing its own perspective, then fan-in
+to a synthesizer agent that reads all three and writes a unified
+answer. Tests the comma-separated `from` / `to` fan-out + fan-in
+syntax end-to-end.
+
+### Arrange (one-time setup for this scenario)
+
+Requires Scenario 3 Part 1 (model enabled for flows). Find your model
+api_name as in Scenario 5.
+
+#### Create the flow
+
+1. Settings → Flows → **+ New flow**.
+2. Select-all + delete starter template.
+3. Paste, replacing every `<YOUR_MODEL_API_NAME>`:
+   ```yaml
+   api_name: aggregate
+   display_name: Multi-Perspective Aggregator
+   description: Gets three perspectives in parallel, then synthesises them.
+
+   agents:
+     - api_name: agg-technical
+       display_name: Technical Perspective
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         Answer the user's question from a TECHNICAL perspective in 1-2 sentences. Begin your reply with the literal text "[TECHNICAL]".
+     - api_name: agg-practical
+       display_name: Practical Perspective
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         Answer the user's question from a PRACTICAL / everyday perspective in 1-2 sentences. Begin your reply with the literal text "[PRACTICAL]".
+     - api_name: agg-historical
+       display_name: Historical Perspective
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         Answer the user's question from a HISTORICAL perspective in 1-2 sentences. Begin your reply with the literal text "[HISTORICAL]".
+     - api_name: agg-synthesizer
+       display_name: Synthesizer
+       user_model: <YOUR_MODEL_API_NAME>
+       system_prompt: |
+         The previous assistant turns contain three perspectives on the user's question, each prefixed with [TECHNICAL], [PRACTICAL], or [HISTORICAL]. Write a single 2-3 sentence synthesis that EXPLICITLY weaves together insights from ALL THREE perspectives — name each perspective by its label at least once. Begin your reply with the literal text "[SYNTHESIS]".
+   flow:
+     nodes:
+       - {node_id: tech_1, agent: agg-technical}
+       - {node_id: prac_1, agent: agg-practical}
+       - {node_id: hist_1, agent: agg-historical}
+       - {node_id: synth_1, agent: agg-synthesizer}
+     edges:
+       - {from: __start__, to: "tech_1,prac_1,hist_1"}
+       - {from: "tech_1,prac_1,hist_1", to: synth_1}
+       - {from: synth_1, to: __end__}
+   ```
+4. **Validate** → **Save** → back-arrow → tick **Expose as /slash
+   command**, slash name `aggregate`, **Save** the row.
+5. App logo → hard-refresh.
+
+### Act
+
+1. **+ New chat**, type `/`, pick **/aggregate**.
+2. Continue typing: `why do we use clocks?`.
+3. **Enter**.
+
+### Assert
+
+- [ ] Your message appears with the `/aggregate` prefix.
+- [ ] The spinning logo + label appears. **The label may show any
+  of "Technical Perspective...", "Practical Perspective..." or
+  "Historical Perspective..." — and may flicker between them while
+  the three branches run in parallel.** That's expected (last-wins
+  across parallel agents).
+- [ ] **THREE assistant bubbles** stream in (possibly overlapping
+  in time, possibly in any order):
+  - one beginning with **`[TECHNICAL]`**,
+  - one beginning with **`[PRACTICAL]`**,
+  - one beginning with **`[HISTORICAL]`**.
+- [ ] Once all three have finished, the spinning logo + label
+  changes to **"Synthesizer..."**.
+- [ ] A FOURTH bubble streams in beginning with **`[SYNTHESIS]`**.
+  Its content mentions each of the three perspective labels at
+  least once, OR explicitly weaves together their insights.
+- [ ] Spinning logo disappears, Stop reverts to Send.
+
+### If something looks off
+
+- **Only one perspective bubble appears, then the synthesizer
+  runs.** The fan-out didn't fire — either the comma list in
+  `from: __start__, to: "tech_1,prac_1,hist_1"` is mis-quoted in
+  the YAML (must be a single string, not a YAML list), or the
+  validator rejected it silently. Re-check by clicking **Validate**
+  on the flow — it should show "Looks good".
+- **The synthesizer's bubble doesn't mention all three labels.**
+  The synthesizer didn't see all three perspective turns in
+  conversation history, OR it ignored the instruction. Re-read its
+  bubble — if it summarises broadly without naming the labels, it's
+  a content miss but a structural pass (the four bubbles did
+  appear in order). Mark partial.
+- **Bubbles appear in the wrong order — e.g. synthesizer streams
+  BEFORE all three perspectives have finished.** This is a real
+  bug. The fan-in edge `"tech_1,prac_1,hist_1" → synth_1` should
+  block until ALL three branches complete. Capture screenshots and
+  report.
+- **Run halts after the three perspective bubbles — no synthesizer
+  bubble.** The fan-in edge didn't fire. Re-check the YAML — the
+  edge must be `{from: "tech_1,prac_1,hist_1", to: synth_1}` with
+  the `from` value quoted as a single string (the quotes matter
+  because the comma would otherwise be interpreted as a YAML list
+  separator in some contexts).
+- **All four bubbles have identical content.** All four agents are
+  using the same prompt; check that you pasted each agent's
+  `system_prompt` block correctly and didn't accidentally
+  copy-paste over them.
+
+---
+
 ## If something doesn't work (general gotchas)
 
 Things to check before reporting a bug:
@@ -526,7 +1154,7 @@ Things to check before reporting a bug:
 
 When a scenario fails, capture:
 
-1. **Which scenario number** (1, 2, 3, or 4).
+1. **Which scenario number** (1 through 10).
 2. **Which assertion failed** (the checkbox text).
 3. **What you saw instead** (in plain English — e.g. "the form
    appeared but had four fields instead of three").
