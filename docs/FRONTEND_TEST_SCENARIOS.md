@@ -206,11 +206,20 @@ typing `/research <question>` in the chat dispatches that flow
 directly (not the normal default chat path).
 
 > Note: the legacy "Skills" page was retired. Slash exposure is now a
-> property of a Flow, and a Flow references an Agent by name. So you
-> will build, in order: **1) enable a model for flows → 2) create an
-> agent → 3) create a flow → 4) expose the flow as a slash command →
-> 5) test it.** Do every part below — none are optional. Every field
-> value is spelled out exactly; type them literally.
+> property of a Flow declared inline in the flow's YAML
+> (`slash_api_name:` + `exposed_as_slash: true`). So you will build,
+> in order: **1) enable a model for flows → 2) create an agent → 3)
+> create a flow with slash exposure pre-filled → 4) test it.** Do
+> every part below — none are optional. Every field value is spelled
+> out exactly; type them literally.
+>
+> **2026-05-27 — A+D:** the flow YAML now declares its slash
+> exposure inline. The starter template the editor opens with
+> pre-fills `exposed_as_slash: true` + `slash_api_name` matching the
+> `api_name` — a fresh flow is slash-invocable the moment it saves.
+> The separate "Expose as /slash command" toggle on the flow card
+> still works (and is the right way to opt OUT or rename), but you
+> no longer need to remember to toggle it after every Save.
 
 ### Arrange (one-time setup for this scenario)
 
@@ -260,11 +269,15 @@ separate "Available for flows" flag.)
    text inside the editor (Cmd+A on Mac, Ctrl+A on Windows) and
    delete it.**
 4. Paste this YAML exactly (every character matters, including
-   indentation — YAML is whitespace-sensitive):
+   indentation — YAML is whitespace-sensitive). Note the
+   `slash_api_name:` + `exposed_as_slash: true` lines — those make
+   the flow slash-invocable on save, no separate toggle needed:
    ```yaml
    api_name: research-flow
    display_name: Research Flow
    description: Quick research answers on any topic.
+   slash_api_name: research
+   exposed_as_slash: true
 
    flow:
      nodes:
@@ -282,24 +295,21 @@ separate "Available for flows" flag.)
    now show a small two-node graph: `__start__ → research_1 →
    __end__`.
 
-#### Part 4 — Expose the flow as `/research`
+#### Part 4 — Verify slash exposure landed
 
 1. Click the **back arrow** (top-left, next to "Edit flow") to
    return to the Flows list.
 2. You should now see a card titled **"Research Flow"** with
    `research-flow` underneath.
-3. At the bottom of that card, find the **"Expose as /slash
-   command"** row.
-4. **Tick the checkbox** "Expose as /slash command".
-5. In the text input that becomes editable (it has a `/` prefix and
-   placeholder "kebab-case-name"), type exactly: `research`
-6. Click the **Save** button on that row.
-7. After ~1 second, a **`/research` badge** appears at the top of
-   the row. That confirms the exposure was saved.
+3. **A `/research` badge should be visible at the top of the row**
+   — that's the YAML's `slash_api_name: research` taking effect.
+   If the badge is missing, the YAML save dropped one of the slash
+   lines; re-open the flow, confirm both `slash_api_name:` and
+   `exposed_as_slash: true` are present, and re-save.
 
-   If the Save button is disabled or you see a warning ("Add a flow
-   description before exposing"), go back to Part 3 — the flow's
-   `description:` line is missing.
+   (You can also use the "Expose as /slash command" row at the
+   bottom of the card to opt OUT or rename. We don't need that
+   here — the YAML already set it up.)
 
 #### Part 5 — Return to chat and refresh
 
@@ -536,6 +546,8 @@ The YAML below references your model by its `api_name`. To find it:
    api_name: research-pipeline
    display_name: Research Pipeline
    description: Researches a topic, then condenses to one sentence.
+   slash_api_name: research-pipeline
+   exposed_as_slash: true
 
    agents:
      - api_name: pipeline-researcher
@@ -560,9 +572,10 @@ The YAML below references your model by its `api_name`. To find it:
 4. Click **Validate** — green "Looks good — ready to save."
 5. Click **Save** — banner says "Created 'Research Pipeline'."
 6. Click the **back arrow** to return to the Flows list.
-7. On the "Research Pipeline" card, tick **"Expose as /slash
-   command"**, type exactly: `research-pipeline`, click **Save** on
-   that row. A `/research-pipeline` badge appears.
+7. **Confirm the `/research-pipeline` badge is visible at the top
+   of the Research Pipeline card** — the YAML's `slash_api_name` +
+   `exposed_as_slash: true` lines configured it inline (2026-05-27
+   — A+D), no separate toggle step needed.
 8. Click the **app logo** to return to chat.
 9. **Hard-refresh** the page (Cmd+Shift+R / Ctrl+Shift+R).
 
@@ -634,11 +647,15 @@ api_name as in Scenario 5's Arrange.
 1. Click **gear icon** → **Flows** → **+ New flow**.
 2. Select-all + delete the starter template.
 3. Paste this YAML, replacing both `<YOUR_MODEL_API_NAME>`
-   occurrences:
+   occurrences. Note the `slash_api_name:` + `exposed_as_slash:
+   true` lines — those make the flow slash-invocable on save, no
+   separate toggle needed (2026-05-27 — A+D):
    ```yaml
    api_name: revise-loop
    display_name: Revise Loop
    description: Drafts a haiku and revises until a reviewer approves.
+   slash_api_name: revise
+   exposed_as_slash: true
 
    agents:
      - api_name: haiku-drafter
@@ -662,8 +679,10 @@ api_name as in Scenario 5's Arrange.
        - {from: review_1, to: __end__, condition: passed}
        - {from: review_1, to: draft_1, condition: failed}
    ```
-4. **Validate** → **Save** → back-arrow → tick **Expose as /slash
-   command**, slash name `revise`, **Save** the row.
+4. **Validate** → **Save** → back-arrow. **Confirm the `/revise`
+   badge is visible at the top of the Revise Loop card.** If
+   missing, re-open the flow and confirm both `slash_api_name:
+   revise` and `exposed_as_slash: true` are present in the YAML.
 5. App logo → hard-refresh.
 
 ### Act
@@ -739,6 +758,8 @@ Scenario 5.
    api_name: triage
    display_name: Triage Router
    description: Classifies the user's question into code, math, or general and routes to a specialist.
+   slash_api_name: triage
+   exposed_as_slash: true
 
    agents:
      - api_name: triage-router
@@ -777,8 +798,10 @@ Scenario 5.
        - {from: math_1, to: __end__}
        - {from: general_1, to: __end__}
    ```
-4. **Validate** → **Save** → back-arrow → tick **Expose as /slash
-   command**, slash name `triage`, **Save** the row.
+4. **Validate** → **Save** → back-arrow. **Confirm the `/triage`
+   badge is visible at the top of the card** (configured inline
+   via the YAML's `slash_api_name` + `exposed_as_slash: true`
+   lines, 2026-05-27 — A+D).
 5. App logo → hard-refresh.
 
 ### Act
@@ -851,6 +874,8 @@ Scenario 5.
    api_name: plan-and-do
    display_name: Plan & Do
    description: A planner outlines steps, then an executor performs them.
+   slash_api_name: plan-and-do
+   exposed_as_slash: true
 
    agents:
      - api_name: plan-planner
@@ -872,8 +897,10 @@ Scenario 5.
        - {from: plan_1, to: exec_1}
        - {from: exec_1, to: __end__}
    ```
-4. **Validate** → **Save** → back-arrow → tick **Expose as /slash
-   command**, slash name `plan-and-do`, **Save** the row.
+4. **Validate** → **Save** → back-arrow. **Confirm the
+   `/plan-and-do` badge is visible at the top of the card**
+   (configured inline via the YAML's `slash_api_name` +
+   `exposed_as_slash: true` lines, 2026-05-27 — A+D).
 5. App logo → hard-refresh.
 
 ### Act
@@ -931,6 +958,8 @@ Scenario 5.
    api_name: two-stage-form
    display_name: Two-Stage Form
    description: Collect identity, then preferences, then summarise.
+   slash_api_name: two-stage-form
+   exposed_as_slash: true
 
    agents:
      - api_name: stage-1-collector
@@ -954,8 +983,10 @@ Scenario 5.
        - {from: stage1_1, to: stage2_1}
        - {from: stage2_1, to: __end__}
    ```
-4. **Validate** → **Save** → back-arrow → tick **Expose as /slash
-   command**, slash name `two-stage-form`, **Save** the row.
+4. **Validate** → **Save** → back-arrow. **Confirm the
+   `/two-stage-form` badge is visible at the top of the card**
+   (configured inline via the YAML's `slash_api_name` +
+   `exposed_as_slash: true` lines, 2026-05-27 — A+D).
 5. App logo → hard-refresh.
 
 ### Act
@@ -1032,6 +1063,8 @@ api_name as in Scenario 5.
    api_name: aggregate
    display_name: Multi-Perspective Aggregator
    description: Gets three perspectives in parallel, then synthesises them.
+   slash_api_name: aggregate
+   exposed_as_slash: true
 
    agents:
      - api_name: agg-technical
@@ -1065,8 +1098,10 @@ api_name as in Scenario 5.
        - {from: "tech_1,prac_1,hist_1", to: synth_1}
        - {from: synth_1, to: __end__}
    ```
-4. **Validate** → **Save** → back-arrow → tick **Expose as /slash
-   command**, slash name `aggregate`, **Save** the row.
+4. **Validate** → **Save** → back-arrow. **Confirm the `/aggregate`
+   badge is visible at the top of the card** (configured inline
+   via the YAML's `slash_api_name` + `exposed_as_slash: true`
+   lines, 2026-05-27 — A+D).
 5. App logo → hard-refresh.
 
 ### Act
@@ -1127,6 +1162,210 @@ api_name as in Scenario 5.
 
 ---
 
+## Scenario 11 — Navigate away mid-response, come back to find it complete (OR streaming live)
+
+**What you're testing.** The Background-Run Execution architecture
+(claude.ai parity): once you submit a chat, the BE keeps generating
+the LLM response even if you navigate away. Before this work, closing
+the streaming view cancelled the run and the response was lost —
+"abandoned" chats produced ghost rows in the sidebar with no content.
+
+**Setup.** Any model registered + at least one chat-eligible model
+enabled. No flow needed — default chat is fine.
+
+**Steps.**
+
+1. From the landing page, type a prompt that takes a while to
+   answer (e.g. "Write a 1000-word essay on the history of the
+   printing press"). Hit send.
+2. While the response is still streaming (the thinking strip is
+   visible above the streaming bubble), click **+ New chat** in the
+   sidebar.
+3. **Variant A (mid-stream reattach):** Within ~5-10s, click back
+   on the first chat. You should see the assistant response RESUME
+   streaming live — the tokens that landed while you were away
+   replay all at once (M5.2 event-log replay), then live tokens
+   continue arriving until the response completes.
+4. **Variant B (wait for completion):** Wait ~30 seconds without
+   opening the first chat. Then click it.
+
+**What you should see (both variants).** The first chat shows the
+FULL assistant response — exactly as if you'd stayed on the page
+the whole time. The sidebar entry should also have a real title
+(auto-generated within the first ~1 second of your submit) instead
+of "New chat".
+
+**What's broken if you don't see this.** The most likely failures:
+
+- **Chat shows your message but no assistant reply.** The BE run
+  didn't survive the disconnect — either the eager-create + persist
+  flow has regressed (M1) or the background task isn't spawning
+  (M2). Check `logs/app.log` for `endpoint=pragna_run_chat` lines:
+  the happy-path log should include `episode_id` AND a follow-up
+  `Eager-created turn state` info line.
+- **Sidebar entry stuck on "New chat" (no title even after 5+
+  seconds).** Auto-title didn't fire. Check the user's first message
+  is non-empty and that the conversation row has a `user_model_id`
+  stamped (the title flow bails when it's NULL). `logs/app.log`
+  filtered by `logger == "auto-title"` shows the bail reason.
+- **Reload makes the response appear.** The BG task DID persist but
+  the FE didn't pick up the new messages on re-mount. That's a
+  React Query cache invalidation issue, not a Background-Run bug —
+  refresh and continue.
+
+---
+
+## Scenario 12 — Hard refresh during streaming
+
+**What you're testing.** Same as Scenario 11 but with a more
+aggressive interruption — a browser reload that completely
+discards the FE state. The BE has no way to know whether your
+client crashed or you closed the tab; in either case it should
+keep running and persist on completion.
+
+**Setup.** Same as Scenario 11.
+
+**Steps.**
+
+1. Submit a long prompt (e.g. "Explain quantum entanglement in
+   depth").
+2. While the response is streaming (thinking strip visible), hit
+   browser **Cmd-R / Ctrl-R** (hard refresh).
+3. Wait ~30 seconds on the (now-empty) landing page.
+4. Click the first chat in the sidebar.
+
+**What you should see.** Same as Scenario 11 — the full response
+should be there.
+
+**What's broken if you don't see this.** Same failure modes as
+Scenario 11. The reload is functionally equivalent to "close tab"
+from the BE's perspective.
+
+---
+
+## Scenario 13 — Multi-tab consistency
+
+**What you're testing.** Two tabs on the same chat should both
+eventually reflect the same DB state. Today there's no real-time
+push between tabs — Tab B sees new messages only after a manual
+refresh OR navigation.
+
+**Setup.** Same as Scenario 11.
+
+**Steps.**
+
+1. From the landing page, submit a prompt.
+2. As soon as the chat surface mounts, **right-click the chat in
+   the sidebar → Open in new tab**. You now have two tabs on the
+   same conversation.
+3. In Tab A (the original), wait for the response to complete.
+4. In Tab B (the copy), refresh (Cmd-R).
+
+**What you should see.** Tab B now shows the same assistant
+response Tab A has. Both tabs have the same title in the sidebar
+entry.
+
+**What's broken if you don't see this.** Tab B's messages list
+might not have refreshed. Try navigating Tab B to a different
+sidebar entry and back — that forces a `/messages` refetch.
+
+**Out of scope.** Real-time push to Tab B as Tab A's stream
+progresses. ChatGPT and Claude.ai also don't do this — Tab B
+catches up only on navigation or manual refresh.
+
+---
+
+## Scenario 14 — Rapid chat switching (the 2026-05-26 bug repro)
+
+**What you're testing.** The exact user-reported repro that
+motivated the Background-Run Execution work. Before this work,
+rapid submits with immediate "+ New chat" clicks produced ghost
+sidebar entries (visible in the sidebar but no DB row backing
+them — refresh and they vanished).
+
+**Setup.** Same as Scenario 11.
+
+**Steps.**
+
+1. Submit any prompt (e.g. "hello").
+2. Immediately click **+ New chat** in the sidebar.
+3. Submit another prompt (e.g. "hi").
+4. Immediately click **+ New chat** again.
+5. Repeat steps 3-4 two more times so you've submitted 4 prompts
+   in rapid succession.
+6. Wait ~30 seconds.
+7. Click each of the 4 chats in the sidebar in turn.
+
+**What you should see.** Each of the 4 chats shows BOTH your
+prompt AND a complete assistant response. No "ghost" entries —
+every sidebar item has real content. Each has a real title.
+
+**What's broken if you don't see this.**
+
+- **Some chats show your message but no response.** Eager-create
+  worked (the conversation + user message are there) but the
+  background task didn't complete persistence. Likely a regression
+  in M2's `_drive_run_task` finally block. Check `logs/app.log`
+  for the corresponding `episode_id` — there should be a
+  matching `mark_episode_terminal` log entry.
+- **Some chats are entirely missing (sidebar entry has no
+  backing row when you click).** The eager-create write failed
+  silently. Check `logs/app.log` for any 4xx / 5xx during the
+  POST /api/conversations or POST /pragna/chat windows.
+- **You get a "Too many chats in flight" error on the 4th
+  submit.** That's the cap working as intended — the per-user
+  concurrent-runs cap (3 today) prevents resource exhaustion.
+  Wait for one of the in-flight runs to finish, then retry.
+
+---
+
+## Scenario 15 — Agent card shows which flows use it (reverse-reference pills)
+
+### Goal
+Prove that the Agents page lists, on each agent card, the flows that
+currently reference that agent — so you can answer "what breaks if I
+edit this agent?" without scanning every flow's YAML.
+
+### Arrange (one-time setup for this scenario)
+Requires Scenarios 3, 5, and 6 to have been run (those create
+`research-agent`, `pipeline-researcher`, `pipeline-summarizer`,
+`haiku-drafter`, `haiku-reviewer` and the flows that reference them).
+
+### Act
+1. Click the **gear icon** in the bottom-left.
+2. Click **Agents** in the settings sidebar.
+
+### Assert
+- [ ] Each agent card now has a third info row that begins with
+  **"Used by:"**.
+- [ ] The **Research Agent** card's "Used by:" row contains a single
+  pill labelled `research-flow`. Clicking the pill navigates to the
+  Research Flow editor.
+- [ ] The **Pipeline Researcher** card's "Used by:" row contains a
+  single pill labelled `research-pipeline`.
+- [ ] The **Pipeline Summarizer** card's "Used by:" row contains a
+  single pill labelled `research-pipeline` (same flow as above).
+- [ ] The **Haiku Drafter** and **Haiku Reviewer** cards' "Used by:"
+  rows each contain a single pill labelled `revise-loop`.
+- [ ] Any agent that is NOT referenced by any flow shows
+  **"Used by: no flows"** in italic grey text.
+- [ ] Clicking any flow pill navigates to that flow's editor and
+  does NOT trigger the agent editor (the pill is its own link, not
+  part of the card-wide click target).
+
+### If something looks off
+- **"Used by:" row is missing entirely on every card.** The Agents
+  view didn't render the new row at all — pull the FE branch and
+  rebuild, or refresh hard.
+- **"Used by: no flows" on a card you know is referenced.** The
+  flow list cache hasn't refreshed since you added the flow. Hard
+  refresh (Cmd+Shift+R / Ctrl+Shift+R) the page.
+- **Clicking the pill opens the agent editor instead of the flow
+  editor.** Bug — the pill's link is being shadowed by the
+  card-wide click target. Report with a screenshot.
+
+---
+
 ## If something doesn't work (general gotchas)
 
 Things to check before reporting a bug:
@@ -1154,7 +1393,7 @@ Things to check before reporting a bug:
 
 When a scenario fails, capture:
 
-1. **Which scenario number** (1 through 10).
+1. **Which scenario number** (1 through 15).
 2. **Which assertion failed** (the checkbox text).
 3. **What you saw instead** (in plain English — e.g. "the form
    appeared but had four fields instead of three").

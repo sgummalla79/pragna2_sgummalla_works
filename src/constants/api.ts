@@ -24,3 +24,14 @@ export const APP_VERSION: string =
 
 export const FEATURE_FLOW_BUILDER: boolean =
   (import.meta.env.VITE_FEATURE_FLOW_BUILDER as string | undefined) !== 'false';
+
+// Background-Run Execution M4 — sidebar / chat-header placeholder for
+// a conversation whose LLM-generated title hasn't landed yet. The BE
+// fires auto-title (fire-and-forget) at eager-create time, so this
+// label is only visible for the ~1s window between submit and the
+// React Query invalidate that picks up the new title. Matches the
+// ChatGPT pattern ("New chat" until the LLM produces a title) — the
+// locked design decision from the 2026-05-26 Background-Run discussion.
+// Distinct from the rename-dialog fallback ("Untitled chat") which
+// signals user-initiated emptiness rather than freshness.
+export const CHAT_PLACEHOLDER_TITLE = 'New chat';

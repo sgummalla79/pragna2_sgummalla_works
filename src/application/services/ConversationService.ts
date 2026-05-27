@@ -25,6 +25,10 @@ export class ConversationService {
     return this.conversationRepository.list(params);
   }
 
+  get(conversationId: string): Promise<Conversation | null> {
+    return this.conversationRepository.get(conversationId);
+  }
+
   create(payload: CreateConversationPayload): Promise<Conversation> {
     return this.conversationRepository.create(payload);
   }

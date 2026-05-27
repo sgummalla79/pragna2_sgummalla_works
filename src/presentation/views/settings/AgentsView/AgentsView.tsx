@@ -8,7 +8,9 @@ import { Badge } from '@/presentation/components/ui/Badge';
 import { Card, CardContent } from '@/presentation/components/ui/Card';
 import { useUserAgents, useDeleteUserAgent } from '@/presentation/hooks/userAgents/useUserAgents';
 import { useModels } from '@/presentation/hooks/models/useModels';
+import { useFlows } from '@/presentation/hooks/flows/useFlows';
 import type { UserAgent } from '@/domain/types/userAgent.types';
+import type { Flow } from '@/domain/types/flow.types';
 import { ROUTES } from '@/constants/routes';
 
 /**
@@ -20,6 +22,7 @@ import { ROUTES } from '@/constants/routes';
 export default function AgentsView() {
   const { data: agents = [], isLoading } = useUserAgents();
   const { data: models = [] } = useModels();
+  const { data: flows = [] } = useFlows();
   const deleteAgent = useDeleteUserAgent();
 
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -29,8 +32,33 @@ export default function AgentsView() {
     [models],
   );
 
+  // Bucket flows by every agent they reference. A flow that uses the
+  // same agent on multiple nodes only counts once per agent (dedupe by
+  // flow.id) — the pill is "which flows depend on this agent", not
+  // "how many nodes". Listed here rather than asked from the BE because
+  // the data is already loaded for the Flows page and the lookup is
+  // O(flows × nodes), tiny in practice.
+  const flowsByAgentId = useMemo(() => {
+    const map = new Map<string, Flow[]>();
+    for (const flow of flows) {
+      const seen = new Set<string>();
+      for (const node of flow.nodes) {
+        if (seen.has(node.userAgentId)) continue;
+        seen.add(node.userAgentId);
+        const bucket = map.get(node.userAgentId) ?? [];
+        bucket.push(flow);
+        map.set(node.userAgentId, bucket);
+      }
+    }
+    return map;
+  }, [flows]);
+
   function editPath(id: string): string {
     return ROUTES.SETTINGS_AGENT_EDITOR.replace(':agentId', id);
+  }
+
+  function flowEditPath(id: string): string {
+    return ROUTES.SETTINGS_FLOW_EDITOR.replace(':flowId', id);
   }
 
   async function handleDelete(agent: UserAgent) {
@@ -53,7 +81,7 @@ export default function AgentsView() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Agents</h1>
@@ -85,9 +113,10 @@ export default function AgentsView() {
           <p>No agents yet. Create one and use it inside a flow.</p>
         </div>
       ) : (
-        <ul className="space-y-3 list-none" role="list">
+        <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 list-none p-0" role="list">
           {agents.map((a) => {
             const model = modelById.get(a.userModelId);
+            const usedByFlows = flowsByAgentId.get(a.id) ?? [];
             return (
               <li key={a.id}>
                 <Card>
@@ -98,36 +127,88 @@ export default function AgentsView() {
                         className="shrink-0 mt-0.5 text-muted-foreground"
                         aria-hidden="true"
                       />
-                      <Link
-                        to={editPath(a.id)}
-                        className="flex-1 text-foreground no-underline hover:opacity-80"
-                      >
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <p className="font-medium">{a.displayName}</p>
-                          <span className="font-mono text-[11px] text-muted-foreground">
-                            {a.apiName}
-                          </span>
-                          {model && (
-                            <Badge variant="secondary">
-                              {model.displayName}
-                            </Badge>
+                      <div className="flex-1 min-w-0">
+                        {/* Row 1 — name + apiName. Wrapped in the
+                            card-wide Link so the heading routes to the
+                            agent editor. */}
+                        <Link
+                          to={editPath(a.id)}
+                          className="block text-foreground no-underline hover:opacity-80"
+                        >
+                          <div className="flex flex-wrap items-baseline gap-2 mb-1">
+                            <p className="font-medium">{a.displayName}</p>
+                            <span className="font-mono text-[11px] text-muted-foreground">
+                              {a.apiName}
+                            </span>
+                          </div>
+                        </Link>
+                        {/* Row 2 — Description. Always rendered (with
+                            "no description" fallback) so the grid's
+                            card heights stay consistent. */}
+                        <div className="flex flex-wrap items-baseline gap-1.5 mt-1.5">
+                          <span className="text-xs font-semibold text-foreground">Description :</span>
+                          {a.description ? (
+                            <span className="text-xs text-muted-foreground">{a.description}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">no description</span>
                           )}
                         </div>
-                        {a.description && (
-                          <p className="text-xs text-muted-foreground">{a.description}</p>
-                        )}
-                        <div className="flex flex-wrap items-center gap-1 mt-1">
+                        {/* Row 3 — Model. */}
+                        <div className="flex flex-wrap items-baseline gap-1.5 mt-1.5">
+                          <span className="text-xs font-semibold text-foreground">Model :</span>
+                          {model ? (
+                            <Badge
+                              variant="secondary"
+                              className="font-mono text-[10.5px]"
+                            >
+                              {model.modelName}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">unknown</span>
+                          )}
+                        </div>
+                        {/* Row 4 — Emits. */}
+                        <div className="flex flex-wrap items-baseline gap-1.5 mt-1.5">
+                          <span className="text-xs font-semibold text-foreground">Emits :</span>
                           {a.emits.length === 0 ? (
-                            <span className="text-[11px] text-muted-foreground italic">no emits (leaf node)</span>
+                            <span className="text-xs text-muted-foreground italic">no emits (leaf node)</span>
                           ) : (
                             a.emits.map((emit) => (
-                              <Badge key={emit} variant="outline" className="font-mono text-[10.5px]">
+                              <Badge
+                                key={emit}
+                                variant="outline"
+                                className="font-mono text-[10.5px]"
+                              >
                                 {emit}
                               </Badge>
                             ))
                           )}
                         </div>
-                      </Link>
+                        {/* Row 5 — Flows referencing this agent. Outside the
+                            card-wide Link because each pill is its own link to
+                            the flow editor (HTML disallows nested <a>). */}
+                        <div className="flex flex-wrap items-baseline gap-1.5 mt-1.5">
+                          <span className="text-xs font-semibold text-foreground">Flows :</span>
+                          {usedByFlows.length === 0 ? (
+                            <span className="text-xs text-muted-foreground italic">no flows</span>
+                          ) : (
+                            usedByFlows.map((flow) => (
+                              <Link
+                                key={flow.id}
+                                to={flowEditPath(flow.id)}
+                                className="no-underline"
+                                title={`Open flow “${flow.displayName}”`}
+                              >
+                                <Badge
+                                  className="border-transparent bg-primary/10 text-primary hover:bg-primary/20 font-mono text-[10.5px]"
+                                >
+                                  {flow.apiName}
+                                </Badge>
+                              </Link>
+                            ))
+                          )}
+                        </div>
+                      </div>
                       <div className="flex items-center gap-1">
                         <Button
                           asChild

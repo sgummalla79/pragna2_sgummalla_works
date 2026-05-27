@@ -160,7 +160,23 @@ export default function ChatSessionView() {
 
   return (
     <ErrorBoundary logTag="CHT_003" fallback={<ChatUnavailable />}>
+      {/* Background-Run Execution M5.2 follow-up — key on
+         ``conversationId`` forces a clean React remount of ChatSurface
+         on every conversation switch. Without this, React reuses the
+         same component instance across ``/chat/A → /chat/B``: the
+         agent useMemo's threadId dep flips, the useEffect cleanup
+         calls abortRun on the OLD agent (a runAgent may still be in
+         flight from a navigated-away chat), and the abort's
+         ``AbortError`` lands on the SAME-INSTANCE onRunFailed →
+         visible "signal is aborted" banner on chat B + a one-frame
+         flicker where the agent's empty messages array briefly
+         renders before /messages re-hydrates. Remounting:
+         (a) the OLD instance unmounts → its abortRun + onRunFailed
+             call setState on an unmounted component → React no-ops;
+         (b) the NEW instance constructs its agent with chat B's
+             initialMessages from the get-go → no empty intermediate. */}
       <ChatSurface
+        key={conversationId ?? 'no-conversation'}
         conversationId={conversationId}
         conversation={conversation}
         persistedMessages={persistedMessages ?? []}
@@ -309,7 +325,7 @@ function ChatSurface({
     return null;
   }, [persistedMessages]);
 
-  const { messages, status, error, progressLabel, send, sendWithModel, sendWithOverrides, stop, replaceMessages, streamingModelByMessageId } = useChatSession(
+  const { messages, status, error, progressLabel, send, sendWithModel, sendWithOverrides, stop, attach, replaceMessages, streamingModelByMessageId } = useChatSession(
     agentName,
     { threadId, initialMessages },
   );
@@ -384,6 +400,39 @@ function ChatSurface({
   // form's free-text field when ``schema.allow_text_input`` is true —
   // the submit dispatch needs both halves in one place.
   const episodes = useEpisodes(conversationId);
+
+  // Background-Run Execution M5.2 — auto-attach to a live background
+  // run on mount with an active episode. Fires when the user
+  // navigates away mid-stream and back: the BG task is still pushing
+  // tokens, the FE re-mounts with no HttpAgent run in flight, and
+  // useOpenEpisode reports status='active'. Without this, the user
+  // would see the persisted user message but no streaming assistant
+  // tokens until they reload (the BG task completes + the /messages
+  // refetch lands).
+  //
+  // Guards:
+  // - Already-attached check (ref keyed by episode.id) — useOpenEpisode
+  //   may re-fetch and re-render while attach is in flight; we don't
+  //   want to double-POST.
+  // - status === 'running' — the user just sent from THIS tab; the
+  //   primary HttpAgent run is already delivering events. Attaching
+  //   would only duplicate them (the BG task fan-outs to every
+  //   subscriber queue, including the primary observer).
+  // - awaiting_user is NOT active — the HITL form-render path handles
+  //   that case via the hitlSchema derivation below.
+  const attachedEpisodeIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const ep = episodes.openEpisode;
+    if (!ep) return;
+    if (!conversationId) return;
+    if (ep.status !== 'active') return;
+    if (attachedEpisodeIdRef.current === ep.id) return;
+    if (status === 'running') return;
+
+    attachedEpisodeIdRef.current = ep.id;
+    attach(conversationId, ep.id);
+  }, [episodes.openEpisode, conversationId, status, attach]);
+
   const hitlSchema = useMemo<AskUserSchema | null>(() => {
     const open = episodes.openEpisode;
     if (!open || open.status !== 'awaiting_user') return null;

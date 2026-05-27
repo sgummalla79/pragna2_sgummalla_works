@@ -3,25 +3,31 @@ import { useServices } from '@/presentation/providers/ServiceContext';
 import type { Conversation } from '@/domain/types/conversation.types';
 
 /**
- * Resolve a single conversation by id.
+ * Resolve a single conversation by id from the dedicated
+ * ``GET /api/conversations/{id}`` endpoint.
  *
- * The backend doesn't expose a dedicated ``GET /api/conversations/{id}``
- * endpoint; we derive the single conversation from the list query.
- * Reasoning:
+ * Drives the chat-header title + the model-picker + the extended-
+ * thinking toggle on the chat surface — anywhere we need the
+ * conversation row's persisted shape independent of the message
+ * stream.
  *
- *   1. The sidebar already lists conversations on mount, so for the common
- *      "click a row in the sidebar" navigation the data is already cached.
- *   2. For deep-link navigation to ``/chat/:id`` (no prior list load), the
- *      list fetch is one round-trip; the same as a single-fetch would be.
- *   3. Skipping the dedicated endpoint keeps the backend surface narrower.
+ * Returns ``null`` for ``data`` when the id isn't owned by the
+ * authenticated user OR the row doesn't exist (the repo maps BE 404
+ * to ``null``). ``null`` rather than ``undefined`` because TanStack
+ * Query rejects ``undefined`` returns from a queryFn ("Query data
+ * cannot be undefined"). Callers fall back to "New chat" header state
+ * when ``data`` is nullish.
  *
- * Returns ``null`` for ``data`` when the id isn't in the list (the
- * user's session never owned this conversation, OR — the common case
- * during the landing → session handoff — the row hasn't been persisted
- * yet because the user is still mid-send). ``null`` rather than
- * ``undefined`` because TanStack Query rejects ``undefined`` returns
- * from a queryFn ("Query data cannot be undefined"). Callers should
- * fall back to "New conversation" header state when ``data`` is nullish.
+ * 2026-05-27 — switched from "filter from sidebar list cache" to a
+ * dedicated network fetch. The cache-derived path raced with
+ * ``useChatSession.onRunFinalized``'s invalidation: the single-conv
+ * lookup re-read the sidebar cache BEFORE the sidebar's own refetch
+ * landed, repopulating its own cache with the stale pre-title row.
+ * Result: freshly-titled conversations stuck on the "New chat"
+ * placeholder until manual refresh. The dedicated endpoint eliminates
+ * the cache-coordination race — the hook's refetch goes straight to
+ * the DB and gets the post-title-flow row regardless of sidebar
+ * timing.
  */
 export function useConversation(
   conversationId: string | undefined,
@@ -32,10 +38,7 @@ export function useConversation(
     queryKey: ['conversations', conversationId ?? '__none__', 'single'],
     queryFn: async () => {
       if (!conversationId) return null;
-      // Fetch a generous page so most users have their target conversation
-      // in the first response without paging.
-      const list = await conversationService.list({ limit: 200, offset: 0 });
-      return list.find((c) => c.id === conversationId) ?? null;
+      return conversationService.get(conversationId);
     },
     enabled: Boolean(conversationId),
     staleTime: 30_000,

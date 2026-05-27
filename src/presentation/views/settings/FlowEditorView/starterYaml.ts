@@ -13,6 +13,13 @@
  * * ``description`` is load-bearing — the default chat agent reads it
  *   to decide *when* to propose this flow to the user. Treat it like a
  *   tool description: short, specific, outcome-oriented.
+ * * Slash exposure (2026-05-27 — A+D) is pre-filled default-on
+ *   (``exposed_as_slash: true`` + ``slash_api_name`` matching
+ *   ``api_name``) so a fresh flow is slash-invocable the moment it
+ *   saves; authors opt out by removing/editing the lines. SaveFlowFromYaml
+ *   treats absent fields as "leave existing column value alone" so
+ *   legacy YAMLs predating these fields don't accidentally clear a
+ *   user's quick-toggle setting.
  * * Human-in-the-loop pauses are driven by the universal ``ask_user``
  *   tool. Bind it to an agent via the agent's ``tools:`` list at
  *   Settings → Agents, then steer it from the system prompt:
@@ -37,6 +44,11 @@ export const STARTER_FLOW_YAML = `# Tip: create + edit agents at Settings → Ag
 # outcome-oriented (e.g. "Migration assessment for legacy Java systems",
 # not "Helps with architecture").
 #
+# Slash exposure: 'exposed_as_slash' + 'slash_api_name' below make this
+# flow invocable as /<slash_api_name> in chat AND auto-bind it as a tool
+# the LLM can call. Pre-filled so a new flow is slash-ready the moment
+# it saves; remove or set exposed_as_slash: false to opt out.
+#
 # Human-in-the-loop: give an agent the 'ask_user' tool (via Settings →
 # Agents → Tools) and instruct it in the agent's system prompt to call
 # ask_user with the form fields you want. The flow will pause at that
@@ -45,6 +57,8 @@ export const STARTER_FLOW_YAML = `# Tip: create + edit agents at Settings → Ag
 api_name: my-flow
 display_name: My Flow
 description: A two-step intake → review pipeline.
+slash_api_name: my-flow
+exposed_as_slash: true
 metadata:
   max_revisions: 3
 

@@ -3,6 +3,7 @@ import { HttpAgent } from '@ag-ui/client';
 import type { AgentSubscriber, Message } from '@ag-ui/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { PRAGNA_BASE_URL } from '@/constants/api';
+import { invalidateConversationListQueries } from '@/presentation/hooks/conversations/useConversations';
 import { usePragnaSlashFlows } from '@/presentation/hooks/pragnaFlows/usePragnaSlashFlows';
 import { useAuthStore } from '@/presentation/store/authStore';
 import { logger } from '@/infrastructure/logging/logger';
@@ -105,6 +106,26 @@ export interface ChatSessionApi {
   /** Abort the current run. Safe to call when no run is active. */
   stop: () => void;
   /**
+   * Background-Run Execution M5.2 — attach to a live background run
+   * for the given conversation+episode via the BE M3 endpoint
+   * (``POST /api/conversations/{cid}/episodes/{eid}/stream``).
+   * The endpoint streams the full event log replay + any live events
+   * the background task continues to publish; the existing
+   * ``AgentSubscriber`` chain handles them identically to a normal
+   * send (TEXT_MESSAGE_* deltas update the streaming bubble, etc).
+   *
+   * Used on FE remount when ``useOpenEpisode`` reports an active
+   * episode for the current conversation — without this call, a
+   * navigate-back during a mid-stream response would force the
+   * user to reload the page to see the result.
+   *
+   * No-op if a run is already in flight (would double-POST).
+   * Returns ``void`` synchronously; the run progresses through the
+   * normal subscriber lifecycle, so consumers watch ``status`` for
+   * completion.
+   */
+  attach: (conversationId: string, episodeId: string) => void;
+  /**
    * Replace the agent's in-memory ``messages`` array wholesale and sync
    * to React state. Use after an out-of-band turn lands in persistence
    * — concretely, after a successful ``POST /episodes/{id}/resume``
@@ -183,7 +204,23 @@ export function useChatSession(
   const accessToken = useAuthStore((s) => s.accessToken);
   const qc = useQueryClient();
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Background-Run Execution M5.2 follow-up — lazy-init from the
+  // ``initialMessages`` prop so the FIRST render of ChatSurface already
+  // has the seeded transcript visible. Previously this defaulted to
+  // ``[]``, and the useEffect that runs ``syncMessages()`` updated the
+  // state to the agent's seed AFTER the first commit — producing a
+  // one-frame "blank scroll area" between commit-1 (empty list) and
+  // commit-2 (real messages) on every conversation switch (since
+  // ``key={conversationId}`` on ChatSurface forces a fresh mount).
+  // The lazy initializer runs ONCE per mount: same `key`-driven
+  // remount cadence as before, just with the right initial value.
+  // Empty Map() for the tool-calls aggregator is correct here:
+  // persisted seed messages don't have streaming tool calls (those
+  // are accumulated only during live runs); ``toChatMessage`` reads
+  // the map only when a message has ``toolCalls`` ids to resolve.
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    (initialMessages ?? []).map((m) => toChatMessage(m, new Map())),
+  );
   const [status, setStatus] = useState<ChatStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   // R7.1#3 follow-up — latest on_progress label from the agent. Last-wins
@@ -302,6 +339,26 @@ export function useChatSession(
         setStreamingModelByMessageId(new Map());
       },
       onRunFailed: ({ error: e }) => {
+        // Background-Run Execution M5.2 follow-up — AbortError is the
+        // signature of a user-initiated unwind (navigation, Stop
+        // button, agent swap on conversation switch). It is NOT "the
+        // run failed" — there's nothing for the user to see, nothing
+        // to surface in the banner, no log to ship to the structured
+        // logger. Reset state silently so the next action runs
+        // against a clean slate. The ``key={conversationId}`` remount
+        // at the ChatSurface render site already makes the most
+        // common path (cross-conversation navigation) call setState
+        // on an unmounted component — but the guard here covers the
+        // same-conversation cases (stop button, slash-URL override
+        // restore mid-run, future paths) without forcing a remount.
+        if (
+          e instanceof Error
+          && (e.name === 'AbortError' || /aborted/i.test(e.message))
+        ) {
+          setStatus('idle');
+          setProgressLabel(null);
+          return;
+        }
         setStatus('error');
         setError(e.message || 'Run failed');
         // R7.1#3 — strip disappears on terminal state per the design
@@ -320,11 +377,23 @@ export function useChatSession(
           agent.url = overrideUrlRef.current;
           overrideUrlRef.current = null;
         }
-        // First invalidation: catches the new conversation row that the
-        // backend auto-created on first turn so it appears in the sidebar
-        // immediately (title may still be null at this point).
-        qc.invalidateQueries({ queryKey: ['conversations'] });
-        // R4 #0: refetch the persisted message log for this conversation
+        // Background-Run Execution M5.2 follow-up — scoped invalidate.
+        // The previous ``invalidateQueries({ queryKey: ['conversations'] })``
+        // was a prefix match: it invalidated the sidebar list AND every
+        // ``['conversations', <id>, 'messages' | 'usage' | 'episodes' |
+        // 'single']`` for EVERY conversation in the cache. One chat
+        // completion produced 5+ duplicate refetches in dev.
+        //
+        // The helper invalidates ONLY:
+        //   (1) the sidebar lists (auto-created conv appears, title arrives),
+        //   (2) THIS conversation's single-lookup (chat header title).
+        // Per-conv ``messages`` for THIS thread is handled by the explicit
+        // invalidate below. Per-conv ``usage`` / ``episodes`` for
+        // unrelated conversations are left alone.
+        invalidateConversationListQueries(qc, {
+          conversationId: threadId ?? undefined,
+        });
+        // R4 #0: refetch the persisted message log for THIS conversation
         // so each assistant turn picks up its `user_model_id` attribution.
         // Mid-stream messages render with the conversation's preferred
         // model as a fallback; this invalidation upgrades them to the
@@ -467,6 +536,14 @@ export function useChatSession(
     const { unsubscribe } = agent.subscribe(subscriber);
     return () => {
       unsubscribe();
+      // Background-Run Execution M2/M5.1 — ``abortRun`` aborts the
+      // CLIENT-side fetch; it does NOT cancel the BE run. After the
+      // backend's background-task refactor, the SSE handler is an
+      // observer and the LLM call lives in an asyncio task that
+      // survives client disconnect. Calling ``abortRun`` here means
+      // "stop watching" — the response continues, persists, and the
+      // user sees it on next reload OR via M5.2's live stream-attach
+      // when they navigate back mid-run.
       agent.abortRun();
     };
   }, [agent, syncMessages, qc]);
@@ -589,11 +666,48 @@ export function useChatSession(
       agent.abortRun();
       setStatus('idle');
       // R7.1#3 — clear immediately on stop. RunFinalized also clears,
-      // but it can lag a few hundred ms behind abort; we want the
-      // strip to disappear the instant the user clicks Stop.
+      // but it can lag a few hundred ms behind agent.abortRun; we want
+      // the strip to disappear the instant the user clicks Stop.
       setProgressLabel(null);
     }
   }, [agent, status]);
+
+  const attach = useCallback(
+    (conversationId: string, episodeId: string) => {
+      if (!agent) return;
+      // Already running (e.g. the user submitted a new turn between
+      // useOpenEpisode landing the active-episode result and this
+      // callback firing) — don't double-POST. The active run is the
+      // authoritative one; the live attach would just duplicate events
+      // it's already going to deliver.
+      if (status === 'running') return;
+
+      // Capture the chat URL so the existing onRunFinalized restore
+      // (overrideUrlRef.current → agent.url) puts the agent back on
+      // /pragna/chat for the next send. Same pattern used by
+      // sendWithModel / sendWithOverrides / slash dispatch.
+      overrideUrlRef.current = agent.url;
+      // Relative URL — vite proxies /api → backend in dev; same-origin
+      // in prod. Matches the PRAGNA_BASE_URL pattern (relative for
+      // CORS avoidance via the proxy).
+      agent.url = `/api/conversations/${encodeURIComponent(conversationId)}/episodes/${encodeURIComponent(episodeId)}/stream`;
+
+      // runAgent with no message push — the user message was eager-
+      // persisted by the BE before the original SSE opened, so it's
+      // already in the agent's seed (initialMessages). The attach
+      // endpoint replays the event_log + live events; HttpAgent's
+      // subscriber chain applies them to agent.messages exactly as
+      // it would for a normal /pragna/chat call.
+      agent.runAgent({}).catch((e: unknown) => {
+        if (e instanceof Error && e.name === 'AbortError') return;
+        logger.fromError(
+          'CHT_004:attach_rejected',
+          e instanceof Error ? e : new Error(String(e)),
+        );
+      });
+    },
+    [agent, status],
+  );
 
   // Sync persisted messages into the agent's in-memory list. Needed
   // after /resume completes (its SSE stream is buffered by
@@ -616,6 +730,7 @@ export function useChatSession(
     sendWithModel,
     sendWithOverrides,
     stop,
+    attach,
     replaceMessages,
     streamingModelByMessageId,
   };

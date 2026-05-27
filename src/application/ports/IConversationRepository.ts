@@ -18,6 +18,17 @@ export interface IConversationRepository {
   /** List the authenticated user's conversations (newest first). */
   list(params?: ConversationListParams): Promise<Conversation[]>;
   /**
+   * Read a single conversation by id. Used by the chat-header title
+   * lookup. Returns ``null`` for "not found" / "not owned" (both 404
+   * server-side; the indirection here lets the caller render the
+   * "New chat" placeholder without an error toast).
+   *
+   * 2026-05-27 — replaces the previous "filter from the sidebar list
+   * cache" pattern, which raced with the auto-title invalidation flow
+   * (cache-derived single-conv read kept serving stale `null` titles).
+   */
+  get(conversationId: string): Promise<Conversation | null>;
+  /**
    * Eager-create a conversation row before the first message is sent.
    * Called from ``ChatLandingView.handleSend`` BEFORE navigation so
    * the chat surface mounts with a row that's guaranteed to exist.

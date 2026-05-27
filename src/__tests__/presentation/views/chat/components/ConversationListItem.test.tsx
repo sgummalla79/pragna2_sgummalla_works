@@ -59,9 +59,12 @@ describe('ConversationListItem', () => {
     expect(screen.getByText('My chat')).toBeInTheDocument();
   });
 
-  it('falls back to "Untitled chat" when title is null', () => {
+  it('falls back to "New chat" placeholder when title is null', () => {
+    // Background-Run M4: the placeholder for a not-yet-titled row is
+    // "New chat" (signals freshness; auto-title is in flight) — NOT
+    // 'Untitled chat' which signals user-initiated emptiness.
     renderItem(makeConversation({ title: null }));
-    expect(screen.getByText('Untitled chat')).toBeInTheDocument();
+    expect(screen.getByText('New chat')).toBeInTheDocument();
   });
 
   it('exposes a kebab menu trigger for actions', () => {

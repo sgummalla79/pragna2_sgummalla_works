@@ -4,6 +4,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as Dialog from '@radix-ui/react-dialog';
 import { MoreVertical, Pencil, Pin, PinOff, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CHAT_PLACEHOLDER_TITLE } from '@/constants/api';
 import { ROUTES } from '@/constants/routes';
 import { Button } from '@/presentation/components/ui/Button';
 import { useConversationUsage } from '@/presentation/hooks/conversations/useConversations';
@@ -87,7 +88,13 @@ export function ConversationListItem({ conversation }: ConversationListItemProps
     }
   }
 
-  const rawTitle = conversation.title ?? 'Untitled chat';
+  // ``CHAT_PLACEHOLDER_TITLE`` ('New chat') signals "title hasn't
+  // been generated yet" — the BE fires auto-title fire-and-forget at
+  // eager-create time so this only renders during the ~1s window
+  // between submit and the React Query refetch that picks up the
+  // landed title. Distinct from the rename-dialog fallback's
+  // 'Untitled chat' which signals user-initiated emptiness.
+  const rawTitle = conversation.title ?? CHAT_PLACEHOLDER_TITLE;
   // Hard 27-char truncate followed by a single-character ellipsis.
   // Deterministic regardless of font / sidebar width — CSS `truncate`
   // would otherwise vary the visible cut-off as fonts re-render.
@@ -110,7 +117,7 @@ export function ConversationListItem({ conversation }: ConversationListItemProps
       <Link
         to={`${ROUTES.CHAT}/${conversation.id}`}
         className={cn(
-          'group relative flex items-center rounded-lg px-2.5 py-2.5 min-h-10 text-[14px] no-underline transition-colors duration-150',
+          'group relative flex items-center rounded-lg px-2.5 py-1 min-h-8 text-[14px] no-underline transition-colors duration-150',
           isActive
             ? 'font-semibold text-sidebar-primary-foreground bg-sidebar-primary'
             : 'font-medium text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent',

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useServices } from '@/presentation/providers/ServiceContext';
+import { invalidateConversationListQueries } from './useConversations';
 
 /**
  * Mutations against a single conversation: rename, change active model,
@@ -20,8 +21,10 @@ export function useRenameConversation() {
     mutationFn: ({ id, title }: { id: string; title: string }) =>
       conversationService.update(id, { title }),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['conversations'] });
-      qc.invalidateQueries({ queryKey: ['conversations', vars.id] });
+      // Scoped invalidate — sidebar lists + this conv's single-lookup
+      // (chat header title). Does NOT cascade into messages / usage /
+      // episodes; those are unrelated to a title rename.
+      invalidateConversationListQueries(qc, { conversationId: vars.id });
     },
   });
 }
@@ -34,8 +37,7 @@ export function useSetConversationModel() {
     mutationFn: ({ id, userModelId }: { id: string; userModelId: string }) =>
       conversationService.update(id, { userModelId }),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['conversations'] });
-      qc.invalidateQueries({ queryKey: ['conversations', vars.id] });
+      invalidateConversationListQueries(qc, { conversationId: vars.id });
     },
   });
 }
@@ -43,8 +45,9 @@ export function useSetConversationModel() {
 /**
  * Toggle the per-user pin flag on a conversation. Pinning stamps
  * ``pinned_at = now()`` server-side; unpinning clears it. Invalidates
- * both the paginated conversation list AND the pinned-only query so
- * the sidebar's Pinned section refreshes immediately.
+ * the sidebar list + pinned list so both sidebar sections refresh
+ * immediately. The conv's single-lookup is also refreshed so the chat
+ * header reflects the pin icon if it surfaces one.
  */
 export function useSetPinned() {
   const { conversationService } = useServices();
@@ -53,8 +56,7 @@ export function useSetPinned() {
     mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) =>
       conversationService.update(id, { pinned }),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['conversations'] });
-      qc.invalidateQueries({ queryKey: ['conversations', vars.id] });
+      invalidateConversationListQueries(qc, { conversationId: vars.id });
     },
   });
 }
@@ -73,8 +75,7 @@ export function useSetThinkingEnabled() {
     mutationFn: ({ id, thinkingEnabled }: { id: string; thinkingEnabled: boolean }) =>
       conversationService.update(id, { thinkingEnabled }),
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['conversations'] });
-      qc.invalidateQueries({ queryKey: ['conversations', vars.id] });
+      invalidateConversationListQueries(qc, { conversationId: vars.id });
     },
   });
 }
@@ -185,7 +186,11 @@ export function useBranchConversation() {
     mutationFn: ({ conversationId, messageId }: { conversationId: string; messageId: string }) =>
       conversationService.branch(conversationId, messageId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['conversations'] });
+      // Sidebar lists only — the new fork has no ``single`` cache
+      // entry to invalidate yet. ``useConversation(newId)`` on the
+      // post-navigation chat header will find it via the refetched
+      // list cache.
+      invalidateConversationListQueries(qc);
     },
   });
 }

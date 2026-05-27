@@ -117,12 +117,21 @@ export function ChatMessage({
 }: ChatMessageProps) {
   const { attachmentService } = useServices();
   // R6a: load the user's flows once per render and surface the
-  // api_name set so each tool call below can decide whether to render
-  // the default ToolCallBadge or the FlowProposalCard. Empty when the
-  // user has no flows — the branch then never fires.
+  // PROPOSE-FLOW tool name set so each tool call below can decide
+  // whether to render the default ToolCallBadge or the FlowProposalCard.
+  // Empty when the user has no flows — the branch then never fires.
+  //
+  // 2026-05-27 — the BE renamed propose-flow tools from ``<api_name>``
+  // to ``propose_flow_<api_name>`` so they can never collide with
+  // slash-flow tool names (which use ``slash_api_name`` and may equal
+  // ``api_name``). See
+  // ``src/infrastructure/agents/tools/propose_flow.py`` for the
+  // canonical prefix. The set here MUST mirror that pattern — otherwise
+  // every propose-flow tool call falls through to the default
+  // ToolCallBadge instead of rendering the confirmation UI.
   const { data: flows = [] } = useFlows();
-  const flowApiNames = useMemo(
-    () => new Set(flows.map((f) => f.apiName)),
+  const proposeFlowToolNames = useMemo(
+    () => new Set(flows.map((f) => `propose_flow_${f.apiName}`)),
     [flows],
   );
   // Inline-edit state is local to the user-turn bubble. Save calls the
@@ -274,13 +283,13 @@ export function ChatMessage({
                     return null;
                   }
                   // R6a: tool calls whose name matches one of the user's
-                  // flow api_names are propose-flow proposals — render
-                  // the confirmation card instead of the default badge.
-                  // ``conversationId`` is required by the card to fire
-                  // the run; without it (brand-new conversation) we
-                  // fall back to the badge so the LLM's intent is still
-                  // visible.
-                  if (flowApiNames.has(call.name) && conversationId) {
+                  // propose-flow tool names (``propose_flow_<api_name>``)
+                  // are propose-flow proposals — render the confirmation
+                  // card instead of the default badge. ``conversationId``
+                  // is required by the card to fire the run; without it
+                  // (brand-new conversation) we fall back to the badge
+                  // so the LLM's intent is still visible.
+                  if (proposeFlowToolNames.has(call.name) && conversationId) {
                     return (
                       <FlowProposalCard
                         key={call.id}

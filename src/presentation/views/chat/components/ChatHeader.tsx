@@ -1,4 +1,4 @@
-import { APP_NAME } from '@/constants/api';
+import { APP_NAME, CHAT_PLACEHOLDER_TITLE } from '@/constants/api';
 import type { Conversation } from '@/domain/types/conversation.types';
 
 interface ChatHeaderProps {
@@ -26,9 +26,14 @@ interface ChatHeaderProps {
  * a pure title + brand mark.
  */
 export function ChatHeader({ conversation }: ChatHeaderProps) {
-  const title =
-    conversation?.title
-    ?? (conversation ? 'Untitled chat' : 'New conversation');
+  // Background-Run M4: collapse the two "title not yet set" cases
+  // ('Untitled chat' for an existing untitled row vs. 'New conversation'
+  // before the row materialises) into one ChatGPT-style placeholder.
+  // The eager-create + fire-and-forget auto-title path makes the gap
+  // ~1s in the typical case; one consistent label avoids the brief
+  // "New conversation" → "Untitled chat" flicker that used to happen
+  // when the row first appeared.
+  const title = conversation?.title ?? CHAT_PLACEHOLDER_TITLE;
 
   // Elevation in BOTH themes from a single shadow stack:
   //

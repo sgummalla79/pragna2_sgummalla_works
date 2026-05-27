@@ -136,6 +136,24 @@ export class ConversationRepository implements IConversationRepository {
     return data.map(mapConversation);
   }
 
+  async get(conversationId: string): Promise<Conversation | null> {
+    // BE returns 404 for both "no such conversation" AND "owned by
+    // another user" — by design, to avoid leaking existence. Map 404
+    // → ``null`` so the caller (typically ``useConversation``) can
+    // render the "New chat" placeholder without throwing.
+    try {
+      const { data } = await this.http.get<ApiConversationResponse>(
+        `/api/conversations/${conversationId}`,
+      );
+      return mapConversation(data);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
   async create(payload: CreateConversationPayload): Promise<Conversation> {
     // Wire-format uses snake_case; convert at the boundary. BE returns
     // 201 on fresh-create and 200 on idempotent retry — both map to
