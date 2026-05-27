@@ -153,18 +153,18 @@ export default function AgentsView() {
                             <span className="text-xs text-muted-foreground italic">no description</span>
                           )}
                         </div>
-                        {/* Row 3 — Model. Theme-primary pill. */}
+                        {/* Row 3 — Model. Emerald static pill. */}
                         <div className="flex flex-wrap items-baseline gap-1.5 mt-1.5">
                           <span className="text-xs font-semibold text-foreground">Model :</span>
                           {model ? (
-                            <Badge className="bg-primary text-primary-foreground border-transparent font-mono text-[10.5px]">
+                            <Badge className="border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono text-[10.5px]">
                               {model.modelName}
                             </Badge>
                           ) : (
                             <span className="text-xs text-muted-foreground italic">unknown</span>
                           )}
                         </div>
-                        {/* Row 4 — Emits. Theme-primary pills. */}
+                        {/* Row 4 — Emits. Emerald static pills. */}
                         <div className="flex flex-wrap items-baseline gap-1.5 mt-1.5">
                           <span className="text-xs font-semibold text-foreground">Emits :</span>
                           {a.emits.length === 0 ? (
@@ -173,15 +173,16 @@ export default function AgentsView() {
                             a.emits.map((emit) => (
                               <Badge
                                 key={emit}
-                                className="bg-primary text-primary-foreground border-transparent font-mono text-[10.5px]"
+                                className="border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono text-[10.5px]"
                               >
                                 {emit}
                               </Badge>
                             ))
                           )}
                         </div>
-                        {/* Row 5 — Flows referencing this agent. Saturated
-                            emerald pills for clickable navigation links.
+                        {/* Row 5 — Flows referencing this agent.
+                            Theme-primary clickable buttons — matches the
+                            app-wide "buttons are theme-colored" language.
                             Outside the card-wide Link because each pill is
                             its own anchor (HTML disallows nested <a>). */}
                         <div className="flex flex-wrap items-baseline gap-1.5 mt-1.5">
@@ -197,7 +198,7 @@ export default function AgentsView() {
                                 title={`Open flow “${flow.displayName}”`}
                               >
                                 <Badge
-                                  className="border-transparent rounded-md px-2.5 py-1 bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 shadow-sm hover:shadow active:scale-[0.97] transition-all font-mono text-[10.5px]"
+                                  className="border-transparent rounded-md px-2.5 py-1 bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80 shadow-sm hover:shadow active:scale-[0.97] transition-all font-mono text-[10.5px]"
                                 >
                                   {flow.apiName}
                                 </Badge>
