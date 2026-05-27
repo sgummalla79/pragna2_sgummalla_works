@@ -38,8 +38,18 @@ export function ConnectedPanel({
 
   const bulkUpdate = useBulkUpdateModels();
 
+  // Sort by the *original* enabled flag (not the effective one) so that
+  // toggling a row in-grid doesn't reorder it underneath the user's
+  // cursor — the new sort lands only after Save → refetch → fresh
+  // `models` arrives. Tiebreaker is displayName for a stable read.
   const effectiveModels = useMemo<Model[]>(
-    () => models.map((m) => ({ ...m, ...applyPending(m, pendingChanges[m.id]) })),
+    () => {
+      const sorted = [...models].sort((a, b) => {
+        if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+        return a.displayName.localeCompare(b.displayName);
+      });
+      return sorted.map((m) => ({ ...m, ...applyPending(m, pendingChanges[m.id]) }));
+    },
     [models, pendingChanges],
   );
 

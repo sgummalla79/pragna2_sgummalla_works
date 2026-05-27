@@ -153,21 +153,18 @@ export default function AgentsView() {
                             <span className="text-xs text-muted-foreground italic">no description</span>
                           )}
                         </div>
-                        {/* Row 3 — Model. */}
+                        {/* Row 3 — Model. Theme-primary pill. */}
                         <div className="flex flex-wrap items-baseline gap-1.5 mt-1.5">
                           <span className="text-xs font-semibold text-foreground">Model :</span>
                           {model ? (
-                            <Badge
-                              variant="secondary"
-                              className="font-mono text-[10.5px]"
-                            >
+                            <Badge className="bg-primary text-primary-foreground border-transparent font-mono text-[10.5px]">
                               {model.modelName}
                             </Badge>
                           ) : (
                             <span className="text-xs text-muted-foreground italic">unknown</span>
                           )}
                         </div>
-                        {/* Row 4 — Emits. */}
+                        {/* Row 4 — Emits. Theme-primary pills. */}
                         <div className="flex flex-wrap items-baseline gap-1.5 mt-1.5">
                           <span className="text-xs font-semibold text-foreground">Emits :</span>
                           {a.emits.length === 0 ? (
@@ -176,17 +173,17 @@ export default function AgentsView() {
                             a.emits.map((emit) => (
                               <Badge
                                 key={emit}
-                                variant="outline"
-                                className="font-mono text-[10.5px]"
+                                className="bg-primary text-primary-foreground border-transparent font-mono text-[10.5px]"
                               >
                                 {emit}
                               </Badge>
                             ))
                           )}
                         </div>
-                        {/* Row 5 — Flows referencing this agent. Outside the
-                            card-wide Link because each pill is its own link to
-                            the flow editor (HTML disallows nested <a>). */}
+                        {/* Row 5 — Flows referencing this agent. Saturated
+                            emerald pills for clickable navigation links.
+                            Outside the card-wide Link because each pill is
+                            its own anchor (HTML disallows nested <a>). */}
                         <div className="flex flex-wrap items-baseline gap-1.5 mt-1.5">
                           <span className="text-xs font-semibold text-foreground">Flows :</span>
                           {usedByFlows.length === 0 ? (
@@ -200,7 +197,7 @@ export default function AgentsView() {
                                 title={`Open flow “${flow.displayName}”`}
                               >
                                 <Badge
-                                  className="border-transparent bg-primary/10 text-primary hover:bg-primary/20 font-mono text-[10.5px]"
+                                  className="border-transparent rounded-md px-2.5 py-1 bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 shadow-sm hover:shadow active:scale-[0.97] transition-all font-mono text-[10.5px]"
                                 >
                                   {flow.apiName}
                                 </Badge>
