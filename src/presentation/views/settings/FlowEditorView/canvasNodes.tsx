@@ -23,7 +23,16 @@ import { type AgentNodeData, type BoundaryNodeData, NODE_START } from './editorT
 // stay interactive, so you can still grab a hidden handle the moment you
 // hover. Visible too while a connection is being dragged.
 const HANDLE_CLASS =
-  '!h-2.5 !w-2.5 !bg-muted-foreground opacity-0 transition-opacity group-hover:opacity-100';
+  '!h-2 !w-2 !bg-muted-foreground opacity-0 transition-opacity group-hover:opacity-100';
+
+// Subtle per-role tints — bg/border pairs that read at a glance without
+// being loud. Tailwind opacity utilities keep them theme-neutral (work
+// against light AND dark canvas backgrounds). Selected state's ring +
+// border-primary still wins on top.
+const TINT_NO_EMITS = 'bg-sky-500/8 border-sky-500/40';
+const TINT_HAS_EMITS = 'bg-amber-500/8 border-amber-500/40';
+const TINT_START = 'bg-emerald-500/8 border-emerald-500/50 text-emerald-700 dark:text-emerald-300';
+const TINT_END = 'bg-rose-500/8 border-rose-500/50 text-rose-700 dark:text-rose-300';
 
 /** A source+target-capable handle on each side (Loose mode lets a
  *  `source` handle also receive connections, so one set covers both). */
@@ -41,23 +50,27 @@ function SideHandles() {
 export function AgentNode({ data, selected }: NodeProps<AgentNodeData>) {
   const agent = data.agent;
   const hasModel = Boolean(agent.userModel);
+  const hasEmits = agent.emits.length > 0;
   const slotCount = (data.inputs?.length ?? 0) + (data.outputs?.length ?? 0);
+  // Branching nodes (emits) get amber; pure sequential / leaf nodes get
+  // sky-blue. Selected ring + border-primary overrides both.
+  const tint = hasEmits ? TINT_HAS_EMITS : TINT_NO_EMITS;
   return (
     <div
       className={[
-        'group min-w-[180px] max-w-[240px] rounded-[10px] border bg-card px-3 py-2 text-card-foreground shadow-sm transition',
-        selected ? 'border-primary ring-2 ring-primary/40' : 'border-border',
+        'group min-w-[130px] max-w-[180px] rounded-[8px] border px-2.5 py-1.5 text-card-foreground shadow-sm transition',
+        selected ? 'border-primary bg-card ring-2 ring-primary/40' : tint,
       ].join(' ')}
     >
       <SideHandles />
-      <div className="text-[12px] font-semibold leading-tight">{data.nodeId}</div>
-      <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+      <div className="text-[11px] font-semibold leading-tight">{data.nodeId}</div>
+      <div className="mt-0.5 truncate text-[10px] text-muted-foreground">
         {agent.displayName || agent.apiName || 'unnamed agent'}
       </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+      <div className="mt-1 flex flex-wrap items-center gap-1">
         <span
           className={[
-            'rounded px-1.5 py-0.5 text-[10px]',
+            'rounded px-1 py-0.5 text-[9px]',
             hasModel
               ? 'bg-muted text-muted-foreground'
               : 'bg-destructive/15 text-destructive',
@@ -65,13 +78,13 @@ export function AgentNode({ data, selected }: NodeProps<AgentNodeData>) {
         >
           {hasModel ? agent.userModel : 'no model'}
         </span>
-        {agent.emits.length > 0 && (
-          <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">
+        {hasEmits && (
+          <span className="rounded bg-primary/15 px-1 py-0.5 text-[9px] text-primary">
             {agent.emits.length} emit{agent.emits.length > 1 ? 's' : ''}
           </span>
         )}
         {slotCount > 0 && (
-          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="rounded bg-muted px-1 py-0.5 text-[9px] text-muted-foreground">
             slots
           </span>
         )}
@@ -82,8 +95,14 @@ export function AgentNode({ data, selected }: NodeProps<AgentNodeData>) {
 
 export function BoundaryNode({ data }: NodeProps<BoundaryNodeData>) {
   const isStart = data.boundary === NODE_START;
+  const tint = isStart ? TINT_START : TINT_END;
   return (
-    <div className="group rounded-lg border border-dashed border-border bg-muted px-3 py-1.5 text-[12px] text-muted-foreground">
+    <div
+      className={[
+        'group rounded-md border border-dashed px-2.5 py-1 text-[11px] font-medium',
+        tint,
+      ].join(' ')}
+    >
       <SideHandles />
       {isStart ? '▶ Start' : '■ End'}
     </div>
