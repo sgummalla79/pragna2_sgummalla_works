@@ -79,8 +79,15 @@ export function ConditionEdge({
         }}
       />
       <EdgeLabelRenderer>
+        {/* pointer-events-auto is REQUIRED: React Flow's
+            EdgeLabelRenderer mounts a wrapper with `pointer-events: none`
+            so labels float over the canvas without blocking pan/zoom.
+            Without explicitly re-enabling pointer events on this child,
+            the <select> below never receives the click that would open
+            its dropdown. nodrag / nopan keep canvas gestures unaffected
+            while the user is interacting with the select itself. */}
         <div
-          className="nodrag nopan absolute"
+          className="nodrag nopan absolute pointer-events-auto"
           style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
         >
           <select
@@ -88,14 +95,19 @@ export function ConditionEdge({
             title={
               unknownEmit
                 ? `The source agent doesn't declare "${condition}" in its emit labels — this edge won't fire at runtime. Add it to the agent's emits, or pick a declared outcome.`
-                : undefined
+                : 'Edge condition — pick the outcome this edge fires on'
             }
             value={condition}
             onChange={(e) =>
               setEdgeCondition(id, e.target.value as EdgeConditionValue)
             }
             className={[
-              'cursor-pointer rounded border bg-popover px-1 py-0.5 text-[10px] shadow-sm',
+              // Sized + contrasted to be discoverable at default zoom:
+              // bg-card (more solid than bg-popover), bumped text, a
+              // touch of font-weight + min-width so a tiny "default"
+              // chip doesn't collapse to a few pixels in the middle of
+              // a short edge.
+              'cursor-pointer rounded border bg-card px-1.5 py-0.5 text-[11px] font-medium shadow min-w-[3.5rem] text-center',
               unknownEmit
                 ? 'border-destructive text-destructive'
                 : condition === EDGE_CONDITIONS.DEFAULT
