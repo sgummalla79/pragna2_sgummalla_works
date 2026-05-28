@@ -16,7 +16,12 @@ import {
   EDGE_CONDITION_COLORS,
   type EdgeConditionValue,
 } from '@/constants/edgeConditions';
-import { type AgentNodeData, type ConditionEdgeData, NODE_TYPE_AGENT } from './editorTypes';
+import {
+  type AgentNodeData,
+  type ConditionEdgeData,
+  NODE_START,
+  NODE_TYPE_AGENT,
+} from './editorTypes';
 import { useFlowEditorStore } from './useFlowEditorStore';
 
 const STANDARD = Object.values(EDGE_CONDITIONS);
@@ -67,6 +72,13 @@ export function ConditionEdge({
   const unknownEmit =
     condition !== EDGE_CONDITIONS.DEFAULT && !sourceEmits.includes(condition);
 
+  // __start__ has no upstream agent, so it can never emit anything — the
+  // edge out of it is unconditionally the flow's entry. Hide the picker
+  // there so the canvas isn't cluttered with a non-choice. Edges TO
+  // __end__ keep their picker (a branching node still routes some
+  // outcomes to the end and others to a loop, etc.).
+  const fromStart = source === NODE_START;
+
   return (
     <>
       <BaseEdge
@@ -78,7 +90,7 @@ export function ConditionEdge({
           strokeDasharray: unknownEmit ? '4 3' : undefined,
         }}
       />
-      <EdgeLabelRenderer>
+      {!fromStart && <EdgeLabelRenderer>
         {/* pointer-events-auto is REQUIRED: React Flow's
             EdgeLabelRenderer mounts a wrapper with `pointer-events: none`
             so labels float over the canvas without blocking pan/zoom.
@@ -127,7 +139,7 @@ export function ConditionEdge({
             )}
           </select>
         </div>
-      </EdgeLabelRenderer>
+      </EdgeLabelRenderer>}
     </>
   );
 }
