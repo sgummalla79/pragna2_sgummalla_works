@@ -20,6 +20,12 @@ import { type AgentNodeData, type ConditionEdgeData, NODE_TYPE_AGENT } from './e
 import { useFlowEditorStore } from './useFlowEditorStore';
 
 const STANDARD = Object.values(EDGE_CONDITIONS);
+// Stable empty-array reference for the "source is not an agent" branch of
+// the sourceEmits selector. Returning a fresh `[]` from a Zustand selector
+// makes useSyncExternalStore see a new snapshot every render (Object.is
+// is the default equality, and Object.is([], []) is false) → infinite
+// re-render loop. This sentinel keeps the fallback referentially stable.
+const EMPTY_EMITS: readonly string[] = Object.freeze([]);
 
 export function ConditionEdge({
   id,
@@ -36,7 +42,9 @@ export function ConditionEdge({
   const setEdgeCondition = useFlowEditorStore((s) => s.setEdgeCondition);
   const sourceEmits = useFlowEditorStore((s) => {
     const n = s.nodes.find((x) => x.id === source);
-    return n?.type === NODE_TYPE_AGENT ? (n.data as AgentNodeData).agent.emits : [];
+    return n?.type === NODE_TYPE_AGENT
+      ? (n.data as AgentNodeData).agent.emits
+      : EMPTY_EMITS;
   });
 
   const condition = data?.condition ?? EDGE_CONDITIONS.DEFAULT;
