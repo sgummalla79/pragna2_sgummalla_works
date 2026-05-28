@@ -294,6 +294,16 @@ function EditorInner({ flowId }: { flowId?: string }) {
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onReconnect={onReconnect}
+            // ★ Wiring onReconnect alone is NOT enough — React Flow's
+            // EdgeRenderer also gates the reconnect anchor on
+            // `edge.reconnectable === true` OR this `edgesUpdatable` prop
+            // being truthy (see @reactflow/core wrapEdge `isReconnectable`).
+            // Without it, the anchor never renders and dragging an
+            // existing edge endpoint does nothing — even though our
+            // store-level onReconnect action works fine (locked by
+            // useFlowEditorStore.test.ts). Unit tests caught the store
+            // behaviour but not this UI gate; keep both in mind.
+            edgesUpdatable
             isValidConnection={(conn) => isValidFlowConnection(edges, conn)}
             onNodeClick={handleNodeClick}
             onPaneClick={() => selectNode(null)}
