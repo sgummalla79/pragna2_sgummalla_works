@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import ReactFlow, {
   Background,
   ConnectionMode,
+  type Connection,
   Controls,
   type NodeMouseHandler,
   ReactFlowProvider,
@@ -79,7 +80,22 @@ function EditorInner({ flowId }: { flowId?: string }) {
   const onReconnect = useFlowEditorStore((s) => s.onReconnect);
   const beginReconnect = useFlowEditorStore((s) => s.beginReconnect);
   const endReconnect = useFlowEditorStore((s) => s.endReconnect);
-  const reconnectingEdgeId = useFlowEditorStore((s) => s.reconnectingEdgeId);
+
+  // Validator that reads FRESH store state every call. React Flow's
+  // internal handleEdgeUpdater (wrapEdge, ~L3272) captures the
+  // `isValidConnection` reference at drag-start — BEFORE
+  // `onReconnectStart` fires — and uses that captured reference for the
+  // whole drag. A closure over React state (reconnectingEdgeId, edges)
+  // from the previous render would see stale values throughout: when
+  // onReconnectStart later sets `reconnectingEdgeId`, the captured
+  // closure has no way to learn about it. Reading from
+  // `useFlowEditorStore.getState()` inside a STABLE useCallback
+  // sidesteps the closure entirely — each call grabs the current store
+  // snapshot, so the dedupe-exclusion sees the in-flight edge id.
+  const isValidConnection = useCallback((conn: Connection) => {
+    const state = useFlowEditorStore.getState();
+    return isValidFlowConnection(state.edges, conn, state.reconnectingEdgeId);
+  }, []);
   const selectNode = useFlowEditorStore((s) => s.selectNode);
   const addAgentNode = useFlowEditorStore((s) => s.addAgentNode);
   const setMeta = useFlowEditorStore((s) => s.setMeta);
@@ -316,9 +332,7 @@ function EditorInner({ flowId }: { flowId?: string }) {
             // useFlowEditorStore.test.ts). Unit tests caught the store
             // behaviour but not this UI gate; keep both in mind.
             edgesUpdatable
-            isValidConnection={(conn) =>
-              isValidFlowConnection(edges, conn, reconnectingEdgeId)
-            }
+            isValidConnection={isValidConnection}
             onNodeClick={handleNodeClick}
             onPaneClick={() => selectNode(null)}
             nodeTypes={NODE_TYPES}

@@ -24,7 +24,6 @@ import {
 } from './editorTypes';
 import { useFlowEditorStore } from './useFlowEditorStore';
 
-const STANDARD = Object.values(EDGE_CONDITIONS);
 // Stable empty-array reference for the "source is not an agent" branch of
 // the sourceEmits selector. Returning a fresh `[]` from a Zustand selector
 // makes useSyncExternalStore see a new snapshot every render (Object.is
@@ -63,8 +62,15 @@ export function ConditionEdge({
   });
 
   const color = EDGE_CONDITION_COLORS[condition] ?? 'var(--color-border)';
-  // Standard set + the source agent's emits, de-duplicated, order-stable.
-  const options = Array.from(new Set<string>([...STANDARD, ...sourceEmits]));
+
+  // Dropdown options: ONLY the source agent's declared emits, plus the
+  // always-route `default` as a fallback. The standard non-emit set
+  // (approved/rejected/etc.) was noise — agents that need those should
+  // declare them as emits, and only then they show up in the picker.
+  // Order-stable + de-duplicated in case `default` is already in emits.
+  const options = Array.from(
+    new Set<string>([EDGE_CONDITIONS.DEFAULT, ...sourceEmits]),
+  );
 
   // Warn (don't block) when a conditioned edge leaves a node whose agent
   // doesn't declare that outcome in `emits` — at runtime the edge would
@@ -72,12 +78,15 @@ export function ConditionEdge({
   const unknownEmit =
     condition !== EDGE_CONDITIONS.DEFAULT && !sourceEmits.includes(condition);
 
-  // __start__ has no upstream agent, so it can never emit anything — the
-  // edge out of it is unconditionally the flow's entry. Hide the picker
-  // there so the canvas isn't cluttered with a non-choice. Edges TO
-  // __end__ keep their picker (a branching node still routes some
-  // outcomes to the end and others to a loop, etc.).
+  // Hide the picker when there's no real choice to make:
+  //   - __start__ has no upstream agent, so its outgoing edge is the
+  //     flow's unconditional entry.
+  //   - A source with no declared emits is non-branching; every outgoing
+  //     edge is implicitly `default`.
+  // Edges TO __end__ keep their picker — a branching node still routes
+  // some outcomes to the end and others to a loop.
   const fromStart = source === NODE_START;
+  const hidePicker = fromStart || sourceEmits.length === 0;
 
   return (
     <>
@@ -90,7 +99,7 @@ export function ConditionEdge({
           strokeDasharray: unknownEmit ? '4 3' : undefined,
         }}
       />
-      {!fromStart && <EdgeLabelRenderer>
+      {!hidePicker && <EdgeLabelRenderer>
         {/* pointer-events-auto is REQUIRED: React Flow's
             EdgeLabelRenderer mounts a wrapper with `pointer-events: none`
             so labels float over the canvas without blocking pan/zoom.
