@@ -27,6 +27,15 @@ describe('visual flow authoring → YAML (integration)', () => {
   });
 
   it('builds a two-node review loop and serializes valid YAML', () => {
+    // newFlowGraph leaves the four text meta fields EMPTY (the author
+    // types them into the placeholder inputs). Mirror that here so the
+    // serialized YAML carries real values the BE will accept.
+    store().setMeta({
+      apiName: 'my-flow',
+      displayName: 'My Flow',
+      slashApiName: 'my-flow',
+    });
+
     // Add + name two agent nodes.
     const n1 = store().addAgentNode({ x: 250, y: 140 });
     store().updateNode(n1, { nodeId: 'researcher_1' });

@@ -18,17 +18,18 @@ import { Handle, type NodeProps, Position } from 'reactflow';
 
 import { type AgentNodeData, type BoundaryNodeData, NODE_START } from './editorTypes';
 
-// Hidden until the node is hovered (the wrapper sets `group`), so four
-// handles per node don't clutter the canvas at rest. opacity-0 elements
-// stay interactive, so you can still grab a hidden handle the moment you
-// hover. Visible too while a connection is being dragged AND when an
-// edge is connected to the handle (React Flow keeps connected handles
-// visible regardless of opacity — so the dot at each edge endpoint is
-// the same size as this constant). React Flow's default min-width /
-// min-height (5px) gets bypassed with !min-h-0 !min-w-0 so we can go
-// below the lib's default 6×6 sizing if we want.
+// Faint by default, full opacity on hover. The handle dots double as
+// (a) drag-from points to draw a new connector and (b) the visible
+// endpoint anchors of existing edges — so making them fully invisible
+// at rest hid the endpoint the author had to grab to RECONNECT an
+// edge to a different side. opacity-30 is subtle enough that 4 dots
+// per node read as a hint, not clutter; the group-hover bump makes
+// the active node's handles unmissable when the author is reaching.
+// React Flow's default min-width/min-height (5px) gets bypassed with
+// !min-h-0 !min-w-0 so we can go below the lib's default 6×6 sizing
+// if we want.
 const HANDLE_CLASS =
-  '!h-1.5 !w-1.5 !min-h-0 !min-w-0 !bg-muted-foreground opacity-0 transition-opacity group-hover:opacity-100';
+  '!h-1.5 !w-1.5 !min-h-0 !min-w-0 !bg-muted-foreground opacity-30 transition-opacity group-hover:opacity-100';
 
 // Subtle per-role tints — bg/border pairs that read at a glance without
 // being loud. Tailwind opacity utilities keep them theme-neutral (work

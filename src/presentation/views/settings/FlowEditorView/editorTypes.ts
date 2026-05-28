@@ -87,9 +87,13 @@ export function blankAgent(apiName: string): EditorAgent {
 }
 
 /** The seed graph for a brand-new flow: just the Start/End boundary
- *  markers (so the author can wire to them) and slash-on defaults that
- *  match the legacy starter template. No agent nodes yet — the author
- *  adds them with the "Add node" button. */
+ *  markers (so the author can wire to them). All four text-meta fields
+ *  (apiName / displayName / description / slashApiName) start EMPTY so
+ *  the author types real values into the placeholder-only inputs;
+ *  required-ness is validated server-side on Save (the BE's
+ *  POST /api/flows/from-yaml returns a 422 with structured errors which
+ *  `handleSave` renders inline). `exposedAsSlash` stays default-on so
+ *  the slash-name input is visible immediately. */
 export function newFlowGraph(): {
   meta: FlowMeta;
   nodes: import('reactflow').Node<AgentNodeData | BoundaryNodeData>[];
@@ -97,10 +101,10 @@ export function newFlowGraph(): {
 } {
   return {
     meta: {
-      apiName: 'my-flow',
-      displayName: 'My Flow',
-      description: '',
-      slashApiName: 'my-flow',
+      apiName: '',
+      displayName: '',
+      description: null,
+      slashApiName: null,
       exposedAsSlash: true,
       metadata: {},
     },
