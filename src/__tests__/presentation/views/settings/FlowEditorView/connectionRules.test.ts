@@ -43,4 +43,22 @@ describe('isValidFlowConnection', () => {
     expect(isValidFlowConnection(edges, conn(NODE_START, 'a'))).toBe(true);
     expect(isValidFlowConnection(edges, conn('b', NODE_END))).toBe(true);
   });
+
+  it('excludeEdgeId skips one edge in the duplicate check', () => {
+    // Reproduces the reconnect snap-back: the author drags the endpoint
+    // of edge 'e1' (a→b) onto a different handle on b. The new connection
+    // is still a→b, which COLLIDES with the still-present old edge e1.
+    // Without an exclusion, validation rejects and React Flow snaps the
+    // endpoint back. Passing e1's id excludes it, so the same pair is
+    // allowed — onReconnect then rewrites e1 in place.
+    expect(isValidFlowConnection(edges, conn('a', 'b'), 'e1')).toBe(true);
+
+    // Sanity: excluding a DIFFERENT edge id doesn't accidentally allow
+    // a true duplicate against e1.
+    expect(isValidFlowConnection(edges, conn('a', 'b'), 'e-other')).toBe(false);
+
+    // Other rules still apply even when an id is excluded.
+    expect(isValidFlowConnection(edges, conn('a', 'a'), 'e1')).toBe(false);
+    expect(isValidFlowConnection(edges, conn('a', NODE_START), 'e1')).toBe(false);
+  });
 });

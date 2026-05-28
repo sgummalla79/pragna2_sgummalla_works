@@ -55,6 +55,14 @@ interface FlowEditorState {
   edges: EditorEdge[];
   selectedNodeId: string | null;
   dirty: boolean;
+  /** The id of the edge currently being reconnect-dragged, or null when
+   *  no reconnect is in flight. Used by `isValidFlowConnection` to skip
+   *  that edge in its duplicate-source→target check so the author can
+   *  re-route an endpoint to a different handle on the SAME pair of
+   *  nodes (which would otherwise collide with the still-present old
+   *  edge and snap back). Set by `beginReconnect`, cleared by
+   *  `endReconnect`. */
+  reconnectingEdgeId: string | null;
 
   /** Replace the whole editing model (on load). Resets dirty. */
   hydrate: (model: { meta: FlowMeta; nodes: EditorNode[]; edges: EditorEdge[] }) => void;
@@ -70,6 +78,12 @@ interface FlowEditorState {
    *  edge's data (routing condition, etc.) is preserved; only
    *  source/target/sourceHandle/targetHandle change. */
   onReconnect: (oldEdge: EditorEdge, newConnection: Connection) => void;
+  /** Mark a reconnect as in-flight by edge id. Wired to React Flow's
+   *  `onReconnectStart`. */
+  beginReconnect: (edgeId: string) => void;
+  /** Clear the in-flight reconnect marker. Wired to React Flow's
+   *  `onReconnectEnd` (fires after every drag — successful or not). */
+  endReconnect: () => void;
 
   setMeta: (patch: Partial<FlowMeta>) => void;
   /** Add a fresh agent node at a position; returns its node_id and
@@ -105,14 +119,25 @@ export const useFlowEditorStore = create<FlowEditorState>((set, get) => ({
   edges: [],
   selectedNodeId: null,
   dirty: false,
+  reconnectingEdgeId: null,
 
   hydrate: ({ meta, nodes, edges }) =>
-    set({ meta, nodes, edges, selectedNodeId: null, dirty: false }),
+    set({ meta, nodes, edges, selectedNodeId: null, dirty: false, reconnectingEdgeId: null }),
 
   reset: () =>
-    set({ meta: EMPTY_META, nodes: [], edges: [], selectedNodeId: null, dirty: false }),
+    set({
+      meta: EMPTY_META,
+      nodes: [],
+      edges: [],
+      selectedNodeId: null,
+      dirty: false,
+      reconnectingEdgeId: null,
+    }),
 
   markClean: () => set({ dirty: false }),
+
+  beginReconnect: (edgeId) => set({ reconnectingEdgeId: edgeId }),
+  endReconnect: () => set({ reconnectingEdgeId: null }),
 
   onNodesChange: (changes) =>
     set((s) => ({

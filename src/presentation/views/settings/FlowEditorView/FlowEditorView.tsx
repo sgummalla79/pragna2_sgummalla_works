@@ -77,6 +77,9 @@ function EditorInner({ flowId }: { flowId?: string }) {
   const onEdgesChange = useFlowEditorStore((s) => s.onEdgesChange);
   const onConnect = useFlowEditorStore((s) => s.onConnect);
   const onReconnect = useFlowEditorStore((s) => s.onReconnect);
+  const beginReconnect = useFlowEditorStore((s) => s.beginReconnect);
+  const endReconnect = useFlowEditorStore((s) => s.endReconnect);
+  const reconnectingEdgeId = useFlowEditorStore((s) => s.reconnectingEdgeId);
   const selectNode = useFlowEditorStore((s) => s.selectNode);
   const addAgentNode = useFlowEditorStore((s) => s.addAgentNode);
   const setMeta = useFlowEditorStore((s) => s.setMeta);
@@ -294,6 +297,15 @@ function EditorInner({ flowId }: { flowId?: string }) {
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onReconnect={onReconnect}
+            // onReconnectStart/End bracket each reconnect drag. We
+            // stash the in-flight edge id so isValidConnection below
+            // can skip it in its duplicate-source→target check —
+            // otherwise moving an endpoint to a different handle on
+            // the SAME nodes produces the same pair the old edge
+            // still occupies, validation rejects, and React Flow
+            // snaps the endpoint back to where it started.
+            onReconnectStart={(_e, edge) => beginReconnect(edge.id)}
+            onReconnectEnd={() => endReconnect()}
             // ★ Wiring onReconnect alone is NOT enough — React Flow's
             // EdgeRenderer also gates the reconnect anchor on
             // `edge.reconnectable === true` OR this `edgesUpdatable` prop
@@ -304,7 +316,9 @@ function EditorInner({ flowId }: { flowId?: string }) {
             // useFlowEditorStore.test.ts). Unit tests caught the store
             // behaviour but not this UI gate; keep both in mind.
             edgesUpdatable
-            isValidConnection={(conn) => isValidFlowConnection(edges, conn)}
+            isValidConnection={(conn) =>
+              isValidFlowConnection(edges, conn, reconnectingEdgeId)
+            }
             onNodeClick={handleNodeClick}
             onPaneClick={() => selectNode(null)}
             nodeTypes={NODE_TYPES}

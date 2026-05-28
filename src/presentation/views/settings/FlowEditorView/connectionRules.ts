@@ -10,18 +10,39 @@
  *  - nothing connects OUT OF `__end__`,
  *  - no duplicate source→target (routing conditions live on one edge;
  *    a second parallel edge is noise the backend would collapse).
+ *
+ * The optional `excludeEdgeId` skips one edge from the duplicate check.
+ * React Flow passes the in-flight edge through onReconnectStart at the
+ * top of a reconnect drag; we stash its id in the store and pass it
+ * here so the user can move that edge's endpoint to a DIFFERENT handle
+ * on the SAME nodes (which produces the same source→target pair the
+ * old edge already occupies). Without this, every "just change the
+ * side" reconnect failed and React Flow snapped the endpoint back.
  */
 
 import type { Connection, Edge } from 'reactflow';
 
 import { NODE_END, NODE_START } from './editorTypes';
 
-export function isValidFlowConnection(edges: Edge[], conn: Connection): boolean {
+export function isValidFlowConnection(
+  edges: Edge[],
+  conn: Connection,
+  excludeEdgeId: string | null = null,
+): boolean {
   const { source, target } = conn;
   if (!source || !target) return false;
   if (source === target) return false;
   if (target === NODE_START) return false;
   if (source === NODE_END) return false;
-  if (edges.some((e) => e.source === source && e.target === target)) return false;
+  if (
+    edges.some(
+      (e) =>
+        e.id !== excludeEdgeId &&
+        e.source === source &&
+        e.target === target,
+    )
+  ) {
+    return false;
+  }
   return true;
 }
