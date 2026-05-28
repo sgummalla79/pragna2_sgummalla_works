@@ -1,11 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useServices } from '@/presentation/providers/ServiceContext';
-import type {
-  CreateUserAgentPayload,
-  UpdateUserAgentPayload,
-} from '@/domain/types/userAgent.types';
 
 const KEY = ['user-agents'] as const;
+
+// Read-only hooks. Agents are flow-owned (BE migration 0024) and authored
+// inline in the flow editor's node panel — created/updated/deleted only
+// through the flow YAML save path. The standalone create/update/delete
+// hooks were removed when the BE retired those routes (they would 405).
+// These reads remain for resolving agent names (e.g. in conversation UI).
 
 export function useUserAgents() {
   const { userAgentService } = useServices();
@@ -23,33 +25,5 @@ export function useUserAgent(id: string | undefined) {
     queryFn: () => userAgentService.get(id!),
     enabled: Boolean(id),
     staleTime: 30_000,
-  });
-}
-
-export function useCreateUserAgent() {
-  const { userAgentService } = useServices();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: CreateUserAgentPayload) => userAgentService.create(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
-  });
-}
-
-export function useUpdateUserAgent() {
-  const { userAgentService } = useServices();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: UpdateUserAgentPayload }) =>
-      userAgentService.update(id, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
-  });
-}
-
-export function useDeleteUserAgent() {
-  const { userAgentService } = useServices();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => userAgentService.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }

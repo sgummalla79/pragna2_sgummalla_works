@@ -14,12 +14,12 @@ export const ROUTES = {
   SETTINGS:             '/settings',
   SETTINGS_APPEARANCE:  '/settings/appearance',
   SETTINGS_PROVIDERS:   '/settings/providers',
-  SETTINGS_AGENTS:           '/settings/agents',
-  SETTINGS_AGENT_EDITOR_NEW: '/settings/agents/new',
-  SETTINGS_AGENT_EDITOR:     '/settings/agents/:agentId/edit',
   SETTINGS_FLOWS:           '/settings/flows',
   SETTINGS_FLOW_EDITOR_NEW: '/settings/flows/new',
   SETTINGS_FLOW_EDITOR:     '/settings/flows/:flowId/edit',
+  // Agents are flow-owned (BE migration 0024) — authored inline in the
+  // flow editor's node panel. This read-only list lives UNDER its flow.
+  SETTINGS_FLOW_AGENTS:     '/settings/flows/:flowId/agents',
   /** Wedge B.2 — MCP server registrations + per-tool toggle. */
   SETTINGS_MCP_SERVERS: '/settings/mcp-servers',
   SETTINGS_PROFILE:   '/settings/profile',
