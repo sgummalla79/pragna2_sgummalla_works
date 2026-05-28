@@ -23,7 +23,6 @@ import {
 import type { YamlError } from '@/domain/types/flowYaml.types';
 import { Button } from '@/presentation/components/ui/Button';
 import { Input } from '@/presentation/components/ui/Input';
-import { Label } from '@/presentation/components/ui/Label';
 import { useUiStore } from '@/presentation/store/uiStore';
 import { ROUTES } from '@/constants/routes';
 
@@ -207,38 +206,35 @@ function EditorInner({ flowId }: { flowId?: string }) {
       </div>
 
       {/* ── Flow-meta bar ──────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-end gap-3 border-b border-border px-4 py-2">
-        <div className="space-y-1">
-          <Label htmlFor="flow-display-name" className="text-[11px]">Display name</Label>
-          <Input
-            id="flow-display-name"
-            className="h-8 w-48"
-            value={meta.displayName}
-            onChange={(e) => setMeta({ displayName: e.target.value })}
-            placeholder="My Flow"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="flow-api-name" className="text-[11px]">API name</Label>
-          <Input
-            id="flow-api-name"
-            className="h-8 w-48 font-mono text-[12px]"
-            value={meta.apiName}
-            onChange={(e) => setMeta({ apiName: e.target.value })}
-            placeholder="my-flow"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="flow-desc" className="text-[11px]">Description</Label>
-          <Input
-            id="flow-desc"
-            className="h-8 w-64"
-            value={meta.description ?? ''}
-            onChange={(e) => setMeta({ description: e.target.value || null })}
-            placeholder="What this flow does (the LLM reads this)"
-          />
-        </div>
-        <label className="flex items-center gap-1.5 pb-1.5 text-[12px] text-muted-foreground">
+      {/* Labels live inside the placeholders + `aria-label` (rather than a
+       *  visible <Label> above each input) — keeps the bar tight at the
+       *  top of the canvas without losing screen-reader semantics. */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-1.5">
+        <Input
+          id="flow-display-name"
+          aria-label="Display name"
+          className="h-8 w-48"
+          value={meta.displayName}
+          onChange={(e) => setMeta({ displayName: e.target.value })}
+          placeholder="Display name (e.g. Research Pipeline)"
+        />
+        <Input
+          id="flow-api-name"
+          aria-label="API name"
+          className="h-8 w-48 font-mono text-[12px]"
+          value={meta.apiName}
+          onChange={(e) => setMeta({ apiName: e.target.value })}
+          placeholder="api-name (kebab-case)"
+        />
+        <Input
+          id="flow-desc"
+          aria-label="Description"
+          className="h-8 w-[28rem]"
+          value={meta.description ?? ''}
+          onChange={(e) => setMeta({ description: e.target.value || null })}
+          placeholder="What this flow does — the LLM reads this to decide when to invoke it"
+        />
+        <label className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
           <input
             type="checkbox"
             checked={meta.exposedAsSlash}
@@ -247,16 +243,14 @@ function EditorInner({ flowId }: { flowId?: string }) {
           Expose as /slash
         </label>
         {meta.exposedAsSlash && (
-          <div className="space-y-1">
-            <Label htmlFor="flow-slash" className="text-[11px]">Slash name</Label>
-            <Input
-              id="flow-slash"
-              className="h-8 w-40 font-mono text-[12px]"
-              value={meta.slashApiName ?? ''}
-              onChange={(e) => setMeta({ slashApiName: e.target.value || null })}
-              placeholder="my-flow"
-            />
-          </div>
+          <Input
+            id="flow-slash"
+            aria-label="Slash name"
+            className="h-8 w-40 font-mono text-[12px]"
+            value={meta.slashApiName ?? ''}
+            onChange={(e) => setMeta({ slashApiName: e.target.value || null })}
+            placeholder="slash-name (kebab-case)"
+          />
         )}
       </div>
 

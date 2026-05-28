@@ -65,6 +65,10 @@ describe('FlowEditorView (shell)', () => {
     expect(screen.getByRole('button', { name: /add node/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /validate/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
+    // Labels were dropped in favour of placeholders + aria-label so the
+    // meta bar can stay compact at the top of the canvas. getByLabelText
+    // still resolves an input by its aria-label, so this asserts the
+    // accessible name even though there's no visible <Label> element.
     expect(screen.getByLabelText('Display name')).toBeInTheDocument();
     expect(screen.getByLabelText('API name')).toBeInTheDocument();
     // New flow seeds Start + End boundary nodes into the store.
