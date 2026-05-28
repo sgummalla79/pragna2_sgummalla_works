@@ -21,6 +21,7 @@ import {
   addEdge,
   applyEdgeChanges,
   applyNodeChanges,
+  reconnectEdge,
 } from 'reactflow';
 import { create } from 'zustand';
 
@@ -65,6 +66,10 @@ interface FlowEditorState {
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (conn: Connection) => void;
+  /** Move an existing edge's endpoint to a different node/handle. The
+   *  edge's data (routing condition, etc.) is preserved; only
+   *  source/target/sourceHandle/targetHandle change. */
+  onReconnect: (oldEdge: EditorEdge, newConnection: Connection) => void;
 
   setMeta: (patch: Partial<FlowMeta>) => void;
   /** Add a fresh agent node at a position; returns its node_id and
@@ -142,6 +147,25 @@ export const useFlowEditorStore = create<FlowEditorState>((set, get) => ({
         data: { condition: EDGE_CONDITIONS.DEFAULT },
       };
       return { edges: addEdge(edge, s.edges) as EditorEdge[], dirty: true };
+    }),
+
+  onReconnect: (oldEdge, newConnection) =>
+    set((s) => {
+      // React Flow's reconnectEdge rewrites source/target/sourceHandle/
+      // targetHandle in place; routing `condition` (in `data`) and the
+      // rest of the edge survive verbatim. That's the exact semantic for
+      // "user drags an endpoint to a different handle / different node".
+      //
+      // `shouldReplaceId: false` keeps the original edge id stable —
+      // without it, the helper synthesises a new id from the new
+      // endpoints (`reactflow__edge-<src><srcH>-<tgt><tgtH>`), React
+      // would treat the edge as fully unmounted-and-remounted under a
+      // new key, and any per-edge UI state would reset. Marks dirty so
+      // the new handle sides save to metadata.edge_handles next save.
+      const next = reconnectEdge(oldEdge, newConnection, s.edges, {
+        shouldReplaceId: false,
+      }) as EditorEdge[];
+      return { edges: next, dirty: true };
     }),
 
   setMeta: (patch) => set((s) => ({ meta: { ...s.meta, ...patch }, dirty: true })),

@@ -77,6 +77,7 @@ function EditorInner({ flowId }: { flowId?: string }) {
   const onNodesChange = useFlowEditorStore((s) => s.onNodesChange);
   const onEdgesChange = useFlowEditorStore((s) => s.onEdgesChange);
   const onConnect = useFlowEditorStore((s) => s.onConnect);
+  const onReconnect = useFlowEditorStore((s) => s.onReconnect);
   const selectNode = useFlowEditorStore((s) => s.selectNode);
   const addAgentNode = useFlowEditorStore((s) => s.addAgentNode);
   const setMeta = useFlowEditorStore((s) => s.setMeta);
@@ -298,6 +299,7 @@ function EditorInner({ flowId }: { flowId?: string }) {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onReconnect={onReconnect}
             isValidConnection={(conn) => isValidFlowConnection(edges, conn)}
             onNodeClick={handleNodeClick}
             onPaneClick={() => selectNode(null)}

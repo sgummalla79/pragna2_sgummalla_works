@@ -71,6 +71,52 @@ describe('useFlowEditorStore', () => {
     expect(data.agent.emits).toEqual(['passed']);
   });
 
+  it('onReconnect rewires endpoints but preserves id, condition, and other props', () => {
+    // Author user reports: an edge from __start__ stuck on the bottom
+    // handle can't be dragged to a side handle. Root cause: React Flow's
+    // reconnect was never wired, so dragging an existing endpoint did
+    // nothing. After wiring, onReconnect must (a) accept the new handle
+    // ids, (b) keep the routing condition the user picked, (c) keep the
+    // edge id stable (so any per-edge UI state doesn't get reset), and
+    // (d) flip dirty so the new sides save to metadata.edge_handles.
+    const a = store().addAgentNode({ x: 0, y: 0 });
+    const b = store().addAgentNode({ x: 0, y: 100 });
+    const c = store().addAgentNode({ x: 200, y: 100 });
+    store().onConnect({ source: a, target: b, sourceHandle: 'bottom', targetHandle: 'top' });
+    const original = store().edges[0];
+    // The author picks a non-default condition on the edge.
+    store().setEdgeCondition(original.id, EDGE_CONDITIONS.PASSED);
+    store().markClean();
+    expect(store().dirty).toBe(false);
+
+    // Author drags the source endpoint from a:bottom to a:right.
+    store().onReconnect(store().edges[0], {
+      source: a,
+      target: b,
+      sourceHandle: 'right',
+      targetHandle: 'top',
+    });
+
+    let updated = store().edges[0];
+    expect(updated.id).toBe(original.id); // id stable
+    expect(updated.sourceHandle).toBe('right'); // new handle taken
+    expect(updated.data?.condition).toBe(EDGE_CONDITIONS.PASSED); // condition kept
+    expect(store().dirty).toBe(true); // saves to edge_handles on next save
+
+    // Author drops the target endpoint onto a different node (b → c).
+    store().onReconnect(store().edges[0], {
+      source: a,
+      target: c,
+      sourceHandle: 'right',
+      targetHandle: 'left',
+    });
+
+    updated = store().edges[0];
+    expect(updated.target).toBe(c);
+    expect(updated.targetHandle).toBe('left');
+    expect(updated.data?.condition).toBe(EDGE_CONDITIONS.PASSED);
+  });
+
   it('hydrate replaces the model and clears dirty', () => {
     store().addAgentNode({ x: 0, y: 0 });
     expect(store().dirty).toBe(true);
