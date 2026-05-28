@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import ReactFlow, {
   Background,
@@ -88,22 +88,25 @@ function EditorInner({ flowId }: { flowId?: string }) {
   const [banner, setBanner] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [yamlOpen, setYamlOpen] = useState(false);
 
-  // Seed the store once: from the flow's stored YAML when editing, or
-  // a fresh Start/End canvas when creating.
-  const seededRef = useRef(false);
+  // Seed the store from the flow's stored YAML (or a fresh Start/End
+  // canvas for a new flow) AND clear the store on unmount so a different
+  // flow opens clean. Combined into one effect so React StrictMode's
+  // intentional mount→cleanup→mount cycle re-hydrates after the cleanup
+  // — a separate seed-once-by-ref + unmount-reset pair would let the
+  // cleanup wipe the hydrated state and the ref would block re-seeding,
+  // leaving the canvas empty (caught in browser verify).
+  //
+  // Dep on `existingFlow?.id` (not the whole row) so a stale-time
+  // refetch returning the same flow doesn't re-seed and clobber edits.
   useEffect(() => {
-    if (seededRef.current) return;
     if (!flowId) {
       hydrate(newFlowGraph());
-      seededRef.current = true;
     } else if (existingFlow) {
       hydrate(existingFlow.definition ? buildEditorGraph(existingFlow.definition) : newFlowGraph());
-      seededRef.current = true;
     }
-  }, [flowId, existingFlow, hydrate]);
-
-  // Clear the store on unmount so the next flow opens clean.
-  useEffect(() => () => reset(), [reset]);
+    return () => reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flowId, existingFlow?.id]);
 
   const previewYaml = useMemo(
     () => (yamlOpen ? graphToYaml(meta, nodes, edges) : ''),
