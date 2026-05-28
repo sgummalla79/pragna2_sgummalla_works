@@ -1,10 +1,8 @@
 import type { IUserAgentRepository } from '@/application/ports/IUserAgentRepository';
-import type {
-  CreateUserAgentPayload,
-  UpdateUserAgentPayload,
-  UserAgent,
-} from '@/domain/types/userAgent.types';
+import type { UserAgent } from '@/domain/types/userAgent.types';
 
+/** Read-only agent access. Agents are flow-owned (BE migration 0024) and
+ *  written only through the flow YAML save path. */
 export class UserAgentService {
   constructor(private readonly repo: IUserAgentRepository) {}
 
@@ -14,17 +12,5 @@ export class UserAgentService {
 
   get(id: string): Promise<UserAgent> {
     return this.repo.get(id);
-  }
-
-  create(payload: CreateUserAgentPayload): Promise<UserAgent> {
-    return this.repo.create(payload);
-  }
-
-  update(id: string, payload: UpdateUserAgentPayload): Promise<UserAgent> {
-    return this.repo.update(id, payload);
-  }
-
-  delete(id: string): Promise<void> {
-    return this.repo.delete(id);
   }
 }

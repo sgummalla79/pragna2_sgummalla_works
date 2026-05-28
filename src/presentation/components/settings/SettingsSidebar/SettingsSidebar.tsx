@@ -18,7 +18,8 @@ const SETTINGS_NAV: SidebarItemConfig[] = [
   { type: 'nav', to: ROUTES.SETTINGS_PROVIDERS, icon: <ProvidersIcon />, label: 'Providers' },
   { type: 'nav', to: ROUTES.SETTINGS_MCP_SERVERS, icon: <McpServersIcon />, label: 'MCP Servers' },
   { type: 'section', label: 'Workflows' },
-  { type: 'nav', to: ROUTES.SETTINGS_AGENTS, icon: <AgentsIcon />, label: 'Agents' },
+  // Agents are flow-owned now (BE migration 0024) — edited inside a flow's
+  // node panel, not as a standalone global list. So only Flows here.
   { type: 'nav', to: ROUTES.SETTINGS_FLOWS,  icon: <FlowsIcon />,  label: 'Flows' },
   { type: 'section', label: 'Account' },
   { type: 'nav', to: ROUTES.SETTINGS_APPEARANCE, icon: <AppearanceIcon />, label: 'Appearance' },
@@ -73,22 +74,6 @@ function ProvidersIcon() {
       <path d="M338.417,424.218h-17.673c-6.971,0-12.623,5.653-12.623,12.623s5.651,12.623,12.623,12.623h17.673c6.971,0,12.623-5.653,12.623-12.623S345.388,424.218,338.417,424.218z" />
       <path d="M279.934,424.218h-17.673c-6.972,0-12.623,5.651-12.623,12.623c0,6.971,5.653,12.623,12.623,12.623h17.673c6.971,0,12.623-5.653,12.623-12.623S286.904,424.218,279.934,424.218z" />
       <path d="M221.438,424.218H84.374c-6.971,0-12.623,5.653-12.623,12.623s5.653,12.623,12.623,12.623h137.064c6.971,0,12.623-5.653,12.623-12.623S228.408,424.218,221.438,424.218z" />
-    </svg>
-  );
-}
-
-function AgentsIcon() {
-  // Bot silhouette — visually distinct from FlowsIcon (graph) so the eye
-  // can sort the two related-but-different rows at a glance.
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="8" width="18" height="12" rx="2" />
-      <path d="M12 4v4" />
-      <circle cx="12" cy="3" r="1" />
-      <circle cx="8.5" cy="13" r="1" />
-      <circle cx="15.5" cy="13" r="1" />
-      <path d="M9 17h6" />
     </svg>
   );
 }

@@ -60,15 +60,15 @@ export type PositionOverrides = Record<string, { x: number; y: number }> | null;
  * returns an empty graph and the editor renders the validation
  * errors elsewhere.
  *
- * R10 #1 + #2:
- * - Edges whose target sits at or above their source in the dagre
- *   layout (= visual loop-backs) are tagged ``type: 'loopback'`` so a
- *   custom edge component can route them along a side channel
- *   instead of overlapping the forward edges.
- * - Caller can pass ``positionOverrides`` to apply persisted
- *   user-drag positions on top of the dagre layout. Nodes absent
- *   from the override map keep their dagre coordinates so a
- *   newly-added node still appears in the auto-laid graph.
+ * Now used only for its dagre node LAYOUT — the visual editor seeds node
+ * positions from this (`buildEditorGraph`) and builds its own editable
+ * edges. The edge list returned here is a legacy artifact kept for the
+ * standalone tests; consumers read `nodes` (positions) only.
+ *
+ * Caller can pass ``positionOverrides`` to apply persisted user-drag
+ * positions on top of the dagre layout. Nodes absent from the override
+ * map keep their dagre coordinates so a newly-added node still appears
+ * in the auto-laid graph.
  */
 export function yamlToGraph(
   yamlText: string,
@@ -184,11 +184,8 @@ export function yamlToGraph(
           id: `e_${edgeCounter++}`,
           source: src,
           target: dst,
-          // smoothstep routes orthogonally around the node boxes — easier
-          // to read than the default bezier when dagre packs nodes
-          // tightly. Default bezier sometimes slices through unrelated
-          // nodes when the graph is dense. R10 #1 reassigns this to
-          // 'loopback' below for back-edges so they don't overlap.
+          // smoothstep routes orthogonally around the node boxes. (This
+          // edge list is unused by the editor — see the function doc.)
           type: 'smoothstep',
           label: e.condition && e.condition !== 'default' ? e.condition : undefined,
           // SVG `fill` / `stroke` need real CSS color strings — we read
@@ -214,16 +211,6 @@ export function yamlToGraph(
   }
   dagre.layout(g);
 
-  // Record dagre's per-node center y so we can detect backward edges
-  // BEFORE applying user position overrides (overrides would distort
-  // the rank-based check). Falls back to 0 for any node dagre didn't
-  // place (shouldn't happen — every node was added above).
-  const dagreCenterY = new Map<string, number>();
-  for (const node of reactNodes) {
-    const laid = g.node(node.id);
-    if (laid) dagreCenterY.set(node.id, laid.y);
-  }
-
   for (const node of reactNodes) {
     const laid = g.node(node.id);
     if (laid) {
@@ -236,28 +223,6 @@ export function yamlToGraph(
     const override = positionOverrides?.[node.id];
     if (override) {
       node.position = override;
-    }
-  }
-
-  // R10 #1: tag back-edges as 'loopback' so the custom edge component
-  // can route them along a side channel instead of overlapping the
-  // forward edges. An edge is "backward" when its target sits at or
-  // above its source in dagre's TB layout — i.e. the visual line
-  // would have to travel UP, which smoothstep handles by retracing
-  // the same vertical channel as the forward path and producing the
-  // stacked-edges look the user originally flagged.
-  //
-  // Self-loops (src === dst) are always tagged loopback so they
-  // surface as a visible bulge instead of collapsing to a point.
-  for (const edge of reactEdges) {
-    if (edge.source === edge.target) {
-      edge.type = 'loopback';
-      continue;
-    }
-    const sourceY = dagreCenterY.get(edge.source);
-    const targetY = dagreCenterY.get(edge.target);
-    if (sourceY !== undefined && targetY !== undefined && targetY <= sourceY) {
-      edge.type = 'loopback';
     }
   }
 

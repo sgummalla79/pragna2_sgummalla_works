@@ -9,8 +9,8 @@ import { ROUTES } from '@/constants/routes';
 const SECTION_TITLES: Record<string, string> = {
   [ROUTES.SETTINGS_PROVIDERS]:  'Providers',
   [ROUTES.SETTINGS_APPEARANCE]: 'Appearance',
-  [ROUTES.SETTINGS_AGENTS]:     'Agents',
   [ROUTES.SETTINGS_FLOWS]:      'Flows',
+  [ROUTES.SETTINGS_FLOW_AGENTS]: 'Flow agents',
   [ROUTES.SETTINGS_PROFILE]:    'Profile',
 };
 

@@ -85,38 +85,15 @@ flow:
     expect(distinct.size).toBeGreaterThan(1);
   });
 
-  // R10 #1 — back-edges tagged 'loopback' so the custom edge component
-  // can route them along a side channel instead of overlapping forward
-  // edges. The SAMPLE flow has a `review_1 → intake_1 on failed` loop,
-  // which is what the user originally flagged as the stacking problem.
-  it('tags backward edges (loops) as type=loopback', () => {
+  // Loopback bulge tagging was removed — the visual editor uses free-hand
+  // bezier connectors (ConditionEdge) for all edges, and consumes only
+  // yamlToGraph's node positions. All edges stay the default smoothstep
+  // here (this edge list is unused by the editor).
+  it('leaves all edges as smoothstep (no loopback bulge)', () => {
     const { edges } = yamlToGraph(SAMPLE);
-    const loopback = edges.find(
-      (e) => e.source === 'review_1' && e.target === 'intake_1',
-    );
-    expect(loopback?.type).toBe('loopback');
-    // Forward edges keep the default smoothstep treatment.
-    const forward = edges.find(
-      (e) => e.source === 'intake_1' && e.target === 'review_1',
-    );
-    expect(forward?.type).toBe('smoothstep');
-  });
-
-  it('tags self-loops as type=loopback so they bulge visibly', () => {
-    const yamlText = `
-api_name: f
-display_name: F
-flow:
-  nodes:
-    - {node_id: solo, agent: x}
-  edges:
-    - {from: __start__, to: solo}
-    - {from: solo, to: solo, condition: failed}
-    - {from: solo, to: __end__, condition: passed}
-`;
-    const { edges } = yamlToGraph(yamlText);
-    const selfLoop = edges.find((e) => e.source === 'solo' && e.target === 'solo');
-    expect(selfLoop?.type).toBe('loopback');
+    expect(edges.every((e) => e.type === 'smoothstep')).toBe(true);
+    // The back-edge still exists; it's just not specially tagged.
+    expect(edges.some((e) => e.source === 'review_1' && e.target === 'intake_1')).toBe(true);
   });
 
   // R10 #2 — position overrides applied AFTER dagre lays out, keyed
