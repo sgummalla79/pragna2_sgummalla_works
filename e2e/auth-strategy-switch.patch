@@ -1,0 +1,113 @@
+diff --git a/src/__tests__/presentation/providers/pickAuthRepo.test.ts b/src/__tests__/presentation/providers/pickAuthRepo.test.ts
+new file mode 100644
+index 0000000..e40d85f
+--- /dev/null
++++ b/src/__tests__/presentation/providers/pickAuthRepo.test.ts
+@@ -0,0 +1,40 @@
++import { describe, expect, it } from 'vitest';
++import type { AxiosInstance } from 'axios';
++
++import { pickAuthRepo } from '@/presentation/providers/pickAuthRepo';
++import { AuthRepository } from '@/infrastructure/repositories/AuthRepository';
++import { Auth0Repository } from '@/infrastructure/auth0/Auth0Repository';
++
++const axios = {} as AxiosInstance;
++
++describe('pickAuthRepo', () => {
++  it("returns AuthRepository when VITE_AUTH_STRATEGY='local'", () => {
++    const repo = pickAuthRepo({ VITE_AUTH_STRATEGY: 'local', PROD: false }, axios);
++    expect(repo).toBeInstanceOf(AuthRepository);
++  });
++
++  it("returns Auth0Repository when VITE_AUTH_STRATEGY='auth0'", () => {
++    const repo = pickAuthRepo({ VITE_AUTH_STRATEGY: 'auth0', PROD: false }, axios);
++    expect(repo).toBeInstanceOf(Auth0Repository);
++  });
++
++  it('defaults to Auth0 in dev when the strategy is unset (existing behaviour preserved)', () => {
++    const repo = pickAuthRepo({ PROD: false }, axios);
++    expect(repo).toBeInstanceOf(Auth0Repository);
++  });
++
++  it('THROWS in production when the strategy is unset — no silent fallback', () => {
++    expect(() => pickAuthRepo({ PROD: true }, axios)).toThrow(/VITE_AUTH_STRATEGY/i);
++  });
++
++  it('THROWS on an unknown strategy', () => {
++    expect(() => pickAuthRepo({ VITE_AUTH_STRATEGY: 'oauth', PROD: false }, axios)).toThrow(
++      /Unknown VITE_AUTH_STRATEGY/i,
++    );
++  });
++
++  it('is case-insensitive + whitespace-tolerant', () => {
++    expect(pickAuthRepo({ VITE_AUTH_STRATEGY: '  LOCAL  ', PROD: false }, axios)).toBeInstanceOf(AuthRepository);
++    expect(pickAuthRepo({ VITE_AUTH_STRATEGY: 'Auth0', PROD: false }, axios)).toBeInstanceOf(Auth0Repository);
++  });
++});
+diff --git a/src/presentation/providers/ServiceProvider.tsx b/src/presentation/providers/ServiceProvider.tsx
+index 1530f3c..4638f8f 100644
+--- a/src/presentation/providers/ServiceProvider.tsx
++++ b/src/presentation/providers/ServiceProvider.tsx
+@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from 'react';
+ import { axiosClient } from '@/infrastructure/http/axiosClient';
+ import { applyAuthInterceptor } from '@/infrastructure/http/authInterceptor';
+ import { applyCorrelationInterceptor } from '@/infrastructure/http/correlationInterceptor';
+-import { Auth0Repository } from '@/infrastructure/auth0/Auth0Repository';
++import { pickAuthRepo } from './pickAuthRepo';
+ import { AttachmentRepository } from '@/infrastructure/repositories/AttachmentRepository';
+ import { ConversationRepository } from '@/infrastructure/repositories/ConversationRepository';
+ import { EpisodeRepository } from '@/infrastructure/repositories/EpisodeRepository';
+@@ -41,7 +41,7 @@ export function ServiceProvider({ children }: ServiceProviderProps) {
+   const services = useMemo(() => {
+     applyAuthInterceptor(axiosClient, reset);
+ 
+-    const authRepo           = new Auth0Repository(axiosClient);
++    const authRepo           = pickAuthRepo(import.meta.env, axiosClient);
+     const llmProviderRepo    = new LlmProviderRepository(axiosClient);
+     const providerRepo       = new ProviderRepository(axiosClient);
+     const modelRepo          = new ModelRepository(axiosClient);
+diff --git a/src/presentation/providers/pickAuthRepo.ts b/src/presentation/providers/pickAuthRepo.ts
+new file mode 100644
+index 0000000..ca8c6e2
+--- /dev/null
++++ b/src/presentation/providers/pickAuthRepo.ts
+@@ -0,0 +1,39 @@
++/**
++ * Choose the `IAuthRepository` implementation from the active auth
++ * strategy. Extracted from `ServiceProvider` so the decision is unit-
++ * testable without rendering the provider tree.
++ *
++ * **Production must set `VITE_AUTH_STRATEGY` explicitly.** Silent
++ * fallback would risk degrading to local auth (which posts the user's
++ * password to our backend) when an Auth0 deployment was intended. In
++ * dev we default to `auth0` so existing developer setups don't change
++ * behavior — opt into local with `VITE_AUTH_STRATEGY=local` (e.g. in
++ * `.env.local` or a one-off shell env when running `npm run dev`).
++ */
++
++import type { AxiosInstance } from 'axios';
++
++import type { IAuthRepository } from '@/application/ports/IAuthRepository';
++import { Auth0Repository } from '@/infrastructure/auth0/Auth0Repository';
++import { AuthRepository } from '@/infrastructure/repositories/AuthRepository';
++
++/** Subset of `ImportMetaEnv` this helper reads. */
++export interface PickAuthEnv {
++  VITE_AUTH_STRATEGY?: string;
++  PROD: boolean;
++}
++
++export function pickAuthRepo(env: PickAuthEnv, axios: AxiosInstance): IAuthRepository {
++  const raw = (env.VITE_AUTH_STRATEGY ?? '').trim().toLowerCase();
++  if (env.PROD && !raw) {
++    throw new Error(
++      'VITE_AUTH_STRATEGY must be set in production (local|auth0). ' +
++      'Silent fallback would risk degrading to local auth — passwords ' +
++      'flowing through the backend — when Auth0 was intended.',
++    );
++  }
++  const strategy = raw || 'auth0';
++  if (strategy === 'local') return new AuthRepository(axios);
++  if (strategy === 'auth0') return new Auth0Repository(axios);
++  throw new Error(`Unknown VITE_AUTH_STRATEGY='${raw}'. Expected 'local' or 'auth0'.`);
++}

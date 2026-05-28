@@ -8,6 +8,12 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/__tests__/setup.ts'],
+    // Only scan `src/` for unit tests. The `e2e/` sub-workspace has its
+    // own Playwright runner (`cd e2e && npm test`) — its `.spec.ts`
+    // files import from `@playwright/test` which isn't in the root
+    // node_modules, so vitest would fail to resolve them.
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
     coverage: {
       provider: 'istanbul',
       reporter: ['text', 'lcov', 'html'],
