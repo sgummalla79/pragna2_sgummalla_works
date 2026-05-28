@@ -69,3 +69,43 @@ describe('ChatMessage role=system (R7.1#3 cancel breadcrumb)', () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe('ChatMessage set_route suppression (#25)', () => {
+  function renderAssistantWithToolCall(call: {
+    id: string;
+    name: string;
+    args?: string;
+  }) {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const services = {
+      flowService: { list: () => Promise.resolve([]) },
+    } as unknown as Services;
+    const message = {
+      id: 'asst-1',
+      role: 'assistant' as const,
+      content: 'Approved.',
+      toolCalls: [{ id: call.id, name: call.name, args: call.args ?? '{}' }],
+    };
+    return render(
+      <QueryClientProvider client={qc}>
+        <ServiceContext.Provider value={services}>
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          <ChatMessage message={message as any} />
+        </ServiceContext.Provider>
+      </QueryClientProvider>,
+    );
+  }
+
+  it('does not render a badge for the set_route routing tool call', () => {
+    renderAssistantWithToolCall({
+      id: 'tc-1',
+      name: 'set_route',
+      args: '{"target":"passed"}',
+    });
+    // The clean reply still shows...
+    expect(screen.getByText('Approved.')).toBeInTheDocument();
+    // ...but the routing signal never surfaces as a tool-call badge.
+    expect(screen.queryByText(/set_route/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/passed/)).not.toBeInTheDocument();
+  });
+});

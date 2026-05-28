@@ -311,7 +311,9 @@ export default function AgentEditorView() {
                     placeholder="passed, failed (Enter to add)"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Routing labels the agent may emit via <code>{'<<emit:NAME>>'}</code>. Empty = leaf node.
+                    Branch labels this agent can route to. When set (beyond <code>default</code>),
+                    the agent is given a <code>set_route</code> tool and picks one as its final step.
+                    Empty = leaf / sequential node.
                   </p>
                 </div>
                 <div className="space-y-1.5">

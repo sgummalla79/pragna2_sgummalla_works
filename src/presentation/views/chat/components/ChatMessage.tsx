@@ -6,6 +6,7 @@ import { Textarea } from '@/presentation/components/ui/Textarea';
 import { useFlows } from '@/presentation/hooks/flows/useFlows';
 import { useServices } from '@/presentation/providers/ServiceContext';
 import { INTERRUPT_TOOL_NAMES } from '@/constants/interruptTools';
+import { SET_ROUTE_TOOL_NAME } from '@/constants/routingTool';
 import { AttachmentChip } from './AttachmentChip';
 import { FlowProposalCard } from './FlowProposalCard';
 import { MessageActions } from './MessageActions';
@@ -280,6 +281,13 @@ export function ChatMessage({
                   // form. See src/constants/interruptTools.ts for the
                   // list and how to extend it.
                   if (INTERRUPT_TOOL_NAMES.has(call.name)) {
+                    return null;
+                  }
+                  // #25: set_route is a terminal routing signal, not a
+                  // user-facing tool — the BE reads its target to pick
+                  // the next node and never executes it. Suppress the
+                  // badge so the routing call never shows in the bubble.
+                  if (call.name === SET_ROUTE_TOOL_NAME) {
                     return null;
                   }
                   // R6a: tool calls whose name matches one of the user's
