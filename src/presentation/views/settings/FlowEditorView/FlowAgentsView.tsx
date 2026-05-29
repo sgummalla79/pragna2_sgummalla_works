@@ -21,7 +21,7 @@ export default function FlowAgentsView() {
   const { flowId = '' } = useParams<{ flowId: string }>();
   const { data: flow, isLoading } = useFlow(flowId);
 
-  const editorPath = ROUTES.SETTINGS_FLOW_EDITOR.replace(':flowId', flowId);
+  const editorPath = ROUTES.FLOW_EDITOR.replace(':flowId', flowId);
 
   if (isLoading) {
     return <div className="p-8 text-sm text-muted-foreground">Loading flow…</div>;

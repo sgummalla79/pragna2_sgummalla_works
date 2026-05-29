@@ -13,12 +13,16 @@ import yaml from 'js-yaml';
 
 import { useFlowEditorStore } from '@/presentation/views/settings/FlowEditorView/useFlowEditorStore';
 import { graphToYaml } from '@/presentation/views/settings/FlowEditorView/graphToYaml';
-import { newFlowGraph, NODE_END, NODE_START } from '@/presentation/views/settings/FlowEditorView/editorTypes';
-import { EDGE_CONDITIONS } from '@/constants/edgeConditions';
+import {
+  newFlowGraph,
+  NODE_END,
+  NODE_START,
+  portHandleFor,
+} from '@/presentation/views/settings/FlowEditorView/editorTypes';
 
 const store = () => useFlowEditorStore.getState();
-const connect = (source: string, target: string) =>
-  store().onConnect({ source, target, sourceHandle: 'bottom', targetHandle: 'top' });
+const connect = (source: string, target: string, sourceHandle = 'bottom', targetHandle = 'top') =>
+  store().onConnect({ source, target, sourceHandle, targetHandle });
 
 describe('visual flow authoring → YAML (integration)', () => {
   beforeEach(() => {
@@ -54,17 +58,14 @@ describe('visual flow authoring → YAML (integration)', () => {
       emits: ['passed', 'failed'],
     });
 
-    // Wire the topology, including a back-edge.
-    connect(NODE_START, 'researcher_1');
+    // Wire the topology, including a back-edge. Post-#33 the condition
+    // for an If/Else (reviewer with emits) is derived from which port
+    // the edge leaves — so we wire reviewer's `port:passed` to End and
+    // `port:failed` back to researcher.
+    connect(NODE_START, 'researcher_1', 'out', 'top');
     connect('researcher_1', 'reviewer_1');
-    connect('reviewer_1', NODE_END);
-    connect('reviewer_1', 'researcher_1');
-
-    // Condition the two reviewer edges.
-    const toEnd = store().edges.find((e) => e.source === 'reviewer_1' && e.target === NODE_END)!;
-    const toLoop = store().edges.find((e) => e.source === 'reviewer_1' && e.target === 'researcher_1')!;
-    store().setEdgeCondition(toEnd.id, EDGE_CONDITIONS.PASSED);
-    store().setEdgeCondition(toLoop.id, EDGE_CONDITIONS.FAILED);
+    connect('reviewer_1', NODE_END, portHandleFor('passed'), 'in');
+    connect('reviewer_1', 'researcher_1', portHandleFor('failed'));
 
     // Serialize exactly what Save would POST.
     const doc = yaml.load(graphToYaml(store().meta, store().nodes, store().edges)) as Record<string, any>;

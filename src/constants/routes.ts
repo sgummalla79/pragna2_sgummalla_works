@@ -7,6 +7,10 @@ export const ROUTES = {
   // ── Main ─────────────────────────────────────────────────────────────────
   CHAT:           '/chat',
 
+  // ── Flow editor (full-page, outside SettingsLayout — see future-discussions #33) ──
+  FLOW_EDITOR_NEW: '/flows/new',
+  FLOW_EDITOR:     '/flows/:flowId/edit',
+
   // ── Settings ─────────────────────────────────────────────────────────────
   // Models do not have a top-level page — they are managed inside the
   // provider modal on /settings/providers (auto-discovered + edited

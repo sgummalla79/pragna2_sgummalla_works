@@ -33,8 +33,12 @@ import {
   type EditorAgent,
   type FlowMeta,
   EDGE_TYPE_CONDITION,
+  NODE_END,
   NODE_TYPE_AGENT,
+  NODE_TYPE_BOUNDARY,
   blankAgent,
+  blankIfElseAgent,
+  nextEndInstanceId,
 } from './editorTypes';
 
 type EditorNode = Node<AgentNodeData | BoundaryNodeData>;
@@ -86,9 +90,16 @@ interface FlowEditorState {
   endReconnect: () => void;
 
   setMeta: (patch: Partial<FlowMeta>) => void;
-  /** Add a fresh agent node at a position; returns its node_id and
-   *  selects it so the panel opens on a blank create-agent form. */
+  /** Add a fresh Agent node (emits empty, 1-in/1-out) at a position;
+   *  returns its node_id and selects it. */
   addAgentNode: (position: { x: number; y: number }) => string;
+  /** Add an If/Else node — same kind as Agent, just preset with
+   *  emits=[passed, failed] + a classify-style prompt; returns its
+   *  node_id and selects it. */
+  addIfElseNode: (position: { x: number; y: number }) => string;
+  /** Add another End sink at a position; returns its FE-only node id.
+   *  All End instances serialize to `to: __end__` in YAML. */
+  addEndNode: (position: { x: number; y: number }) => string;
   deleteNode: (nodeId: string) => void;
   selectNode: (nodeId: string | null) => void;
   /** Patch node-level fields (node_id rename, #26 slots). */
@@ -207,6 +218,34 @@ export const useFlowEditorStore = create<FlowEditorState>((set, get) => ({
     return nodeId;
   },
 
+  addIfElseNode: (position) => {
+    const nodeId = nextNodeId(get().nodes);
+    const node: Node<AgentNodeData> = {
+      id: nodeId,
+      type: NODE_TYPE_AGENT,
+      position,
+      // Same UserAgent storage as a regular Agent — the if/else affordance
+      // is just emits non-empty + the classify-style prompt template. The
+      // BE doesn't know about a separate kind (future-discussions #33).
+      data: { nodeId, agent: blankIfElseAgent(nodeId) },
+    };
+    set((s) => ({ nodes: [...s.nodes, node], selectedNodeId: nodeId, dirty: true }));
+    return nodeId;
+  },
+
+  addEndNode: (position) => {
+    const existing = new Set(get().nodes.map((n) => n.id));
+    const id = nextEndInstanceId(existing);
+    const node: Node<BoundaryNodeData> = {
+      id,
+      type: NODE_TYPE_BOUNDARY,
+      position,
+      data: { boundary: NODE_END },
+    };
+    set((s) => ({ nodes: [...s.nodes, node], selectedNodeId: null, dirty: true }));
+    return id;
+  },
+
   deleteNode: (nodeId) =>
     set((s) => ({
       nodes: s.nodes.filter((n) => n.id !== nodeId),
@@ -265,3 +304,13 @@ export const useFlowEditorStore = create<FlowEditorState>((set, get) => ({
   deleteEdge: (edgeId) =>
     set((s) => ({ edges: s.edges.filter((e) => e.id !== edgeId), dirty: true })),
 }));
+
+// E2E hook: expose the store on `window` in dev so Playwright specs can
+// drive complex graphs (especially the per-port edges on If/Else nodes)
+// without fighting React Flow's coordinate system. Stripped from
+// production builds via the Vite `import.meta.env.DEV` flag (which is
+// `false` in `vite build`'s output).
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  (window as unknown as { __flowEditorStore?: typeof useFlowEditorStore }).__flowEditorStore =
+    useFlowEditorStore;
+}
