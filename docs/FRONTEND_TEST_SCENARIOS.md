@@ -4,7 +4,7 @@ A manual test script for the chat feature, written for someone seeing
 the app for the first time. No coding, no developer tools, no command
 line — just clicks and reads.
 
-> **Companion doc:** [FRONTEND_TEST_SCENARIOS_GAPS.md](FRONTEND_TEST_SCENARIOS_GAPS.md) lists agentic-flow patterns (e.g. Tree of Thought, Multi-Agent Debate, Event-Driven triggers, cross-conversation memory) that aren't currently testable, what primitive is missing, and what would need to ship to enable them.
+> **Untestable agentic-flow patterns:** the BE parking lot at `pragna2-api/docs/future-discussions.md` entries #28–#32 catalogues the patterns that aren't currently testable (Orchestrator → Subagent, Multi-Agent Debate, Tree of Thought, Event-Driven triggers, cross-conversation memory) — each entry records the missing primitive, the closest workaround today, and the prerequisites for shipping a real scenario. When one of those ships, write a new scenario here and close the corresponding entry.
 
 Each scenario walks through one user-visible behaviour from start to
 finish. Pick any scenario, follow the steps in order, and tick off the
@@ -87,6 +87,116 @@ Every scenario uses the same shape:
 - **Assert** — checkboxes for what you should see. Tick each one. If
   any check fails, the scenario fails.
 - **If something looks off** — common gotchas for that scenario.
+
+---
+
+## Reference — Building a flow in the visual editor
+
+Scenarios 3 onwards have an **Arrange** step that builds a flow. The
+editor was redesigned 2026-05-28; the doc points back here for the
+authoring mechanics so each scenario can just say "build this topology"
+instead of repeating the same clicks. The editor lives at the
+top-level URL **`/flows/new`** (new flow) or **`/flows/{flowId}/edit`**
+(existing). From Settings → Flows, click **+ New flow** or the edit
+icon on a flow card; the editor opens as a full-screen view (a
+**Draft** chip sits next to the title; the back arrow returns to the
+flows list).
+
+**Agents are flow-owned.** There's no standalone Agents settings page
+anymore — every agent is authored inline within its flow and never
+shared across flows. The node id IS the agent's api_name. If a
+scenario below says "the `research-agent` agent" it means a flow node
+whose **Node id** is `research-agent`.
+
+### Top meta row (above the canvas)
+
+Four inputs + one checkbox at the top of the editor:
+- **Display name** — the human label shown in proposal cards and the
+  Flows list.
+- **api-name** — kebab-case identifier (also used in slash dispatch
+  collision detection).
+- **Description** — short sentence. The default chat agent reads this
+  to decide when to propose your flow; be specific.
+- **Expose as /slash** checkbox + slash-name input — when checked, the
+  flow is reachable at `POST /pragna/flows/{slash-name}` AND auto-bound
+  as a tool on the default chat agent. The starter template ticks the
+  checkbox by default.
+
+### The "NODES" palette (left side)
+
+Three click-to-add entries. Each drops a node at a cascading default
+position; you can then drag it anywhere.
+
+- **Agent** (sky-blue tile, robot icon) — content producer. 1 inbound,
+  1 outbound. 4 omni-handles (top / right / bottom / left), Loose
+  mode lets connectors leave from any side — useful for back-edges
+  that route through node sides instead of arcing.
+- **If/Else** (amber tile, branching icon) — LLM-driven router. 1
+  inbound target on the left, **N+1 outbound source ports** on the
+  right: one per declared emit label + a permanent `else` port. The
+  LLM picks a branch by calling the auto-bound `set_route` tool;
+  unmatched outcomes fire the `else` port.
+- **End** (rose tile, stop icon) — terminator. A flow may have
+  **multiple End sinks** (drop the End palette entry again to add
+  another). All End instances serialize to `to: __end__` in YAML;
+  positions persist via `metadata.end_routing`.
+
+**Start** is auto-placed on every new flow (singleton — exactly one
+inbound entry per LangGraph contract; can't be deleted, only moved).
+Single right-side source handle (id `out`).
+
+### Configuring a node (the NodePanel)
+
+Click any node on the canvas. A panel slides in from the right
+("Node & agent") with these fields:
+
+- **Node id** — must be unique within the flow. Becomes the agent's
+  `api_name` automatically (the editor enforces `agent.api_name ===
+  node_id`).
+- **Display name** — what shows on the card's second line; also the
+  human label in proposal cards.
+- **Description** (optional) — usually left blank.
+- **Model** — dropdown of models you marked "Available for flows".
+  If empty, see Part 1 of any scenario for how to enable a model.
+- **System prompt** — the steering prompt prepended to every turn.
+- **Emit labels** (chip input) — **the lever that turns an Agent into
+  an If/Else**. Type a label, press Enter to add a chip. As soon as
+  there's one chip, the node's card re-renders as an If/Else with
+  N+1 right-side ports. Removing all chips collapses it back to a
+  plain Agent.
+- **Tools** (optional chip input) — `ask_user` for HITL forms,
+  registered MCP tools, slash-exposed flow names.
+- **Context slots (advanced)** — collapsible section for #26 per-node
+  slot wiring; ignore unless a scenario calls it out.
+- **Delete node** — bottom of the panel (boundary nodes can't be
+  deleted via this button).
+
+### Wiring edges
+
+- **Chat agents (no emits) → next node:** drag from one of the 4
+  small handle dots on a card's edge to any handle dot on the target.
+  The hand-drawn side persists across reload via `metadata.edge_handles`.
+- **If/Else → next nodes:** drag from a specific **right-side port**
+  (`port:passed`, `port:failed`, ..., `port:else`) to the target's
+  inbound. The edge's routing **condition is derived from which port
+  it leaves** — there is no edge-midpoint dropdown anymore.
+- **To an End sink:** drag any source handle to an End node's left
+  target handle. To split exits to different End nodes, drop more
+  Ends from the palette and wire each path to its own.
+
+### Selected / dirty / save
+
+- A selected node shows a **solid white border** (no dash, no orange
+  ring). Selection drives the NodePanel content.
+- The **Save** button is disabled until something is dirty (drag,
+  add, delete, rename, emits-edit, etc.); it lights up on the first
+  change.
+- **Validate** (left of Save) runs the same server-side YAML
+  validation Save runs — useful for catching mistakes before
+  committing. A green "Looks good" banner means Save will succeed.
+- **YAML** (left of Validate) opens a **read-only** view of the saved
+  YAML. The canvas is the source of truth; YAML is just for
+  inspection.
 
 ---
 
@@ -238,62 +348,57 @@ separate "Available for flows" flag.)
    (in addition to the "Available for chat" checkbox you already
    ticked). The model now has BOTH checkboxes ticked.
 
-#### Part 2 — Create an agent (flows reference agents by api_name)
+#### Part 2 — Build the flow in the visual editor
 
-1. In the settings sidebar, click **Agents** (under "AI Setup").
-2. Click the **+ New agent** button (top-right of the page).
-3. Fill in every field with exactly these values:
-   - **API name:** `research-agent`
+(Agents are flow-owned now — there's no separate "Create the agent"
+step. The agent is authored inline as a node within this flow.)
+
+1. In the settings sidebar, click **Flows** (under "Workflows").
+2. Click the **+ New flow** button (top-right). The full-page editor
+   opens (URL: `/flows/new`). A **Draft** chip sits next to the
+   title; the left "NODES" palette is visible with Agent / If/Else /
+   End entries. Start is already on the canvas at the left; End is
+   on the right.
+3. **Fill the top meta row** (above the canvas):
+   - **Display name:** `Research Flow`
+   - **api-name:** `research-flow`
+   - **Description:** `Quick research answers on any topic.`
+   - Confirm the **Expose as /slash** checkbox is ticked.
+   - **Slash-name:** `research`
+4. **Add the Agent node.** Click the **Agent** entry in the left
+   palette. A sky-blue Agent card appears on the canvas; its
+   NodePanel opens automatically on the right.
+5. In the NodePanel, fill in:
+   - **Node id:** `research-agent` (the editor enforces a unique
+     id; this becomes the agent's api_name automatically).
    - **Display name:** `Research Agent`
-   - **Description (optional):** `Answers research questions in
-     plain English.`
-   - **Model:** click the dropdown and pick the same model you just
-     enabled for flows (e.g. `claude-sonnet-4-5`). If the dropdown
-     says "No models are enabled for Flows", go back to Part 1.
-   - **Emit labels:** leave empty (no chips).
-   - **Tools:** leave empty (no chips).
-   - **System prompt** (paste this exactly, including the line
-     break):
+   - **Model:** pick the model you just enabled for Flows in Part 1
+     (e.g. `claude-sonnet-4-5`). If the dropdown says "No models are
+     enabled for Flows", go back to Part 1.
+   - **System prompt** (paste this exactly):
      ```
      You are a careful researcher. Answer the user's question in 3 to 5 sentences using plain English. If the question is unclear, make a reasonable assumption and state it.
      ```
-4. Click **Save** (top-right). You should be sent back to the Agents
-   list and see a card titled "Research Agent" with `research-agent`
-   underneath.
+   - Leave **Emit labels** empty (this stays a content-producing
+     Agent, not an If/Else).
+   - Leave **Tools** empty.
+6. **Wire the edges.** You need two: `Start → research-agent` and
+   `research-agent → End`.
+   - Hover the Start node (left side) to see its right-edge handle
+     dot. Drag from that dot to one of the four edge dots on the
+     `research-agent` card.
+   - Hover the `research-agent` card and drag from any of its edge
+     dots to the End node's left-edge handle dot.
+7. Click the **Validate** button (top-right). A green banner should
+   say **"Looks good — ready to save."** Red errors usually mean a
+   missing model selection or a missing required meta field.
+8. Click the **Save** button. The banner should change to
+   **"Created 'Research Flow'."** The Draft chip stays (Publish
+   semantics aren't wired on this branch).
 
-#### Part 3 — Create a flow that uses that agent
-
-1. In the settings sidebar, click **Flows** (under "Workflows").
-2. Click the **+ New flow** button (top-right).
-3. The YAML editor opens with a starter template. **Select all the
-   text inside the editor (Cmd+A on Mac, Ctrl+A on Windows) and
-   delete it.**
-4. Paste this YAML exactly (every character matters, including
-   indentation — YAML is whitespace-sensitive). Note the
-   `slash_api_name:` + `exposed_as_slash: true` lines — those make
-   the flow slash-invocable on save, no separate toggle needed:
-   ```yaml
-   api_name: research-flow
-   display_name: Research Flow
-   description: Quick research answers on any topic.
-   slash_api_name: research
-   exposed_as_slash: true
-
-   flow:
-     nodes:
-       - {node_id: research_1, agent: research-agent}
-     edges:
-       - {from: __start__, to: research_1}
-       - {from: research_1, to: __end__}
-   ```
-5. Click the **Validate** button (top-right). A green banner should
-   say **"Looks good — ready to save."** If you see red errors,
-   re-check that you pasted the YAML exactly — indentation under
-   `nodes:` and `edges:` must be two spaces.
-6. Click the **Save** button (top-right). The banner should change
-   to **"Created 'Research Flow'."** The right-hand preview should
-   now show a small two-node graph: `__start__ → research_1 →
-   __end__`.
+(For sanity-checking, click the **YAML** button — a read-only dialog
+opens showing the saved YAML, which should match the topology you
+just built. Close the dialog with the X to keep editing.)
 
 #### Part 4 — Verify slash exposure landed
 
@@ -408,106 +513,19 @@ separate "Available for flows" flag.)
 
 ---
 
-## Scenario 4 — Slash command that opens a form
+## Scenario 4 — RETIRED (subsumed by Scenarios 2 + 9)
 
-### Goal
-Combine Scenarios 2 and 3 — prove that a slash-exposed flow can also
-pause mid-run and pop up the ask_user form, then resume with the
-submitted values.
+Original scenario tested a slash-exposed flow whose agent had
+`ask_user` bound. The same contract is now exercised end-to-end by:
 
-### Arrange (one-time setup for this scenario)
+- **Scenario 2** — default chat agent calling `ask_user` (form popup
+  + resume).
+- **Scenario 9** — a flow with **two** `ask_user` agents in sequence
+  (slash dispatch + multi-form HITL + resume across nodes).
 
-This scenario **requires Scenario 3's setup to be complete first**
-(model enabled for flows, `research-agent` created, `research-flow`
-created, `/research` exposed). If you haven't done Scenario 3 yet,
-go do it now — Scenario 4 will not work without it.
-
-Now we extend the `research-agent` so it pauses for a form before
-answering. Exact steps:
-
-1. Click the **gear icon** in the bottom-left (Settings).
-2. Click **Agents** in the settings sidebar.
-3. Find the card titled **"Research Agent"** (api_name
-   `research-agent`). Click the **pencil icon** on that card to
-   open the agent editor.
-4. Update **two fields only** — leave every other field as it is:
-   - **System prompt:** select all the text in the system prompt
-     textarea (click into it, then Cmd+A / Ctrl+A) and replace it
-     with exactly this:
-     ```
-     You are a careful researcher. Before answering anything, you MUST call the ask_user tool exactly once to collect two values from the user: (1) "topic" — the topic to research (text, required); (2) "depth" — the desired depth, one of "short", "medium", or "long" (text, required). After the user submits the form, write a research answer about their topic at roughly their chosen depth (short = 2 sentences, medium = 4 sentences, long = 7 sentences).
-     ```
-   - **Tools:** click into the Tools chip input. Type `ask_user`
-     (lowercase, with the underscore) and press **Enter** to commit
-     it as a chip. A chip labelled `ask_user` should now appear
-     above the input. Do NOT add any other tools.
-5. Click the **Save** button (top-right). You should be returned to
-   the Agents list. The "Research Agent" card should still be
-   there.
-6. Click the **app logo** (top-left) to return to chat.
-
-### Act
-
-1. Click **+ New chat** in the sidebar.
-2. Click the text box at the bottom.
-3. Type the `/` character. The slash popover should appear listing
-   **/research**.
-4. Click **/research** (or press Enter while it's highlighted). The
-   composer should now show `/research ` (with a trailing space).
-5. Press **Enter** WITHOUT typing anything after the slash. (We're
-   not giving the agent a topic on purpose — it should ask for one
-   via the form.)
-
-### Assert
-
-- [ ] Your message appears as a bubble on the right side, showing
-  literally `/research`.
-- [ ] The spinning logo + label **"Research Agent..."** appears
-  briefly.
-- [ ] Within a few seconds, a **form pops up** above the text box.
-  It must contain exactly **two input fields**: one labelled
-  **topic** (or "Topic") and one labelled **depth** (or "Depth").
-- [ ] The spinning logo + "Research Agent..." text **disappears**
-  while the form is showing (the form replaces it as the
-  "what's-happening-now" indicator).
-- [ ] A **Submit** button is visible at the bottom of the form
-  (label may also be "Send" or "Continue").
-- [ ] Fill in the fields with these exact values:
-  - **topic:** `quantum computing`
-  - **depth:** `short`
-- [ ] Click **Submit**.
-- [ ] The form **disappears**.
-- [ ] The spinning logo + "Research Agent..." label **reappears**
-  briefly.
-- [ ] An AI reply streams in as a bubble on the left side. The
-  reply must:
-  - mention **quantum computing** (the topic you gave),
-  - be approximately **2 sentences long** (because depth = short).
-- [ ] When the reply finishes, the spinning logo disappears and the
-  Stop button reverts to a Send arrow.
-
-### If something looks off
-
-- **No form appears — the AI just streams an answer directly.** The
-  agent either lost its tool or its system prompt. Go back to
-  Settings → Agents → edit "Research Agent" and confirm BOTH (a)
-  the system prompt still contains the "you MUST call the ask_user
-  tool" sentence, AND (b) there is an `ask_user` chip in the Tools
-  field. Both are required — having only one will not work.
-- **Form pops up but with only ONE field, or with extra fields.**
-  The agent's system prompt drives the form shape. Re-open the
-  agent and confirm the system prompt mentions BOTH "topic" AND
-  "depth" by those exact names.
-- **You see a red error mentioning "tool not found" or
-  "ask_user".** The chip wasn't saved — re-edit the agent and add
-  the `ask_user` chip again, then Save.
-- **Form pops up correctly but clicking Submit throws an error.**
-  Copy the exact error text and the failed field name, and report
-  it — this is a real bug.
-- **You click Cancel on the form.** A confirmation dialog should
-  appear; confirming should add a small grey "You cancelled..."
-  breadcrumb in the chat and the spinning logo should disappear.
-  This is also a valid sub-check.
+Scenario 4 added no behaviour the union of 2 + 9 didn't already
+cover, and re-authoring `research-agent` mid-suite produced a fragile
+cross-scenario dependency. Skip when running the scenarios.
 
 ---
 
@@ -521,63 +539,70 @@ You should see TWO assistant bubbles back-to-back, one per node.
 ### Arrange (one-time setup for this scenario)
 
 Requires Scenario 3 Part 1 (model enabled for flows). You do NOT need
-the `research-agent` or `research-flow` from Scenario 3 — this
-scenario inlines its own agents inside the flow YAML.
+the `research-flow` from Scenario 3 — this scenario builds its own
+two-node flow with two inline agents.
 
-#### Find your model api_name
+#### Build the flow in the visual editor
 
-The YAML below references your model by its `api_name`. To find it:
+(See the "Building a flow in the visual editor" reference section
+above for the click-by-click mechanics. Repeated here only for the
+topology specific to this scenario.)
 
-1. Click **gear icon** → **Providers** in settings.
-2. Click the tile for the provider you connected (e.g. Anthropic).
-3. Hover over the model you enabled for flows. The small grey text
-   under the display name is the `api_name` (e.g.
-   `claude-sonnet-4-5`).
-4. Copy it. You'll paste it into the YAML below wherever you see
-   `<YOUR_MODEL_API_NAME>`.
+1. Click **gear icon** → **Flows** → **+ New flow** (`/flows/new`).
+2. Set the top meta row:
+   - **Display name:** `Research Pipeline`
+   - **api-name:** `research-pipeline`
+   - **Description:** `Researches a topic, then condenses to one sentence.`
+   - Confirm **Expose as /slash** ticked; **Slash-name:**
+     `research-pipeline`.
+3. **Add the first Agent.** Click the **Agent** palette entry. In
+   the NodePanel that opens, set:
+   - **Node id:** `pipeline-researcher`
+   - **Display name:** `Pipeline Researcher`
+   - **Model:** your Available-for-Flows model.
+   - **System prompt:**
+     ```
+     You are a researcher. Write 3 to 5 sentences explaining the user's topic in plain English. Do NOT add a summary or conclusion line — output ONLY the explanation paragraph.
+     ```
+   - **Context slots (advanced)** — expand the collapsed section.
+     Leave **Inputs** empty. In **Outputs**, type `research_notes`
+     and press Enter to commit it as a chip. This publishes the
+     researcher's reply to the `research_notes` slot for the
+     summarizer to read.
+4. **Add the second Agent.** Click the **Agent** palette entry
+   again — a new card drops. Click it to open its NodePanel:
+   - **Node id:** `pipeline-summarizer`
+   - **Display name:** `Pipeline Summarizer`
+   - **Model:** same as above.
+   - **System prompt:**
+     ```
+     A research passage is provided below. Condense it into EXACTLY ONE sentence (max 25 words) that captures the most important fact. Output ONLY the one-sentence summary — no preface, no list, no quote of the original.
+     ```
+   - **Context slots (advanced)** — expand. In **Inputs**, type
+     `research_notes` and press Enter. The summarizer's prompt now
+     sees the researcher's slot content auto-wrapped as a user turn.
 
-#### Create the flow
-
-1. Click **gear icon** → **Flows** → **+ New flow**.
-2. Select-all and delete the starter template.
-3. Paste this YAML exactly. Replace **both** occurrences of
-   `<YOUR_MODEL_API_NAME>` with the value you copied above.
-   ```yaml
-   api_name: research-pipeline
-   display_name: Research Pipeline
-   description: Researches a topic, then condenses to one sentence.
-   slash_api_name: research-pipeline
-   exposed_as_slash: true
-
-   agents:
-     - api_name: pipeline-researcher
-       display_name: Pipeline Researcher
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         You are a researcher. Write 3 to 5 sentences explaining the user's topic in plain English. Do NOT add a summary or conclusion line — output ONLY the explanation paragraph.
-     - api_name: pipeline-summarizer
-       display_name: Pipeline Summarizer
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         The previous assistant turn contains a research passage. Condense it into EXACTLY ONE sentence (max 25 words) that captures the most important fact. Output ONLY the one-sentence summary — no preface, no list, no quote of the original.
-   flow:
-     nodes:
-       - {node_id: research_1, agent: pipeline-researcher}
-       - {node_id: summarize_1, agent: pipeline-summarizer}
-     edges:
-       - {from: __start__, to: research_1}
-       - {from: research_1, to: summarize_1}
-       - {from: summarize_1, to: __end__}
-   ```
-4. Click **Validate** — green "Looks good — ready to save."
-5. Click **Save** — banner says "Created 'Research Pipeline'."
-6. Click the **back arrow** to return to the Flows list.
-7. **Confirm the `/research-pipeline` badge is visible at the top
-   of the Research Pipeline card** — the YAML's `slash_api_name` +
-   `exposed_as_slash: true` lines configured it inline (2026-05-27
-   — A+D), no separate toggle step needed.
-8. Click the **app logo** to return to chat.
-9. **Hard-refresh** the page (Cmd+Shift+R / Ctrl+Shift+R).
+   > **Why slots here?** Without slot wiring, the summarizer
+   > inherits the full message transcript ending on the researcher's
+   > **assistant** turn. Anthropic rejects assistant-prefill on this
+   > model and the run fails with a 400. Slot inputs make the
+   > summarizer's LLM call always end on a user turn (#26).
+5. **Wire the edges.** Three of them, forming a sequential chain:
+   - `Start → pipeline-researcher`: drag from Start's right-side
+     handle to any handle on `pipeline-researcher`.
+   - `pipeline-researcher → pipeline-summarizer`: drag from any
+     handle on the researcher card to any handle on the summarizer.
+   - `pipeline-summarizer → End`: drag from the summarizer to End's
+     left-side handle.
+6. Click **Validate** — green "Looks good — ready to save."
+7. Click **Save** — banner says "Created 'Research Pipeline'."
+8. Click the **back arrow** to return to the Flows list.
+9. **Confirm the `/research-pipeline` badge is visible at the top
+   of the Research Pipeline card** — the slash settings you ticked
+   in the top meta row configured this inline, no separate toggle
+   step needed.
+10. Click the **app logo** to return to chat.
+11. **Hard-refresh** the page (Cmd+Shift+R / Ctrl+Shift+R).
 
 ### Act
 
@@ -607,14 +632,14 @@ The YAML below references your model by its `api_name`. To find it:
 
 ### If something looks off
 
-- **Validation fails on `user_model: <YOUR_MODEL_API_NAME>`.** The
-  literal `<YOUR_MODEL_API_NAME>` placeholder is still in the YAML —
-  replace both occurrences with your actual model api_name (Part 1
-  of Arrange above).
-- **Validation says "Unknown user_model".** The string you pasted
-  isn't an api_name on one of your enabled, available-for-flows
-  models. Re-check the Providers page — look at the grey text below
-  the model display name.
+- **Validation fails with "Pick a model" or "user_model is required"
+  for one of the nodes.** Click the node on the canvas, open the
+  NodePanel, and select a model from the dropdown. If the dropdown
+  is empty, you haven't enabled any model for Flows yet — see
+  Scenario 3 Part 1.
+- **Save complains the node id is already in use.** Each node id
+  must be unique within the flow. Rename one of them in its
+  NodePanel.
 - **Only ONE assistant bubble appears instead of two.** The
   researcher's reply included a summary line, so the summarizer had
   nothing distinct to add (or it returned an empty reply). Re-read
@@ -639,51 +664,81 @@ back-edges, not just forward edges.
 
 ### Arrange (one-time setup for this scenario)
 
-Requires Scenario 3 Part 1 (model enabled for flows). Find your model
-api_name as in Scenario 5's Arrange.
+Requires Scenario 3 Part 1 (model enabled for flows).
 
-#### Create the flow
+#### Build the flow in the visual editor
+
+This scenario tests the **If/Else** node — an LLM-driven router with
+named ports. The Reviewer is the branching node; its two outbound
+edges (`passed` and `failed`) are wired from distinct right-side
+ports on its card. The `else` port stays unwired because the
+reviewer's prompt always emits one of the two declared routes.
 
 1. Click **gear icon** → **Flows** → **+ New flow**.
-2. Select-all + delete the starter template.
-3. Paste this YAML, replacing both `<YOUR_MODEL_API_NAME>`
-   occurrences. Note the `slash_api_name:` + `exposed_as_slash:
-   true` lines — those make the flow slash-invocable on save, no
-   separate toggle needed (2026-05-27 — A+D):
-   ```yaml
-   api_name: revise-loop
-   display_name: Revise Loop
-   description: Drafts a haiku and revises until a reviewer approves.
-   slash_api_name: revise
-   exposed_as_slash: true
+2. Top meta row:
+   - **Display name:** `Revise Loop`
+   - **api-name:** `revise-loop`
+   - **Description:** `Drafts a haiku and revises until a reviewer approves.`
+   - **Expose as /slash** ticked; **Slash-name:** `revise`.
+3. **Add the Drafter Agent** (palette → Agent):
+   - **Node id:** `haiku-drafter`
+   - **Display name:** `Haiku Drafter`
+   - **Model:** Available-for-Flows model.
+   - **System prompt:**
+     ```
+     The user's topic appears below. Write a haiku (3 lines, roughly 5/7/5 syllables) on that topic. If a critique block is also below, address every concern in your revision. Output ONLY the haiku — no preface, no commentary.
+     ```
+   - Leave **Emit labels** empty.
+   - **Context slots (advanced)** — expand. **Inputs:** add
+     `user_query` and `critique` (two chips). **Outputs:** add
+     `draft`. On the first iteration `critique` is empty; on loop
+     iterations the reviewer's last judgement is there.
+4. **Add the Reviewer as an If/Else** (palette → **If/Else**):
+   - **Node id:** `haiku-reviewer`
+   - **Display name:** `Haiku Reviewer`
+   - **Model:** same as above.
+   - **Emit labels:** the chip input is pre-filled with `passed` and
+     `failed` (If/Else defaults). Leave those two chips as-is. The
+     card now shows the amber If/Else tile and **three right-side
+     ports**: `passed`, `failed`, and `else`.
+   - **System prompt** (the post-#25 phrasing — routing is via the
+     auto-bound `set_route` tool, NOT in-text tokens):
+     ```
+     A haiku draft appears below. Verify (a) exactly 3 lines, (b) roughly 5/7/5 syllables. Reply with one short sentence stating your judgement, then call set_route: target="passed" if BOTH checks succeed; target="failed" if either fails. Be slightly lenient on syllable counts — a 4/7/5 or 5/8/5 passes if the spirit is right.
+     ```
+   - **Context slots (advanced)** — **Inputs:** `draft`. **Outputs:**
+     `critique`. The reviewer reads the latest draft from the slot
+     and publishes its judgement so the drafter (on loop) can
+     address it.
 
-   agents:
-     - api_name: haiku-drafter
-       display_name: Haiku Drafter
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         Write a haiku (3 lines, roughly 5/7/5 syllables) on the user's topic. If a reviewer has previously critiqued an earlier draft, address every concern in your revision. Output ONLY the haiku — no preface, no commentary.
-     - api_name: haiku-reviewer
-       display_name: Haiku Reviewer
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         The previous turn contains a haiku. Verify (a) exactly 3 lines, (b) roughly 5/7/5 syllables. If BOTH pass, write the single word "Approved." then end your reply with <<emit:passed>>. If either fails, write ONE short sentence stating what's wrong, then end with <<emit:failed>>.
-       emits: [passed, failed]
-   flow:
-     nodes:
-       - {node_id: draft_1, agent: haiku-drafter}
-       - {node_id: review_1, agent: haiku-reviewer}
-     edges:
-       - {from: __start__, to: draft_1}
-       - {from: draft_1, to: review_1}
-       - {from: review_1, to: __end__, condition: passed}
-       - {from: review_1, to: draft_1, condition: failed}
-   ```
-4. **Validate** → **Save** → back-arrow. **Confirm the `/revise`
-   badge is visible at the top of the Revise Loop card.** If
-   missing, re-open the flow and confirm both `slash_api_name:
-   revise` and `exposed_as_slash: true` are present in the YAML.
-5. App logo → hard-refresh.
+   > **Why slots here?** Without slot wiring, both nodes inherit the
+   > full message transcript ending on the other's **assistant** turn.
+   > Anthropic rejects assistant-prefill and the loop fails on the
+   > second iteration. Slot inputs make every LLM call end on a user
+   > turn (#26 — fixes both Failure A & B from that design call).
+5. **Wire the edges** (4 total):
+   - `Start → haiku-drafter`: drag from Start's right handle to any
+     handle on the Drafter card.
+   - `haiku-drafter → haiku-reviewer`: drag from any handle on
+     Drafter to the Reviewer's **left inbound port** (the single
+     left-side dot).
+   - `haiku-reviewer → End` **via `passed`**: drag from the
+     Reviewer's `passed` port (top of the right-side stack) to End's
+     left handle.
+   - `haiku-reviewer → haiku-drafter` **via `failed`** (the revise
+     loop): drag from the Reviewer's `failed` port to any handle on
+     the Drafter card. The edge label "failed" appears at its
+     midpoint.
+   - Leave the `else` port **unwired** — the Reviewer's prompt only
+     emits `passed` or `failed`, so the else branch never fires.
+     (The pre-save check requires `else` to go somewhere only if you
+     intend the LLM to ever land on it; for this test we let an
+     unmatched outcome fall through to the default condition which
+     also matches `passed` in this flow — see "If something looks
+     off" below if Save complains.)
+6. **Validate** → **Save** → back-arrow. **Confirm the `/revise`
+   badge is visible at the top of the Revise Loop card.**
+7. App logo → hard-refresh.
 
 ### Act
 
@@ -701,18 +756,22 @@ api_name as in Scenario 5's Arrange.
 - [ ] A draft haiku appears as a bubble on the left — 3 lines.
 - [ ] The label changes to **"Haiku Reviewer..."** and a second
   bubble streams in. It either:
-  - says exactly **"Approved."** (one word, possibly with
-    `<<emit:passed>>` visible in the text), OR
-  - states one short critique sentence (possibly with
-    `<<emit:failed>>` visible).
-- [ ] If the reviewer **approved**, the flow ends — spinning logo
-  disappears, Stop reverts to Send. Done.
-- [ ] If the reviewer **rejected**, the spinning logo flips back
-  to **"Haiku Drafter..."** within a beat and a NEW draft bubble
-  streams in (a revision). Followed by another reviewer bubble.
-- [ ] The loop continues until reviewer **approves** (usually
-  within 1–3 revisions for this prompt). Final state: an
-  "Approved." bubble, spinning logo gone.
+  - states a one-sentence positive judgement (the route was
+    `passed`), OR
+  - states one short critique sentence (the route was `failed`).
+  The reply text is **clean** — post-#25 routing is via the
+  auto-bound `set_route` tool, NOT a `<<emit:passed>>` token in the
+  bubble. If you see a literal `<<emit:...>>` string in the bubble
+  the prompt is stale; see "If something looks off" below.
+- [ ] If the reviewer chose **passed**, the flow ends — spinning
+  logo disappears, Stop reverts to Send. Done.
+- [ ] If the reviewer chose **failed**, the spinning logo flips
+  back to **"Haiku Drafter..."** within a beat and a NEW draft
+  bubble streams in (a revision). Followed by another reviewer
+  bubble.
+- [ ] The loop continues until reviewer chooses **passed** (usually
+  within 1–3 revisions for this prompt). Final state: a positive
+  judgement bubble, spinning logo gone.
 
 ### If something looks off
 
@@ -722,15 +781,23 @@ api_name as in Scenario 5's Arrange.
   strict for this topic — try a different topic (e.g.
   `cherry blossoms`) which haiku models tend to handle cleanly.
 - **The reviewer's reply contains `<<emit:passed>>` or
-  `<<emit:failed>>` visibly in the bubble.** That's expected —
-  the emit token is part of the reply text today. It's the
-  routing signal; the bubble itself isn't hiding it.
+  `<<emit:failed>>` visibly in the bubble.** That's the **legacy
+  pre-#25** routing mechanism (text tokens) and shouldn't appear
+  anymore. The reviewer's system prompt is stale — re-open the
+  flow, click the `haiku-reviewer` node, and confirm the prompt
+  says "call set_route" (not "end with <<emit:...>>"). The text
+  tokens are now ignored at runtime, so a stale prompt will fall
+  through to default routing and break the loop.
 - **Only one draft + one reviewer bubble appear, then the flow
-  ends WITHOUT either an Approved or a revision.** The reviewer
-  forgot to include the emit token. The flow then takes the
-  `default` (unmatched) edge — but neither edge above is marked
-  `default`, so the run terminates. Retry; LLMs occasionally drop
-  the token.
+  ends WITHOUT either an explicit pass or a revision.** The LLM
+  forgot to call `set_route`. The runtime falls back to
+  `EDGE_DEFAULT` — which in this flow has no matching outgoing
+  edge, so the run terminates. Retry; modern LLMs rarely drop the
+  tool call but it happens.
+- **Save was blocked saying the `else` port must be wired.** This
+  branch's pre-save check doesn't enforce that, but if a future
+  build does, drag the Reviewer's `else` port to End — the else
+  branch will never fire given the prompt, so it's a no-op wire.
 - **The spinning logo says "Drafting response..." instead of
   "Haiku Drafter...".** The slash didn't route. See Scenario 3
   gotchas.
@@ -746,63 +813,88 @@ Different questions exercise different downstream branches.
 
 ### Arrange (one-time setup for this scenario)
 
-Requires Scenario 3 Part 1. Find your model api_name as in
-Scenario 5.
+Requires Scenario 3 Part 1.
 
-#### Create the flow
+#### Build the flow in the visual editor
+
+The Triage Router is the centerpiece — an **If/Else with three
+declared emits** (`code`, `math`, `general`). Its card shows four
+right-side ports: the three emits + the always-present `else`.
+Three specialist Agents catch each branch and terminate at End.
 
 1. Settings → Flows → **+ New flow**.
-2. Select-all + delete starter template.
-3. Paste this YAML, replacing every `<YOUR_MODEL_API_NAME>`:
-   ```yaml
-   api_name: triage
-   display_name: Triage Router
-   description: Classifies the user's question into code, math, or general and routes to a specialist.
-   slash_api_name: triage
-   exposed_as_slash: true
-
-   agents:
-     - api_name: triage-router
-       display_name: Triage Router
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         Classify the user's question into EXACTLY ONE of: "code" (anything about programming), "math" (numbers, equations, formulas), or "general" (everything else). Reply with one short sentence stating your classification — e.g. "Classified as code." — then end with <<emit:code>>, <<emit:math>>, or <<emit:general>>. Do NOT answer the question yourself.
-       emits: [code, math, general]
-     - api_name: triage-coder
-       display_name: Coder Specialist
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         You are a programming specialist. Answer the user's question with concise code or a 1-2 sentence explanation. Begin your reply with the literal text "[CODE]".
-     - api_name: triage-mathematician
-       display_name: Math Specialist
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         You are a math specialist. Answer with the relevant formula or short calculation. Begin your reply with the literal text "[MATH]".
-     - api_name: triage-generalist
-       display_name: Generalist
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         Answer the user's question in 1-2 plain sentences. Begin your reply with the literal text "[GENERAL]".
-   flow:
-     nodes:
-       - {node_id: router_1, agent: triage-router}
-       - {node_id: coder_1, agent: triage-coder}
-       - {node_id: math_1, agent: triage-mathematician}
-       - {node_id: general_1, agent: triage-generalist}
-     edges:
-       - {from: __start__, to: router_1}
-       - {from: router_1, to: coder_1, condition: code}
-       - {from: router_1, to: math_1, condition: math}
-       - {from: router_1, to: general_1, condition: general}
-       - {from: coder_1, to: __end__}
-       - {from: math_1, to: __end__}
-       - {from: general_1, to: __end__}
-   ```
-4. **Validate** → **Save** → back-arrow. **Confirm the `/triage`
-   badge is visible at the top of the card** (configured inline
-   via the YAML's `slash_api_name` + `exposed_as_slash: true`
-   lines, 2026-05-27 — A+D).
-5. App logo → hard-refresh.
+2. Top meta row:
+   - **Display name:** `Triage Router`
+   - **api-name:** `triage`
+   - **Description:** `Classifies the user's question into code, math, or general and routes to a specialist.`
+   - **Expose as /slash** ticked; **Slash-name:** `triage`.
+3. **Add the Router as an If/Else** (palette → If/Else):
+   - **Node id:** `triage-router`
+   - **Display name:** `Triage Router`
+   - **Model:** Available-for-Flows model.
+   - **Emit labels:** the chip input starts with `passed, failed`
+     (the If/Else default). **Delete both default chips** by
+     clicking each chip's × . Then type `code`, press Enter; type
+     `math`, press Enter; type `general`, press Enter. The card
+     now shows 4 right-side ports: `code`, `math`, `general`, and
+     `else`.
+   - **System prompt:**
+     ```
+     The user's question is below. Classify it into EXACTLY ONE of: "code" (anything about programming, software, debugging), "math" (numbers, equations, formulas, calculations), or "general" (everything else). Reply with one short sentence stating your classification — e.g. "Classified as code." — then call set_route with target equal to "code", "math", or "general". Do NOT answer the question yourself.
+     ```
+   - **Context slots (advanced)** — **Inputs:** `user_query`. The
+     router sees ONLY the original user message wrapped as a user
+     turn (no transcript pollution).
+4. **Add the three specialist Agents** (palette → Agent each time).
+   Each one needs `inputs: [user_query]` in its Context slots so
+   it reads the original user question rather than inheriting the
+   transcript that ends on the router's classification reply
+   (which would trip Anthropic's assistant-prefill rejection).
+   - Coder Specialist: **Node id** `triage-coder`, **Display
+     name** `Coder Specialist`, **Model** as above, **System
+     prompt:**
+     ```
+     The user's question (below) was classified as a code question. Answer with concise code or a 1-2 sentence explanation. Begin your reply with the literal text "[CODE]".
+     ```
+     **Context slots → Inputs:** `user_query`.
+   - Math Specialist: **Node id** `triage-mathematician`,
+     **Display name** `Math Specialist`, **Model** as above,
+     **System prompt:**
+     ```
+     The user's question (below) was classified as a math question. Answer with the relevant formula or short calculation. Begin your reply with the literal text "[MATH]".
+     ```
+     **Context slots → Inputs:** `user_query`.
+   - Generalist: **Node id** `triage-generalist`, **Display name**
+     `Generalist`, **Model** as above, **System prompt:**
+     ```
+     The user's question (below) was classified as general. Answer in 1-2 plain sentences. Begin your reply with the literal text "[GENERAL]".
+     ```
+     **Context slots → Inputs:** `user_query`.
+5. **Wire the edges** (7 total — Start → router, 3 branches off
+   the router via its named ports, 3 specialists → End):
+   - `Start → triage-router`: drag from Start's right handle to
+     the Router's **left inbound port**.
+   - `triage-router(code) → triage-coder`: drag from the Router's
+     `code` port (right side, top-most) to any handle on the
+     Coder Specialist card.
+   - `triage-router(math) → triage-mathematician`: drag from the
+     Router's `math` port to any handle on the Math Specialist.
+   - `triage-router(general) → triage-generalist`: drag from the
+     Router's `general` port to any handle on the Generalist.
+   - Leave the Router's `else` port unwired (the LLM is instructed
+     to always pick one of the three declared routes).
+   - `triage-coder → End`: drag any handle on the Coder card to
+     End's left handle.
+   - `triage-mathematician → End`: drag any handle on the Math
+     card to End's left handle. (You may want to **drop a second
+     End** from the palette for this so the edge doesn't cross
+     other branches visually — the BE collapses both ends to
+     `__end__` regardless.)
+   - `triage-generalist → End`: same — wire to whichever End
+     instance reduces edge-crossings on the canvas.
+6. **Validate** → **Save** → back-arrow. **Confirm the `/triage`
+   badge is visible at the top of the card.**
+7. App logo → hard-refresh.
 
 ### Act
 
@@ -842,14 +934,21 @@ Run C — general:
   ran.** The conditional-edge mapping is broken — capture the
   router bubble's text (it shows what was classified) and report.
 - **Run hangs after the router bubble — no specialist bubble.**
-  The router's emit token didn't match any conditional edge. Most
-  likely the router forgot to include `<<emit:...>>`. Retry the
-  run with a fresh chat.
+  The router's `set_route` call didn't match any conditional
+  edge. Most likely the LLM forgot to call `set_route` and the
+  runtime fell back to `EDGE_DEFAULT` — which has no outgoing
+  edge here. Retry with a fresh chat; modern LLMs rarely drop the
+  tool call but it happens. If the literal text `<<emit:...>>`
+  appears in the router's bubble, the prompt is stale on the old
+  text-token routing — re-edit the node and confirm the prompt
+  says "call set_route with target=..." (not "end with
+  <<emit:...>>").
 - **All three runs end up in the Generalist branch regardless of
   question.** Either (a) the router is always emitting `general`
   (model can't distinguish — try a stronger model), or (b) the
-  `general` edge was somehow marked the default and is matching
-  every fall-through. Check the YAML.
+  `general` edge was somehow wired to the router's `else` port
+  instead of the `general` port; click the edge, confirm its
+  midpoint label reads "general" (not absent and not "else").
 
 ---
 
@@ -862,46 +961,52 @@ it. The two agents are distinct nodes with different roles.
 
 ### Arrange (one-time setup for this scenario)
 
-Requires Scenario 3 Part 1. Find your model api_name as in
-Scenario 5.
+Requires Scenario 3 Part 1.
 
-#### Create the flow
+#### Build the flow in the visual editor
+
+Two sequential chat agents — same pattern as Scenario 5 but with
+different prompts and one more boilerplate edge.
 
 1. Settings → Flows → **+ New flow**.
-2. Select-all + delete starter template.
-3. Paste, replacing every `<YOUR_MODEL_API_NAME>`:
-   ```yaml
-   api_name: plan-and-do
-   display_name: Plan & Do
-   description: A planner outlines steps, then an executor performs them.
-   slash_api_name: plan-and-do
-   exposed_as_slash: true
+2. Top meta row:
+   - **Display name:** `Plan & Do`
+   - **api-name:** `plan-and-do`
+   - **Description:** `A planner outlines steps, then an executor performs them.`
+   - **Expose as /slash** ticked; **Slash-name:** `plan-and-do`.
+3. **Add the Planner Agent** (palette → Agent):
+   - **Node id:** `plan-planner`
+   - **Display name:** `Planner`
+   - **Model:** Available-for-Flows model.
+   - **System prompt:**
+     ```
+     The user asks you to perform a task. Do NOT perform it yourself. Output a numbered list of 3 to 5 concrete steps that an executor would follow. Begin with the literal line "Plan:" then list each step on its own line ("1. ...", "2. ...", etc.). No commentary after the list.
+     ```
+   - **Context slots (advanced)** — **Outputs:** `plan` (publishes
+     the numbered plan for the executor to read).
+4. **Add the Executor Agent** (palette → Agent):
+   - **Node id:** `plan-executor`
+   - **Display name:** `Executor`
+   - **Model:** same as above.
+   - **System prompt:**
+     ```
+     A "Plan:" with numbered steps appears below. Execute each step by writing exactly one line per step that begins with "Step N:" and describes what you did in 5-10 words (you have no real tools — narrate plausibly). End your reply with the single word "Done." on its own line.
+     ```
+   - **Context slots (advanced)** — **Inputs:** `plan` (reads the
+     planner's slot output).
 
-   agents:
-     - api_name: plan-planner
-       display_name: Planner
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         The user asks you to perform a task. Do NOT perform it yourself. Output a numbered list of 3 to 5 concrete steps that an executor would follow. Begin with the literal line "Plan:" then list each step on its own line ("1. ...", "2. ...", etc.). No commentary after the list.
-     - api_name: plan-executor
-       display_name: Executor
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         The previous assistant turn contains a "Plan:" with numbered steps. Execute each step by writing exactly one line per step that begins with "Step N:" and describes what you did in 5-10 words (you have no real tools — narrate plausibly). End your reply with the single word "Done." on its own line.
-   flow:
-     nodes:
-       - {node_id: plan_1, agent: plan-planner}
-       - {node_id: exec_1, agent: plan-executor}
-     edges:
-       - {from: __start__, to: plan_1}
-       - {from: plan_1, to: exec_1}
-       - {from: exec_1, to: __end__}
-   ```
-4. **Validate** → **Save** → back-arrow. **Confirm the
-   `/plan-and-do` badge is visible at the top of the card**
-   (configured inline via the YAML's `slash_api_name` +
-   `exposed_as_slash: true` lines, 2026-05-27 — A+D).
-5. App logo → hard-refresh.
+   > **Why slots here?** Without slot wiring, the executor's prompt
+   > inherits the full transcript ending on the planner's
+   > **assistant** turn — Anthropic rejects assistant-prefill and
+   > the run fails before any executor output. Slots make the
+   > executor's LLM call always end on a user turn (#26).
+5. **Wire the edges** (3 total, sequential chain):
+   - `Start → plan-planner`
+   - `plan-planner → plan-executor`
+   - `plan-executor → End`
+6. **Validate** → **Save** → back-arrow. **Confirm the
+   `/plan-and-do` badge is visible at the top of the card.**
+7. App logo → hard-refresh.
 
 ### Act
 
@@ -946,48 +1051,45 @@ sequence within one episode.
 
 ### Arrange (one-time setup for this scenario)
 
-Requires Scenario 3 Part 1. Find your model api_name as in
-Scenario 5.
+Requires Scenario 3 Part 1.
 
-#### Create the flow
+#### Build the flow in the visual editor
+
+Two sequential Agents, each with the `ask_user` tool. The flow
+pauses TWICE — once at each node — within a single episode.
 
 1. Settings → Flows → **+ New flow**.
-2. Select-all + delete starter template.
-3. Paste, replacing every `<YOUR_MODEL_API_NAME>`:
-   ```yaml
-   api_name: two-stage-form
-   display_name: Two-Stage Form
-   description: Collect identity, then preferences, then summarise.
-   slash_api_name: two-stage-form
-   exposed_as_slash: true
-
-   agents:
-     - api_name: stage-1-collector
-       display_name: Stage 1 Collector
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         You collect basic identity. You MUST call the ask_user tool EXACTLY ONCE to collect: (1) "name" — first name (text, required); (2) "city" — city the user lives in (text, required). After the user submits the form, write ONE short line: "Got it: <name> in <city>." then stop. Do NOT call ask_user a second time.
-       tools: [ask_user]
-     - api_name: stage-2-collector
-       display_name: Stage 2 Collector
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         You collect an activity preference. You MUST call the ask_user tool EXACTLY ONCE to collect: (1) "activity" — favourite weekend activity (text, required). After the user submits, write one summary sentence that mentions the activity AND repeats the earlier name + city from the conversation. End with "All done." Do NOT call ask_user a second time.
-       tools: [ask_user]
-   flow:
-     nodes:
-       - {node_id: stage1_1, agent: stage-1-collector}
-       - {node_id: stage2_1, agent: stage-2-collector}
-     edges:
-       - {from: __start__, to: stage1_1}
-       - {from: stage1_1, to: stage2_1}
-       - {from: stage2_1, to: __end__}
-   ```
-4. **Validate** → **Save** → back-arrow. **Confirm the
-   `/two-stage-form` badge is visible at the top of the card**
-   (configured inline via the YAML's `slash_api_name` +
-   `exposed_as_slash: true` lines, 2026-05-27 — A+D).
-5. App logo → hard-refresh.
+2. Top meta row:
+   - **Display name:** `Two-Stage Form`
+   - **api-name:** `two-stage-form`
+   - **Description:** `Collect identity, then preferences, then summarise.`
+   - **Expose as /slash** ticked; **Slash-name:** `two-stage-form`.
+3. **Add Stage 1 Collector** (palette → Agent):
+   - **Node id:** `stage-1-collector`
+   - **Display name:** `Stage 1 Collector`
+   - **Model:** Available-for-Flows model.
+   - **Tools:** type `ask_user`, press Enter to commit it as a
+     chip. The chip is required for this node to fire its form.
+   - **System prompt:**
+     ```
+     You collect basic identity. You MUST call the ask_user tool EXACTLY ONCE to collect: (1) "name" — first name (text, required); (2) "city" — city the user lives in (text, required). After the user submits the form, write ONE short line: "Got it: <name> in <city>." then stop. Do NOT call ask_user a second time.
+     ```
+4. **Add Stage 2 Collector** (palette → Agent):
+   - **Node id:** `stage-2-collector`
+   - **Display name:** `Stage 2 Collector`
+   - **Model:** same as above.
+   - **Tools:** add an `ask_user` chip here too.
+   - **System prompt:**
+     ```
+     You collect an activity preference. You MUST call the ask_user tool EXACTLY ONCE to collect: (1) "activity" — favourite weekend activity (text, required). After the user submits, write one summary sentence that mentions the activity AND repeats the earlier name + city from the conversation. End with "All done." Do NOT call ask_user a second time.
+     ```
+5. **Wire the edges** (3 total, sequential):
+   - `Start → stage-1-collector`
+   - `stage-1-collector → stage-2-collector`
+   - `stage-2-collector → End`
+6. **Validate** → **Save** → back-arrow. **Confirm the
+   `/two-stage-form` badge is visible at the top of the card.**
+7. App logo → hard-refresh.
 
 ### Act
 
@@ -1035,8 +1137,8 @@ Scenario 5.
   note the omission.
 - **Form appears with 3+ fields instead of 2 (first) or 1
   (second).** The agent's prompt drove the wrong schema shape.
-  Re-open the agent in settings, verify the prompt matches what
-  you pasted exactly.
+  Re-open the flow, click the offending node, verify the prompt
+  matches what you pasted exactly.
 
 ---
 
@@ -1046,63 +1148,93 @@ Scenario 5.
 Prove that a flow can fan-out the user's question to three agents
 running in PARALLEL, each producing its own perspective, then fan-in
 to a synthesizer agent that reads all three and writes a unified
-answer. Tests the comma-separated `from` / `to` fan-out + fan-in
-syntax end-to-end.
+answer. The visual editor writes one React-Flow edge per outgoing
+target — the BE collapses these per-source same-condition groups
+into a parallel dispatch.
 
 ### Arrange (one-time setup for this scenario)
 
-Requires Scenario 3 Part 1 (model enabled for flows). Find your model
-api_name as in Scenario 5.
+Requires Scenario 3 Part 1.
 
-#### Create the flow
+#### Build the flow in the visual editor
+
+This scenario exercises **fan-out + fan-in**. The visual editor
+represents fan-out as multiple edges from the same source (no
+special syntax — just draw N edges), and fan-in as multiple edges
+into the same target. The runtime runs the fanned-out branches in
+parallel and waits for all of them to finish before invoking the
+fan-in target.
 
 1. Settings → Flows → **+ New flow**.
-2. Select-all + delete starter template.
-3. Paste, replacing every `<YOUR_MODEL_API_NAME>`:
-   ```yaml
-   api_name: aggregate
-   display_name: Multi-Perspective Aggregator
-   description: Gets three perspectives in parallel, then synthesises them.
-   slash_api_name: aggregate
-   exposed_as_slash: true
+2. Top meta row:
+   - **Display name:** `Multi-Perspective Aggregator`
+   - **api-name:** `aggregate`
+   - **Description:** `Gets three perspectives in parallel, then synthesises them.`
+   - **Expose as /slash** ticked; **Slash-name:** `aggregate`.
+3. **Add the three Perspective Agents** (palette → Agent × 3).
+   Each one reads the user's question from the `user_query` slot
+   and publishes its reply to a **distinct per-perspective slot**
+   so the synthesizer can read all three independently (the
+   NodePanel doesn't expose the "append" reducer, so a single
+   shared `perspectives` slot would last-wins-clobber across the
+   parallel writes).
+   - Technical: **Node id** `agg-technical`, **Display name**
+     `Technical Perspective`, **Model** Available-for-Flows,
+     **System prompt:**
+     ```
+     The user's question (below) needs a TECHNICAL perspective. Answer in 1-2 sentences. Begin your reply with the literal text "[TECHNICAL]".
+     ```
+     **Context slots → Inputs:** `user_query`. **Outputs:**
+     `perspective_tech`.
+   - Practical: **Node id** `agg-practical`, **Display name**
+     `Practical Perspective`, **Model** as above, **System prompt:**
+     ```
+     The user's question (below) needs a PRACTICAL / everyday perspective. Answer in 1-2 sentences. Begin your reply with the literal text "[PRACTICAL]".
+     ```
+     **Context slots → Inputs:** `user_query`. **Outputs:**
+     `perspective_prac`.
+   - Historical: **Node id** `agg-historical`, **Display name**
+     `Historical Perspective`, **Model** as above, **System prompt:**
+     ```
+     The user's question (below) needs a HISTORICAL perspective. Answer in 1-2 sentences. Begin your reply with the literal text "[HISTORICAL]".
+     ```
+     **Context slots → Inputs:** `user_query`. **Outputs:**
+     `perspective_hist`.
+4. **Add the Synthesizer Agent** (palette → Agent):
+   - **Node id:** `agg-synthesizer`
+   - **Display name:** `Synthesizer`
+   - **Model:** as above.
+   - **System prompt:**
+     ```
+     Three perspectives on the user's question are provided below, each prefixed with [TECHNICAL], [PRACTICAL], or [HISTORICAL]. Write a single 2-3 sentence synthesis that EXPLICITLY weaves together insights from ALL THREE — name each perspective by its label at least once. Begin your reply with the literal text "[SYNTHESIS]".
+     ```
+   - **Context slots → Inputs:** `perspective_tech`,
+     `perspective_prac`, `perspective_hist` (three chips). The
+     synthesizer's prompt now sees each perspective in its own
+     slot, wrapped as a single user turn — no transcript
+     contention.
 
-   agents:
-     - api_name: agg-technical
-       display_name: Technical Perspective
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         Answer the user's question from a TECHNICAL perspective in 1-2 sentences. Begin your reply with the literal text "[TECHNICAL]".
-     - api_name: agg-practical
-       display_name: Practical Perspective
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         Answer the user's question from a PRACTICAL / everyday perspective in 1-2 sentences. Begin your reply with the literal text "[PRACTICAL]".
-     - api_name: agg-historical
-       display_name: Historical Perspective
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         Answer the user's question from a HISTORICAL perspective in 1-2 sentences. Begin your reply with the literal text "[HISTORICAL]".
-     - api_name: agg-synthesizer
-       display_name: Synthesizer
-       user_model: <YOUR_MODEL_API_NAME>
-       system_prompt: |
-         The previous assistant turns contain three perspectives on the user's question, each prefixed with [TECHNICAL], [PRACTICAL], or [HISTORICAL]. Write a single 2-3 sentence synthesis that EXPLICITLY weaves together insights from ALL THREE perspectives — name each perspective by its label at least once. Begin your reply with the literal text "[SYNTHESIS]".
-   flow:
-     nodes:
-       - {node_id: tech_1, agent: agg-technical}
-       - {node_id: prac_1, agent: agg-practical}
-       - {node_id: hist_1, agent: agg-historical}
-       - {node_id: synth_1, agent: agg-synthesizer}
-     edges:
-       - {from: __start__, to: "tech_1,prac_1,hist_1"}
-       - {from: "tech_1,prac_1,hist_1", to: synth_1}
-       - {from: synth_1, to: __end__}
-   ```
-4. **Validate** → **Save** → back-arrow. **Confirm the `/aggregate`
-   badge is visible at the top of the card** (configured inline
-   via the YAML's `slash_api_name` + `exposed_as_slash: true`
-   lines, 2026-05-27 — A+D).
-5. App logo → hard-refresh.
+   > **Why slots here?** Without slot wiring, the synthesizer
+   > inherits the full transcript ending on three back-to-back
+   > **assistant** turns. Anthropic rejects assistant-prefill and
+   > the run fails. Slots make every LLM call always end on a
+   > user turn (#26).
+5. **Wire the edges** (7 total — Start fans out to 3, 3 fan into
+   the synthesizer, synthesizer to End):
+   - `Start → agg-technical`, `Start → agg-practical`,
+     `Start → agg-historical` — drag three separate edges from
+     Start's right handle to each perspective card's inbound.
+     (The visual editor doesn't have a special "fan-out" syntax;
+     just draw three edges.)
+   - `agg-technical → agg-synthesizer`, `agg-practical →
+     agg-synthesizer`, `agg-historical → agg-synthesizer` — three
+     more edges, all terminating at the Synthesizer's inbound.
+     LangGraph's fan-in semantics wait for all three to finish
+     before invoking the Synthesizer once.
+   - `agg-synthesizer → End`.
+6. **Validate** → **Save** → back-arrow. **Confirm the `/aggregate`
+   badge is visible at the top of the card.**
+7. App logo → hard-refresh.
 
 ### Act
 
@@ -1133,21 +1265,30 @@ api_name as in Scenario 5.
 ### If something looks off
 
 - **Only one perspective bubble appears, then the synthesizer
-  runs.** The fan-out didn't fire — either the comma list in
-  `from: __start__, to: "tech_1,prac_1,hist_1"` is mis-quoted in
-  the YAML (must be a single string, not a YAML list), or the
-  validator rejected it silently. Re-check by clicking **Validate**
-  on the flow — it should show "Looks good".
-- **The synthesizer's bubble doesn't mention all three labels.**
-  The synthesizer didn't see all three perspective turns in
-  conversation history, OR it ignored the instruction. Re-read its
-  bubble — if it summarises broadly without naming the labels, it's
-  a content miss but a structural pass (the four bubbles did
-  appear in order). Mark partial.
+  runs.** You're missing some of the fan-out edges. Re-open the
+  flow and confirm there are **three separate edges** leaving
+  Start — one to each perspective card. The YAML preview (YAML
+  button) should show three lines `{from: __start__, to:
+  agg-technical}`, `{from: __start__, to: agg-practical}`,
+  `{from: __start__, to: agg-historical}`.
+- **The synthesizer's bubble mentions perspective labels but the
+  content doesn't actually match the perspective bubbles above —
+  e.g. the synthesizer talks about "[HISTORICAL]" insights that
+  weren't in the historical bubble.** The slot wiring may be off.
+  Open the flow, click each perspective node, and confirm the
+  **Outputs** chip is distinct per perspective
+  (`perspective_tech` / `perspective_prac` / `perspective_hist`).
+  Then click the synthesizer and confirm all three appear in its
+  **Inputs**. A shared slot would last-wins-clobber across the
+  parallel writes.
+- **The synthesizer's bubble doesn't mention all three labels at
+  all.** Content miss but structural pass — re-read the bubble; if
+  the four bubbles (3 perspectives + synthesizer) all appeared
+  cleanly the flow ran end-to-end. Mark partial.
 - **Bubbles appear in the wrong order — e.g. synthesizer streams
   BEFORE all three perspectives have finished.** This is a real
-  bug. The fan-in edge `"tech_1,prac_1,hist_1" → synth_1` should
-  block until ALL three branches complete. Capture screenshots and
+  bug. LangGraph's fan-in semantics should block the synthesizer
+  until ALL three branches complete. Capture screenshots and
   report.
 - **Run halts after the three perspective bubbles — no synthesizer
   bubble.** The fan-in edge didn't fire. Re-check the YAML — the
@@ -1319,50 +1460,22 @@ every sidebar item has real content. Each has a real title.
 
 ---
 
-## Scenario 15 — Agent card shows which flows use it (reverse-reference pills)
+## Scenario 15 — RETIRED (no longer applicable post-migration 0024)
 
-### Goal
-Prove that the Agents page lists, on each agent card, the flows that
-currently reference that agent — so you can answer "what breaks if I
-edit this agent?" without scanning every flow's YAML.
+This scenario tested reverse-reference pills on a standalone Agents
+settings page. Migration 0024 made agents **flow-owned** — every agent
+belongs to exactly one flow, authored inline inside the flow editor,
+and the standalone Agents page was retired. There is no longer a "what
+breaks if I edit this agent?" question because editing an agent inside
+a flow only affects that single flow.
 
-### Arrange (one-time setup for this scenario)
-Requires Scenarios 3, 5, and 6 to have been run (those create
-`research-agent`, `pipeline-researcher`, `pipeline-summarizer`,
-`haiku-drafter`, `haiku-reviewer` and the flows that reference them).
+The functional intent (let the operator see which flow owns each
+agent) is now trivially answered by **opening the flow** — every node
+on the canvas IS the agent. If you want to enumerate "all agents
+across all flows", iterate the Flows list and read each flow's nodes.
 
-### Act
-1. Click the **gear icon** in the bottom-left.
-2. Click **Agents** in the settings sidebar.
-
-### Assert
-- [ ] Each agent card now has a third info row that begins with
-  **"Used by:"**.
-- [ ] The **Research Agent** card's "Used by:" row contains a single
-  pill labelled `research-flow`. Clicking the pill navigates to the
-  Research Flow editor.
-- [ ] The **Pipeline Researcher** card's "Used by:" row contains a
-  single pill labelled `research-pipeline`.
-- [ ] The **Pipeline Summarizer** card's "Used by:" row contains a
-  single pill labelled `research-pipeline` (same flow as above).
-- [ ] The **Haiku Drafter** and **Haiku Reviewer** cards' "Used by:"
-  rows each contain a single pill labelled `revise-loop`.
-- [ ] Any agent that is NOT referenced by any flow shows
-  **"Used by: no flows"** in italic grey text.
-- [ ] Clicking any flow pill navigates to that flow's editor and
-  does NOT trigger the agent editor (the pill is its own link, not
-  part of the card-wide click target).
-
-### If something looks off
-- **"Used by:" row is missing entirely on every card.** The Agents
-  view didn't render the new row at all — pull the FE branch and
-  rebuild, or refresh hard.
-- **"Used by: no flows" on a card you know is referenced.** The
-  flow list cache hasn't refreshed since you added the flow. Hard
-  refresh (Cmd+Shift+R / Ctrl+Shift+R) the page.
-- **Clicking the pill opens the agent editor instead of the flow
-  editor.** Bug — the pill's link is being shadowed by the
-  card-wide click target. Report with a screenshot.
+Left in place for historical reference (so anyone reading older
+commits can see what was here); skip when running the scenarios.
 
 ---
 
