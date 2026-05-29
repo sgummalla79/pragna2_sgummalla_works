@@ -39,6 +39,7 @@ Mirrors the `/settings/providers` page shape one-for-one:
 
 - `display_name` text input, `transport` radio (locked to `http` in v1 — stdio is Wedge B.3 once the allowlist endpoint exists), `config.url`, optional headers (key-value editor).
 - Submit → `useRegisterMcpServer.mutateAsync()` → BE runs discovery → 502 on upstream failure surfaces as inline error.
+- Unsaved-changes guard (future-discussions #7): once any field is touched (trimmed non-empty display_name / URL / header), Escape key + overlay click are blocked and the browser's `beforeunload` prompt arms for tab close / refresh. Labelled close affordances (X button, Cancel button, successful registration) bypass the guard. Form notifies its parent via `onDirtyChange` so the parent modal's `useDirtyDialog` hook does the actual hardening.
 
 ## Hooks
 

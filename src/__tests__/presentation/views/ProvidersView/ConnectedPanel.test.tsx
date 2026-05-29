@@ -24,7 +24,7 @@ function makeModel(overrides: Partial<Model> = {}): Model {
   };
 }
 
-function renderPanel(models: Model[]) {
+function renderPanel(models: Model[], onDirtyChange?: (d: boolean) => void) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const services = {
     modelService: {
@@ -40,6 +40,7 @@ function renderPanel(models: Model[]) {
         <ConnectedPanel
           models={models}
           error=""
+          onDirtyChange={onDirtyChange}
         />
       </ServiceContext.Provider>
     </QueryClientProvider>
@@ -95,5 +96,45 @@ describe('ConnectedPanel', () => {
     fireEvent.click(toggle); // true → false (back to original — buffer drops the entry)
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled();
+  });
+
+  // Wired in future-discussions #7: ProviderModal arms its
+  // `useDirtyDialog` guard off this callback, so the contract that
+  // `onDirtyChange(true)` fires precisely when the in-grid Save/Cancel
+  // enable is what gates Escape / overlay-click hardening upstream.
+  describe('onDirtyChange callback', () => {
+    it('fires false on mount when no rows are dirty', () => {
+      const cb = vi.fn();
+      renderPanel([makeModel()], cb);
+      // First fire is the mount effect (always false because no rows
+      // have been touched yet).
+      expect(cb).toHaveBeenCalledWith(false);
+    });
+
+    it('fires true after a toggle flips, and back to false when reverted', () => {
+      const cb = vi.fn();
+      renderPanel([makeModel({ enabled: false })], cb);
+      cb.mockClear();
+
+      const toggle = screen.getByRole('button', { name: 'Enabled' });
+      fireEvent.click(toggle);
+      expect(cb).toHaveBeenLastCalledWith(true);
+
+      fireEvent.click(toggle); // back to original
+      expect(cb).toHaveBeenLastCalledWith(false);
+    });
+
+    it('fires false on unmount so the parent guard releases beforeunload', () => {
+      const cb = vi.fn();
+      const { unmount } = renderPanel([makeModel({ enabled: false })], cb);
+
+      // Make it dirty so we can verify the unmount cleanup releases.
+      fireEvent.click(screen.getByRole('button', { name: 'Enabled' }));
+      expect(cb).toHaveBeenLastCalledWith(true);
+
+      cb.mockClear();
+      unmount();
+      expect(cb).toHaveBeenCalledWith(false);
+    });
   });
 });

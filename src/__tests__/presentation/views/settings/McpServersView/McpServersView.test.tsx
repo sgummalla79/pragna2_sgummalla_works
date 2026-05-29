@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import type { ReactNode } from 'react';
@@ -136,3 +136,63 @@ describe('McpServersView — register modal', () => {
     });
   });
 });
+
+/**
+ * Future-discussions #7 — unsaved-changes guard integration.
+ *
+ * Pins that Escape closes the modal when the form is pristine but is
+ * blocked when ANY field has been touched (trim-guarded). The unit
+ * contract is in `useDirtyDialog.test.ts` + the form's
+ * `RegisterMcpServerForm.dirty.test.tsx`; this asserts the integrated
+ * Radix behavior (preventDefault → modal stays open) end-to-end so a
+ * future Radix upgrade can't silently break it.
+ */
+describe('McpServersView — register modal unsaved-changes guard', () => {
+  it('Escape closes the modal when no field has been touched', async () => {
+    const user = userEvent.setup();
+    renderView({ servers: [] });
+    await user.click(
+      await screen.findByRole('button', { name: /Register server/ }),
+    );
+    expect(await screen.findByText('Register an MCP server')).toBeInTheDocument();
+
+    fireEventEscape();
+    await waitFor(() => {
+      expect(screen.queryByText('Register an MCP server')).toBeNull();
+    });
+  });
+
+  it('Escape does NOT close the modal once the display name is typed', async () => {
+    const user = userEvent.setup();
+    renderView({ servers: [] });
+    await user.click(
+      await screen.findByRole('button', { name: /Register server/ }),
+    );
+    await user.type(screen.getByLabelText('Display name'), 'My Linear');
+
+    fireEventEscape();
+    // Modal title still rendered = modal still open.
+    expect(screen.getByText('Register an MCP server')).toBeInTheDocument();
+  });
+
+  it('whitespace-only display name does NOT block Escape (trim guard)', async () => {
+    const user = userEvent.setup();
+    renderView({ servers: [] });
+    await user.click(
+      await screen.findByRole('button', { name: /Register server/ }),
+    );
+    await user.type(screen.getByLabelText('Display name'), '   ');
+
+    fireEventEscape();
+    await waitFor(() => {
+      expect(screen.queryByText('Register an MCP server')).toBeNull();
+    });
+  });
+});
+
+/** Helper: synthesize a real Escape keydown that Radix listens for. */
+function fireEventEscape() {
+  // Radix Dialog attaches its Escape listener to the document. Fire
+  // through body so the event bubbles up regardless of focus state.
+  fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape' });
+}

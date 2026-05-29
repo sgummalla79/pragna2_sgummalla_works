@@ -48,6 +48,9 @@ function renderEditor() {
           <Routes>
             <Route path="/settings/flows/new" element={<FlowEditorView />} />
             <Route path="/settings/flows/:flowId/edit" element={<FlowEditorView />} />
+            {/* Sibling route so the back-arrow / dialog-close navigation
+                lands somewhere assertable. */}
+            <Route path="/settings/flows" element={<div data-testid="flows-listing">flows listing</div>} />
           </Routes>
         </MemoryRouter>
       </ServiceContext.Provider>
@@ -126,5 +129,57 @@ describe('FlowEditorView (shell)', () => {
     renderEditor();
     fireEvent.click(screen.getByRole('button', { name: /view yaml source/i }));
     expect(screen.getByText(/Flow YAML \(read-only\)/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * Future-discussions #7 — flow editor refactored from full-page to a
+ * full-screen Radix Dialog so it shares the same unsaved-changes
+ * hardening primitive as the Provider + MCP modals.
+ *
+ * Pins:
+ *  - the editor renders inside a Dialog (regression catch for a
+ *    refactor that accidentally rips the Dialog wrapper out);
+ *  - Escape does NOTHING when the store has unsaved edits (the
+ *    integrated proof that `useDirtyDialog`'s preventDefault is
+ *    respected by Radix in our wiring — unit-level contract is in
+ *    `useDirtyDialog.test.ts`);
+ *  - the back-arrow Link navigates to /settings/flows (labelled
+ *    intentional dismissal — silent discard by design, no confirm).
+ */
+describe('FlowEditorView — unsaved-changes guard (future-discussions #7)', () => {
+  beforeEach(() => {
+    useFlowEditorStore.getState().reset();
+  });
+
+  it('renders inside a Radix Dialog', () => {
+    renderEditor();
+    // Radix gives Dialog.Content role="dialog" with the
+    // visually-hidden Dialog.Title we added ("Flow editor").
+    expect(screen.getByRole('dialog', { name: /flow editor/i })).toBeInTheDocument();
+  });
+
+  it('Escape does NOT close the editor when the store is dirty', () => {
+    renderEditor();
+    // Make the store dirty via the palette → adds an agent node.
+    fireEvent.click(screen.getByRole('button', { name: /^Agent$/i }));
+    expect(useFlowEditorStore.getState().dirty).toBe(true);
+
+    fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape' });
+
+    // Editor chrome still there; the sibling listing route never
+    // mounted.
+    expect(screen.getByRole('dialog', { name: /flow editor/i })).toBeInTheDocument();
+    expect(screen.queryByTestId('flows-listing')).toBeNull();
+  });
+
+  it('clicking the back-arrow navigates to /settings/flows even when dirty (labelled intentional dismissal)', () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole('button', { name: /^Agent$/i }));
+    expect(useFlowEditorStore.getState().dirty).toBe(true);
+
+    fireEvent.click(screen.getByRole('link', { name: /back to flows/i }));
+
+    expect(screen.getByTestId('flows-listing')).toBeInTheDocument();
   });
 });

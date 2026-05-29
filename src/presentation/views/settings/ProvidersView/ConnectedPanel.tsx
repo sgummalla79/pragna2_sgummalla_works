@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/presentation/components/ui/Button';
 import { ConfirmButton } from '@/presentation/components/ui/ConfirmButton';
 import { useBulkUpdateModels } from '@/presentation/hooks/models/useModels';
@@ -9,6 +9,13 @@ interface ConnectedPanelProps {
   models: Model[];
   /** Surface for errors raised by the disconnect button (rendered in the modal header). */
   error: string;
+  /**
+   * Notified when the pending-changes buffer transitions empty ↔
+   * non-empty. The parent uses this to arm the modal's
+   * unsaved-changes guard (`useDirtyDialog`) without owning the
+   * change buffer itself.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 /**
@@ -30,6 +37,7 @@ interface ConnectedPanelProps {
 export function ConnectedPanel({
   models,
   error,
+  onDirtyChange,
 }: ConnectedPanelProps) {
   const [pendingChanges, setPendingChanges] = useState<Record<string, UpdateModelPayload>>({});
   // Remount-key bumped on Save / Cancel so DataGrid's internal cell
@@ -56,6 +64,15 @@ export function ConnectedPanel({
   const dirtyCount = Object.keys(pendingChanges).length;
   const isDirty = dirtyCount > 0;
   const saving = bulkUpdate.isPending;
+
+  // Surface dirty transitions to the parent so the modal can arm its
+  // unsaved-changes guard. Fires on every change of `isDirty`, plus on
+  // unmount with `false` so a parent left dangling with `dirty=true`
+  // (e.g. modal forcibly closed) doesn't keep arming `beforeunload`.
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+    return () => onDirtyChange?.(false);
+  }, [isDirty, onDirtyChange]);
 
   function handleCellChange(id: string, payload: UpdateModelPayload) {
     setPendingChanges((prev) => {

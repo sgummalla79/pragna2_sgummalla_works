@@ -159,4 +159,41 @@ describe('NodePanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /close panel/i }));
     expect(store().selectedNodeId).toBeNull();
   });
+
+  /**
+   * Locked design rule for future-discussions #7: the maximize toggle
+   * is a VISUAL MODE — side-panel vs full-screen render — over the
+   * SAME store-backed form state. That's why the inner Dialog needs
+   * no unsaved-changes hardening of its own (un-maximizing can't lose
+   * data). If a future refactor moves any field's value into local
+   * component state inside the maximize Dialog tree, this test fails
+   * AND the design rule silently breaks.
+   */
+  it('maximize → un-maximize preserves edits made before maximizing', () => {
+    render(<NodePanel />);
+
+    // Type into the side-panel Display name field.
+    fireEvent.change(screen.getByLabelText('Display name'), {
+      target: { value: 'Lead Researcher' },
+    });
+    expect(
+      (store().nodes.find((n) => n.id === 'researcher_1')!.data as AgentNodeData).agent.displayName,
+    ).toBe('Lead Researcher');
+
+    // Maximize, then close the maximize Dialog. Two Display-name
+    // inputs render while maximize is open (side panel + Dialog) —
+    // resolve by their shared aria-label and assert via the store
+    // for an unambiguous oracle.
+    fireEvent.click(screen.getByRole('button', { name: /maximize panel/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+    // Store value (single source of truth) is preserved.
+    expect(
+      (store().nodes.find((n) => n.id === 'researcher_1')!.data as AgentNodeData).agent.displayName,
+    ).toBe('Lead Researcher');
+    // Side-panel input still rendered with the edited value.
+    expect((screen.getByLabelText('Display name') as HTMLInputElement).value).toBe(
+      'Lead Researcher',
+    );
+  });
 });

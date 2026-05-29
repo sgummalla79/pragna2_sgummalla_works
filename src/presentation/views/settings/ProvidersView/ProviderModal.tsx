@@ -4,6 +4,7 @@ import { providerColor, providerInitial } from '@/constants/providers';
 import { PROVIDER_LOGO_URLS, MONO_BLACK_PROVIDERS } from '@/assets/providerLogos';
 import { Button } from '@/presentation/components/ui/Button';
 import { ConfirmButton } from '@/presentation/components/ui/ConfirmButton';
+import { useDirtyDialog } from '@/presentation/hooks/useDirtyDialog';
 import { ProviderConnectForm } from './ProviderConnectForm';
 import { ConnectedPanel } from './ConnectedPanel';
 import type { LlmProvider, UserProvider } from '@/domain/types/provider.types';
@@ -31,6 +32,14 @@ interface ProviderModalProps {
   /* Refresh flow */
   refreshing: boolean;
   onRefresh: () => void;
+
+  /**
+   * Forwarded to {@link ConnectedPanel} via callback wiring in the
+   * parent. Used here only to arm the modal's unsaved-changes guard —
+   * the panel still owns the actual pendingChanges buffer.
+   */
+  modelEditsDirty: boolean;
+  onModelEditsDirtyChange: (dirty: boolean) => void;
 }
 
 /**
@@ -54,7 +63,15 @@ export function ProviderModal({
   onConnect,
   refreshing,
   onRefresh,
+  modelEditsDirty,
+  onModelEditsDirtyChange,
 }: ProviderModalProps) {
+  // Hardening — Escape + overlay click blocked when the model grid has
+  // unsaved edits; beforeunload armed for tab close. Labelled close
+  // affordances (Dialog.Close X button, Disconnect confirm) bypass
+  // this and remain trusted intentional actions.
+  const guard = useDirtyDialog(modelEditsDirty);
+
   if (!llmProvider) return null;
 
   const { bg, fg } = providerColor(llmProvider.name);
@@ -79,6 +96,7 @@ export function ProviderModal({
             bg-popover p-7 shadow-2xl
           "
           aria-describedby={undefined}
+          {...guard.contentProps}
         >
           {/* Header — fixed, does not scroll */}
           <div className="flex flex-shrink-0 items-start gap-3.5">
@@ -164,6 +182,7 @@ export function ProviderModal({
             <ConnectedPanel
               models={models}
               error={disconnectError}
+              onDirtyChange={onModelEditsDirtyChange}
             />
           ) : (
             <ProviderConnectForm

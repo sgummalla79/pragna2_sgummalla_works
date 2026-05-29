@@ -7,7 +7,7 @@
  * users typically need an `Authorization: Bearer …` row.
  */
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/presentation/components/ui/Button';
 import { Input } from '@/presentation/components/ui/Input';
@@ -26,6 +26,14 @@ interface HeaderRow {
 interface Props {
   onRegistered: (result: RegisteredMcpServer) => void;
   onCancel: () => void;
+  /**
+   * Fires `true` once any field has been touched (display name, URL,
+   * or a header row with content), `false` when the form clears or
+   * unmounts. The parent uses this to arm the modal's
+   * unsaved-changes guard so Escape / overlay-click can't silently
+   * discard a typed-but-not-yet-submitted bearer token.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 let _rowSeq = 0;
@@ -34,13 +42,30 @@ function newRow(): HeaderRow {
   return { rid: _rowSeq, key: '', value: '' };
 }
 
-export function RegisterMcpServerForm({ onRegistered, onCancel }: Props) {
+export function RegisterMcpServerForm({ onRegistered, onCancel, onDirtyChange }: Props) {
   const [displayName, setDisplayName] = useState('');
   const [url, setUrl] = useState('');
   const [headers, setHeaders] = useState<HeaderRow[]>([newRow()]);
   const [error, setError] = useState<string | null>(null);
 
   const register = useRegisterMcpServer();
+
+  // Derived dirty signal — any field touched OR any header row with
+  // non-empty key/value. Trim so a single accidental space doesn't
+  // register as dirty. Headers are checked field-by-field rather than
+  // counting rows because the initial `[newRow()]` state is one empty
+  // row by design (so the "Add header" button isn't lonely on open).
+  const isDirty =
+    displayName.trim().length > 0 ||
+    url.trim().length > 0 ||
+    headers.some((r) => r.key.trim().length > 0 || r.value.length > 0);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+    // Always notify `false` on unmount so the parent's guard releases
+    // its beforeunload listener even if the form was forcibly closed.
+    return () => onDirtyChange?.(false);
+  }, [isDirty, onDirtyChange]);
 
   function addHeaderRow() {
     setHeaders((h) => [...h, newRow()]);

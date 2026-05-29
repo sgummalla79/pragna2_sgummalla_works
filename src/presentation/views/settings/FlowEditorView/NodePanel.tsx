@@ -357,10 +357,16 @@ export function NodePanel() {
             • Col 3: System prompt, spans both rows for max height. */}
       <Dialog.Root open={maximized} onOpenChange={setMaximized}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/40" />
+          {/* Stacks above the flow editor's wrapping Dialog (z-40
+              overlay / z-50 content). The NodePanel maximize is a
+              visual mode toggle, NOT a separate data boundary — its
+              form state survives un-maximize — so no hardening is
+              needed here even though it's nested inside a dirty
+              parent (see future-discussions #7 design rule). */}
+          <Dialog.Overlay className="fixed inset-0 z-[60] bg-foreground/40" />
           <Dialog.Content
             aria-describedby={undefined}
-            className="fixed inset-4 z-50 flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl"
+            className="fixed inset-4 z-[70] flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl"
           >
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <Dialog.Title className="text-sm font-semibold">
@@ -419,13 +425,15 @@ export function NodePanel() {
       </Dialog.Root>
 
       {/* Delete confirmation — destructive actions must confirm before
-          firing (CLAUDE feedback memory `destructive-actions-confirm`). */}
+          firing (CLAUDE feedback memory `destructive-actions-confirm`).
+          Stacks above the NodePanel maximize (z-60/70) AND the flow
+          editor wrapper (z-40/50). */}
       <Dialog.Root open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-[60] bg-foreground/40" />
+          <Dialog.Overlay className="fixed inset-0 z-[80] bg-foreground/40" />
           <Dialog.Content
             aria-describedby="confirm-delete-desc"
-            className="fixed left-1/2 top-1/2 z-[70] w-[min(440px,90vw)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 shadow-xl"
+            className="fixed left-1/2 top-1/2 z-[90] w-[min(440px,90vw)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 shadow-xl"
           >
             <Dialog.Title className="text-base font-semibold">Delete this agent?</Dialog.Title>
             <p id="confirm-delete-desc" className="mt-2 text-sm text-muted-foreground">

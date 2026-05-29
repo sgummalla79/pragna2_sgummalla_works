@@ -14,6 +14,7 @@ import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Plug, Plus } from 'lucide-react';
 import { Button } from '@/presentation/components/ui/Button';
+import { useDirtyDialog } from '@/presentation/hooks/useDirtyDialog';
 import { useMcpServers } from '@/presentation/hooks/mcp-servers/useMcpServers';
 import { McpServerCard } from './McpServerCard';
 import { RegisterMcpServerForm } from './RegisterMcpServerForm';
@@ -25,6 +26,12 @@ export default function McpServersView() {
   const [lastRegistered, setLastRegistered] = useState<RegisteredMcpServer | null>(
     null,
   );
+  // Mirrored from RegisterMcpServerForm via callback so the modal can
+  // block Escape / overlay-click while a bearer token is typed but
+  // not yet submitted. Labelled close affordances (X icon, Cancel
+  // button, successful registration) bypass and proceed normally.
+  const [formDirty, setFormDirty] = useState(false);
+  const guard = useDirtyDialog(modalOpen && formDirty);
 
   function handleRegistered(result: RegisteredMcpServer) {
     setLastRegistered(result);
@@ -91,6 +98,7 @@ export default function McpServersView() {
               bg-popover p-6 shadow-2xl
               max-h-[90vh] overflow-y-auto
             "
+            {...guard.contentProps}
           >
             <Dialog.Title className="text-base font-bold text-foreground m-0">
               Register an MCP server
@@ -103,6 +111,7 @@ export default function McpServersView() {
             <RegisterMcpServerForm
               onRegistered={handleRegistered}
               onCancel={() => setModalOpen(false)}
+              onDirtyChange={setFormDirty}
             />
           </Dialog.Content>
         </Dialog.Portal>

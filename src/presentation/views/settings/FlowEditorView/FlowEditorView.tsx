@@ -22,6 +22,7 @@ import {
   useValidateFlowYaml,
 } from '@/presentation/hooks/flows/useFlows';
 import type { YamlError } from '@/domain/types/flowYaml.types';
+import { useDirtyDialog } from '@/presentation/hooks/useDirtyDialog';
 import { Button } from '@/presentation/components/ui/Button';
 import { Input } from '@/presentation/components/ui/Input';
 import { useUiStore } from '@/presentation/store/uiStore';
@@ -196,13 +197,47 @@ function EditorInner({ flowId }: { flowId?: string }) {
     }
   }
 
+  // Modal-wide hardening for unsaved work: blocks Escape + overlay
+  // click (the latter is naturally absent at inset-0, but Radix can
+  // still synthesize outside-pointer events through portalled children)
+  // when the canvas has unsaved edits, and arms `beforeunload` for
+  // tab close / refresh. Labelled close affordances (the back-arrow
+  // Link, Save success → navigate) bypass Radix entirely and so are
+  // unaffected — they're trusted intentional actions.
+  const guard = useDirtyDialog(dirty);
+
+  // The Dialog is always open while the route is mounted. The "close"
+  // intent (Escape / overlay / future Cancel button) routes through
+  // here; when hardening fires, Radix has already preventDefault'd and
+  // we never reach this. Otherwise navigate back to the listing.
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      if (!next) navigate(ROUTES.SETTINGS_FLOWS);
+    },
+    [navigate],
+  );
+
   if (flowId && isLoading) {
     return <div className="p-8 text-sm text-muted-foreground">Loading flow…</div>;
   }
 
   return (
-    <div className="flex h-screen flex-col">
-      {/* ── Header ──────────────────────────────────────────────────────
+    <Dialog.Root open onOpenChange={handleOpenChange}>
+      <Dialog.Portal>
+        {/* Full-screen overlay sits beneath the content — visible only
+            in the brief paint between mount and the content layer.
+            inset-0 content fully covers it during steady state. */}
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-background" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          className="fixed inset-0 z-50 flex h-screen flex-col bg-background outline-none"
+          {...guard.contentProps}
+        >
+          {/* Accessible name for the dialog — visually-hidden because
+              the title is already rendered inline as the display-name
+              input. */}
+          <Dialog.Title className="sr-only">Flow editor</Dialog.Title>
+          {/* ── Header ──────────────────────────────────────────────────────
            Row 1: Back · flow icon · Display Name (borderless heading-
                   style input) · <ml-auto spacer> · Draft/Saved chip ·
                   action buttons.
@@ -448,8 +483,11 @@ function EditorInner({ flowId }: { flowId?: string }) {
       {/* ── Read-only YAML "view source" ───────────────────────────────── */}
       <Dialog.Root open={yamlOpen} onOpenChange={setYamlOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[80vh] w-[min(720px,92vw)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-border bg-card shadow-xl">
+          {/* Nested above the flow editor modal (z-40 overlay / z-50
+              content) — bumped to z-60 / z-70 so the YAML viewer sits
+              on top with its own dimmed backdrop. */}
+          <Dialog.Overlay className="fixed inset-0 z-[60] bg-black/40" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-[70] flex max-h-[80vh] w-[min(720px,92vw)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-border bg-card shadow-xl">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <Dialog.Title className="text-sm font-semibold">Flow YAML (read-only)</Dialog.Title>
               <Dialog.Close asChild>
@@ -472,7 +510,10 @@ function EditorInner({ flowId }: { flowId?: string }) {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+
   );
 }
 

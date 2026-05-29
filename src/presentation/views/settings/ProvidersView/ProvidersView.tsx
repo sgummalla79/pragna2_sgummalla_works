@@ -33,6 +33,10 @@ export default function ProvidersView() {
   const [disconnectError, setDisconnectError]   = useState('');
   const [disconnecting, setDisconnecting]       = useState(false);
   const [refreshing, setRefreshing]             = useState(false);
+  // Mirrored from ConnectedPanel's pendingChanges buffer via callback.
+  // Owned here so ProviderModal can arm its unsaved-changes guard
+  // without ConnectedPanel knowing about Radix dialog mechanics.
+  const [modelEditsDirty, setModelEditsDirty]   = useState(false);
 
   // Always derived from live query — never stale after mutations
   const selected = selectedId ? (providers.find((p) => p.id === selectedId) ?? null) : null;
@@ -152,6 +156,8 @@ export default function ProvidersView() {
         onDisconnect={handleDisconnect}
         refreshing={refreshing}
         onRefresh={handleRefresh}
+        modelEditsDirty={modelEditsDirty}
+        onModelEditsDirtyChange={setModelEditsDirty}
       />
     </div>
   );
