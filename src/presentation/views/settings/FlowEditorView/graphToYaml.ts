@@ -21,6 +21,7 @@ import {
   type BoundaryNodeData,
   type ConditionEdgeData,
   type FlowMeta,
+  DISPATCH_MODE_PER_ITEM,
   NODE_END,
   NODE_TYPE_AGENT,
   PORT_HANDLE_ELSE,
@@ -174,6 +175,22 @@ export function graphToYaml(
       const to = isEndInstanceId(e.target) ? NODE_END : e.target;
       const entry: Record<string, unknown> = { from: e.source, to };
       if (condition !== EDGE_CONDITIONS.DEFAULT) entry.condition = condition;
+      // #35 dynamic fan-out: write all three together when
+      // dispatchMode is set, omit all three otherwise. The
+      // all-three-paired invariant is enforced by the BE YAML
+      // validator + DB CHECK; the inspector mirrors that contract
+      // (the toggle controls all three), so a partial state here
+      // would be a bug — write defensively even so.
+      const data = e.data;
+      if (
+        data?.dispatchMode === DISPATCH_MODE_PER_ITEM
+        && data.itemsSlot
+        && data.itemSlot
+      ) {
+        entry.dispatch_mode = data.dispatchMode;
+        entry.items_slot = data.itemsSlot;
+        entry.item_slot = data.itemSlot;
+      }
       return entry;
     }),
   };

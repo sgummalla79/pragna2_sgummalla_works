@@ -59,6 +59,11 @@ interface FlowEditorState {
   nodes: EditorNode[];
   edges: EditorEdge[];
   selectedNodeId: string | null;
+  /** The id of the edge currently selected for inspection in the
+   *  EdgePanel (#35 — opens the dispatch-mode editor). Mutually
+   *  exclusive with `selectedNodeId` — selecting one clears the
+   *  other so only one inspector panel renders at a time. */
+  selectedEdgeId: string | null;
   dirty: boolean;
   /** The id of the edge currently being reconnect-dragged, or null when
    *  no reconnect is in flight. Used by `isValidFlowConnection` to skip
@@ -103,11 +108,21 @@ interface FlowEditorState {
   addEndNode: (position: { x: number; y: number }) => string;
   deleteNode: (nodeId: string) => void;
   selectNode: (nodeId: string | null) => void;
+  /** Select an edge for inspection (#35). Passing `null` clears the
+   *  selection. Selecting an edge clears any selected node so only one
+   *  inspector panel renders at a time. */
+  selectEdge: (edgeId: string | null) => void;
   /** Patch node-level fields (node_id rename, #26 slots). */
   updateNode: (nodeId: string, patch: Partial<AgentNodeData>) => void;
   /** Patch the inline agent on a node. */
   updateAgent: (nodeId: string, patch: Partial<EditorAgent>) => void;
   setEdgeCondition: (edgeId: string, condition: EdgeConditionValue) => void;
+  /** Patch an edge's data shallowly. Used by the EdgePanel to update
+   *  the routing condition + the #35 dispatch fields (`dispatchMode`,
+   *  `itemsSlot`, `itemSlot`). Pass `undefined` for a key to clear it
+   *  (this is how the EdgePanel "turns off" dispatch — all three keys
+   *  flipped to undefined, mirroring the BE's all-or-none contract). */
+  updateEdgeData: (edgeId: string, patch: Partial<ConditionEdgeData>) => void;
   deleteEdge: (edgeId: string) => void;
 }
 
@@ -134,11 +149,20 @@ export const useFlowEditorStore = create<FlowEditorState>((set, get) => ({
   nodes: [],
   edges: [],
   selectedNodeId: null,
+  selectedEdgeId: null,
   dirty: false,
   reconnectingEdgeId: null,
 
   hydrate: ({ meta, nodes, edges }) =>
-    set({ meta, nodes, edges, selectedNodeId: null, dirty: false, reconnectingEdgeId: null }),
+    set({
+      meta,
+      nodes,
+      edges,
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      dirty: false,
+      reconnectingEdgeId: null,
+    }),
 
   reset: () =>
     set({
@@ -146,6 +170,7 @@ export const useFlowEditorStore = create<FlowEditorState>((set, get) => ({
       nodes: [],
       edges: [],
       selectedNodeId: null,
+      selectedEdgeId: null,
       dirty: false,
       reconnectingEdgeId: null,
     }),
@@ -276,7 +301,14 @@ export const useFlowEditorStore = create<FlowEditorState>((set, get) => ({
       };
     }),
 
-  selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
+  selectNode: (nodeId) =>
+    // Selecting a node clears any selected edge so only one
+    // inspector panel renders at a time.
+    set({ selectedNodeId: nodeId, selectedEdgeId: nodeId ? null : null }),
+
+  selectEdge: (edgeId) =>
+    // Symmetric to selectNode — picking an edge clears node selection.
+    set({ selectedEdgeId: edgeId, selectedNodeId: edgeId ? null : null }),
 
   updateNode: (nodeId, patch) =>
     set((s) => ({
@@ -323,8 +355,32 @@ export const useFlowEditorStore = create<FlowEditorState>((set, get) => ({
       dirty: true,
     })),
 
+  updateEdgeData: (edgeId, patch) =>
+    set((s) => ({
+      edges: s.edges.map((e) => {
+        if (e.id !== edgeId) return e;
+        // Merge then strip undefined keys — passing `undefined` is the
+        // "clear this field" signal (used to turn dispatch off, where
+        // dispatchMode + itemsSlot + itemSlot all collapse to absent).
+        const merged: ConditionEdgeData = {
+          ...(e.data ?? { condition: 'default' as EdgeConditionValue }),
+          ...patch,
+        };
+        const cleaned = Object.fromEntries(
+          Object.entries(merged).filter(([, v]) => v !== undefined),
+        ) as ConditionEdgeData;
+        return { ...e, data: cleaned };
+      }),
+      dirty: true,
+    })),
+
   deleteEdge: (edgeId) =>
-    set((s) => ({ edges: s.edges.filter((e) => e.id !== edgeId), dirty: true })),
+    set((s) => ({
+      edges: s.edges.filter((e) => e.id !== edgeId),
+      // Clear the inspector selection if the deleted edge was selected.
+      selectedEdgeId: s.selectedEdgeId === edgeId ? null : s.selectedEdgeId,
+      dirty: true,
+    })),
 }));
 
 // E2E hook: expose the store on `window` in dev so Playwright specs can

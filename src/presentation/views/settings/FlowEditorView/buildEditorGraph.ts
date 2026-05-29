@@ -20,6 +20,7 @@ import {
   type ConditionEdgeData,
   type EditorAgent,
   type FlowMeta,
+  DISPATCH_MODE_PER_ITEM,
   EDGE_TYPE_CONDITION,
   NODE_END,
   NODE_START,
@@ -55,6 +56,11 @@ interface RawEdge {
   from?: string;
   to?: string;
   condition?: string;
+  // #35 dynamic fan-out (BE migration 0025). All three nullable; the
+  // BE rejects half-set configurations at YAML validation + DB CHECK.
+  dispatch_mode?: string | null;
+  items_slot?: string | null;
+  item_slot?: string | null;
 }
 interface RawDoc {
   api_name?: string;
@@ -240,6 +246,16 @@ export function buildEditorGraph(yamlText: string): EditorGraph {
           (source === NODE_START ? 'out' : 'bottom');
         const finalTargetHandle =
           handles?.target ?? (isEndInstanceId(target) ? 'in' : 'top');
+        // #35: propagate dispatch fields when set. The BE guarantees
+        // all-three-paired (or all NULL); read directly without
+        // re-validating shape — invalid YAML is caught by the BE on
+        // Save and surfaced as a structured 422.
+        const data: ConditionEdgeData = { condition };
+        if (e.dispatch_mode === DISPATCH_MODE_PER_ITEM) {
+          data.dispatchMode = DISPATCH_MODE_PER_ITEM;
+          if (e.items_slot) data.itemsSlot = e.items_slot;
+          if (e.item_slot) data.itemSlot = e.item_slot;
+        }
         edges.push({
           id: `e_${counter++}`,
           source,
@@ -247,7 +263,7 @@ export function buildEditorGraph(yamlText: string): EditorGraph {
           sourceHandle: finalSourceHandle,
           targetHandle: finalTargetHandle,
           type: EDGE_TYPE_CONDITION,
-          data: { condition },
+          data,
         });
       }
     }

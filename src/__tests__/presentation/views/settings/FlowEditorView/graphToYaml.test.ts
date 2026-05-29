@@ -216,4 +216,163 @@ describe('graphToYaml', () => {
     const labels = graph.edges.map((e) => e.label).filter(Boolean).sort();
     expect(labels).toEqual(['failed', 'passed']);
   });
+
+  describe('dynamic fan-out (#35) — round-trip', () => {
+    // Minimal flow for dispatch testing:
+    //   __start__ → extract → (dispatch per_item) → verify → __end__
+    // `extract` produces `raw_claims`; `verify` consumes `claim_to_verify`.
+    const dispatchNodes = [
+      boundary(NODE_START, 0, 0),
+      agentNode('extract', 'extract', 100, 80, {
+        outputs: ['raw_claims'],
+        reducers: { raw_claims: 'append' },
+      }),
+      agentNode('verify', 'verify', 200, 80, {
+        inputs: ['claim_to_verify'],
+        outputs: ['verdicts'],
+        reducers: { verdicts: 'append' },
+      }),
+      boundary(NODE_END, 300, 80),
+    ];
+
+    function dispatchEdge(): Edge<ConditionEdgeData> {
+      return {
+        id: 'extract->verify',
+        source: 'extract',
+        target: 'verify',
+        data: {
+          condition: 'default',
+          dispatchMode: 'per_item',
+          itemsSlot: 'raw_claims',
+          itemSlot: 'claim_to_verify',
+        },
+      };
+    }
+
+    it('writes dispatch_mode + items_slot + item_slot when all three set', () => {
+      const edges = [
+        edge(NODE_START, 'extract'),
+        dispatchEdge(),
+        edge('verify', NODE_END),
+      ];
+      const text = graphToYaml(META, dispatchNodes, edges);
+      const doc = yaml.load(text) as { flow: { edges: any[] } };
+      const dispatch = doc.flow.edges.find(
+        (e) => e.from === 'extract' && e.to === 'verify',
+      );
+      expect(dispatch).toBeDefined();
+      expect(dispatch.dispatch_mode).toBe('per_item');
+      expect(dispatch.items_slot).toBe('raw_claims');
+      expect(dispatch.item_slot).toBe('claim_to_verify');
+    });
+
+    it('omits all three fields when dispatchMode is undefined (legacy edge)', () => {
+      const text = graphToYaml(META, dispatchNodes, [
+        edge(NODE_START, 'extract'),
+        edge('extract', 'verify'),
+        edge('verify', NODE_END),
+      ]);
+      const doc = yaml.load(text) as { flow: { edges: any[] } };
+      const legacy = doc.flow.edges.find(
+        (e) => e.from === 'extract' && e.to === 'verify',
+      );
+      // Legacy edge has none of the three keys present at all.
+      expect(legacy.dispatch_mode).toBeUndefined();
+      expect(legacy.items_slot).toBeUndefined();
+      expect(legacy.item_slot).toBeUndefined();
+    });
+
+    it('writes nothing when dispatchMode is set but slots are missing (paired-fields guard)', () => {
+      // Editor invariant: the toggle controls all three together. A
+      // mid-state where dispatchMode is set without slots would be a
+      // serialiser bug — the writer omits the partial config rather
+      // than emit half-set YAML the BE would reject.
+      const halfSet: Edge<ConditionEdgeData> = {
+        id: 'extract->verify',
+        source: 'extract',
+        target: 'verify',
+        data: {
+          condition: 'default',
+          dispatchMode: 'per_item',
+          // itemsSlot + itemSlot intentionally missing
+        },
+      };
+      const text = graphToYaml(META, dispatchNodes, [
+        edge(NODE_START, 'extract'),
+        halfSet,
+        edge('verify', NODE_END),
+      ]);
+      const doc = yaml.load(text) as { flow: { edges: any[] } };
+      const e = doc.flow.edges.find(
+        (x) => x.from === 'extract' && x.to === 'verify',
+      );
+      expect(e.dispatch_mode).toBeUndefined();
+      expect(e.items_slot).toBeUndefined();
+      expect(e.item_slot).toBeUndefined();
+    });
+
+    it('round-trips through buildEditorGraph (dispatch fields preserved)', () => {
+      const edges = [
+        edge(NODE_START, 'extract'),
+        dispatchEdge(),
+        edge('verify', NODE_END),
+      ];
+      const text = graphToYaml(META, dispatchNodes, edges);
+      const rebuilt = buildEditorGraph(text);
+      const rebuiltDispatch = rebuilt.edges.find(
+        (e) => e.source === 'extract' && e.target === 'verify',
+      );
+      expect(rebuiltDispatch).toBeDefined();
+      expect(rebuiltDispatch!.data?.dispatchMode).toBe('per_item');
+      expect(rebuiltDispatch!.data?.itemsSlot).toBe('raw_claims');
+      expect(rebuiltDispatch!.data?.itemSlot).toBe('claim_to_verify');
+    });
+
+    it('items_slot=user_query round-trips as the reserved virtual slot', () => {
+      // Special case: when items_slot is `user_query`, no upstream node
+      // needs to produce it — it resolves from messages at runtime.
+      const userQueryEdge: Edge<ConditionEdgeData> = {
+        id: 'extract->verify',
+        source: 'extract',
+        target: 'verify',
+        data: {
+          condition: 'default',
+          dispatchMode: 'per_item',
+          itemsSlot: 'user_query',
+          itemSlot: 'claim_to_verify',
+        },
+      };
+      const text = graphToYaml(META, dispatchNodes, [
+        edge(NODE_START, 'extract'),
+        userQueryEdge,
+        edge('verify', NODE_END),
+      ]);
+      const rebuilt = buildEditorGraph(text);
+      const rebuiltEdge = rebuilt.edges.find(
+        (e) => e.source === 'extract' && e.target === 'verify',
+      );
+      expect(rebuiltEdge!.data?.itemsSlot).toBe('user_query');
+    });
+
+    it('reads legacy YAML without dispatch keys into undefined dispatch fields', () => {
+      const legacyYaml = [
+        'api_name: f',
+        'display_name: F',
+        'agents:',
+        '  - {api_name: a, display_name: A, user_model: m, system_prompt: x}',
+        '  - {api_name: b, display_name: B, user_model: m, system_prompt: x}',
+        'flow:',
+        '  nodes:',
+        '    - {node_id: a, agent: a}',
+        '    - {node_id: b, agent: b}',
+        '  edges:',
+        '    - {from: a, to: b}',
+      ].join('\n');
+      const rebuilt = buildEditorGraph(legacyYaml);
+      const e = rebuilt.edges.find((x) => x.source === 'a' && x.target === 'b');
+      expect(e!.data?.dispatchMode).toBeUndefined();
+      expect(e!.data?.itemsSlot).toBeUndefined();
+      expect(e!.data?.itemSlot).toBeUndefined();
+    });
+  });
 });

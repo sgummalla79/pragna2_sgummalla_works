@@ -88,9 +88,41 @@ export interface BoundaryNodeData {
   boundary: typeof NODE_START | typeof NODE_END;
 }
 
-/** Data carried by a conditioned edge. */
+/** Reserved virtual items_slot value: resolves to the latest user message
+ *  rather than a real upstream-produced slot. Mirrors the BE's
+ *  `SLOT_USER_QUERY` constant — kept in sync so the inspector's
+ *  items_slot dropdown can offer it as a built-in option. */
+export const SLOT_USER_QUERY = 'user_query';
+
+/** Recognised dispatch_mode values. NULL/undefined means legacy single-edge
+ *  routing; non-null opts the edge into LangGraph-`Send()`-based per-item
+ *  dynamic fan-out (BE migration 0025, future-discussions #35). */
+export const DISPATCH_MODE_PER_ITEM = 'per_item';
+export type DispatchMode = typeof DISPATCH_MODE_PER_ITEM;
+
+/** Data carried by a conditioned edge.
+ *
+ *  The three optional dispatch fields opt the edge into dynamic fan-out
+ *  (#35). All three are set together or all undefined — the BE rejects a
+ *  half-set configuration via a CHECK constraint AND the YAML validator,
+ *  and the editor mirrors the contract in the inspector (the dispatch
+ *  toggle controls all three at once).
+ *
+ *  At runtime FlowBuilder reads `state[itemsSlot]` and spawns one parallel
+ *  invocation of the target node per item, binding the per-instance
+ *  payload to the target's `itemSlot` input. */
 export interface ConditionEdgeData {
   condition: EdgeConditionValue;
+  /** Set to `'per_item'` to fan out one parallel target invocation per
+   *  item in `itemsSlot`. Undefined ⇒ legacy routing. */
+  dispatchMode?: DispatchMode;
+  /** Name of the upstream slot to iterate, or the reserved
+   *  `SLOT_USER_QUERY`. Required when `dispatchMode` is set. */
+  itemsSlot?: string;
+  /** Name of the slot the per-instance payload binds to on the receiving
+   *  node's state. MUST be in the target node's `inputs`. Required when
+   *  `dispatchMode` is set. */
+  itemSlot?: string;
 }
 
 /** Flow-level metadata edited outside the canvas (header form). */

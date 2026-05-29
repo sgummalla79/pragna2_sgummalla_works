@@ -5,6 +5,7 @@ import ReactFlow, {
   ConnectionMode,
   type Connection,
   Controls,
+  type EdgeMouseHandler,
   type NodeMouseHandler,
   ReactFlowProvider,
 } from 'reactflow';
@@ -30,6 +31,7 @@ import { ROUTES } from '@/constants/routes';
 
 import { AgentNode, BoundaryNode } from './canvasNodes';
 import { ConditionEdge } from './ConditionEdge';
+import { EdgePanel } from './EdgePanel';
 import { NodePanel } from './NodePanel';
 import { PalettePanel } from './PalettePanel';
 import { buildEditorGraph } from './buildEditorGraph';
@@ -76,6 +78,7 @@ function EditorInner({ flowId }: { flowId?: string }) {
   const meta = useFlowEditorStore((s) => s.meta);
   const dirty = useFlowEditorStore((s) => s.dirty);
   const selectedNodeId = useFlowEditorStore((s) => s.selectedNodeId);
+  const selectedEdgeId = useFlowEditorStore((s) => s.selectedEdgeId);
   const onNodesChange = useFlowEditorStore((s) => s.onNodesChange);
   const onEdgesChange = useFlowEditorStore((s) => s.onEdgesChange);
   const onConnect = useFlowEditorStore((s) => s.onConnect);
@@ -99,6 +102,7 @@ function EditorInner({ flowId }: { flowId?: string }) {
     return isValidFlowConnection(state.edges, conn, state.reconnectingEdgeId);
   }, []);
   const selectNode = useFlowEditorStore((s) => s.selectNode);
+  const selectEdge = useFlowEditorStore((s) => s.selectEdge);
   const setMeta = useFlowEditorStore((s) => s.setMeta);
   const hydrate = useFlowEditorStore((s) => s.hydrate);
   const reset = useFlowEditorStore((s) => s.reset);
@@ -144,6 +148,15 @@ function EditorInner({ flowId }: { flowId?: string }) {
 
   const handleNodeClick: NodeMouseHandler = (_e, node) => {
     selectNode(node.type === 'agent' ? node.id : null);
+  };
+
+  // #35: clicking an edge opens the EdgePanel inspector for dispatch
+  // editing. Boundary edges (to __end__ etc.) are still selectable —
+  // the inspector renders nothing dispatch-specific in those cases
+  // because dispatch requires a concrete target node (validator
+  // contract).
+  const handleEdgeClick: EdgeMouseHandler = (_e, edge) => {
+    selectEdge(edge.id);
   };
 
   async function handleValidate() {
@@ -463,7 +476,11 @@ function EditorInner({ flowId }: { flowId?: string }) {
             edgesUpdatable
             isValidConnection={isValidConnection}
             onNodeClick={handleNodeClick}
-            onPaneClick={() => selectNode(null)}
+            onEdgeClick={handleEdgeClick}
+            onPaneClick={() => {
+              selectNode(null);
+              selectEdge(null);
+            }}
             nodeTypes={NODE_TYPES}
             edgeTypes={EDGE_TYPES}
             connectionMode={ConnectionMode.Loose}
@@ -478,6 +495,7 @@ function EditorInner({ flowId }: { flowId?: string }) {
           </ReactFlow>
         </div>
         {selectedNodeId && <NodePanel />}
+        {selectedEdgeId && !selectedNodeId && <EdgePanel />}
       </div>
 
       {/* ── Read-only YAML "view source" ───────────────────────────────── */}

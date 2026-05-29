@@ -136,4 +136,97 @@ describe('useFlowEditorStore', () => {
     expect(store().dirty).toBe(false);
     expect(store().meta.apiName).toBe('f');
   });
+
+  describe('#35 — edge selection + dispatch field updates', () => {
+    it('selectEdge sets selectedEdgeId and clears selectedNodeId', () => {
+      const a = store().addAgentNode({ x: 0, y: 0 });
+      const b = store().addAgentNode({ x: 0, y: 100 });
+      store().onConnect({ source: a, target: b, sourceHandle: null, targetHandle: null });
+      const edgeId = store().edges[0].id;
+
+      // A node is currently selected (addAgentNode auto-selects).
+      expect(store().selectedNodeId).toBe(b);
+
+      store().selectEdge(edgeId);
+      expect(store().selectedEdgeId).toBe(edgeId);
+      // Mutual exclusion: selecting an edge clears node selection.
+      expect(store().selectedNodeId).toBe(null);
+    });
+
+    it('selectNode after selectEdge clears the edge selection', () => {
+      const a = store().addAgentNode({ x: 0, y: 0 });
+      const b = store().addAgentNode({ x: 0, y: 100 });
+      store().onConnect({ source: a, target: b, sourceHandle: null, targetHandle: null });
+      store().selectEdge(store().edges[0].id);
+      expect(store().selectedEdgeId).not.toBeNull();
+
+      store().selectNode(a);
+      expect(store().selectedNodeId).toBe(a);
+      expect(store().selectedEdgeId).toBe(null);
+    });
+
+    it('updateEdgeData sets dispatch fields together and marks dirty', () => {
+      const a = store().addAgentNode({ x: 0, y: 0 });
+      const b = store().addAgentNode({ x: 0, y: 100 });
+      store().onConnect({ source: a, target: b, sourceHandle: null, targetHandle: null });
+      const edgeId = store().edges[0].id;
+      store().markClean();
+
+      store().updateEdgeData(edgeId, {
+        dispatchMode: 'per_item',
+        itemsSlot: 'raw_claims',
+        itemSlot: 'claim_to_verify',
+      });
+
+      const updated = store().edges[0].data;
+      expect(updated?.dispatchMode).toBe('per_item');
+      expect(updated?.itemsSlot).toBe('raw_claims');
+      expect(updated?.itemSlot).toBe('claim_to_verify');
+      // Condition still default — patch is shallow merge, doesn't clobber.
+      expect(updated?.condition).toBe(EDGE_CONDITIONS.DEFAULT);
+      expect(store().dirty).toBe(true);
+    });
+
+    it('updateEdgeData with undefined keys clears them (turn dispatch off)', () => {
+      const a = store().addAgentNode({ x: 0, y: 0 });
+      const b = store().addAgentNode({ x: 0, y: 100 });
+      store().onConnect({ source: a, target: b, sourceHandle: null, targetHandle: null });
+      const edgeId = store().edges[0].id;
+      store().updateEdgeData(edgeId, {
+        dispatchMode: 'per_item',
+        itemsSlot: 'raw_claims',
+        itemSlot: 'claim_to_verify',
+      });
+
+      // All three set initially.
+      expect(store().edges[0].data?.dispatchMode).toBe('per_item');
+
+      // Author toggles dispatch off — all three cleared together.
+      store().updateEdgeData(edgeId, {
+        dispatchMode: undefined,
+        itemsSlot: undefined,
+        itemSlot: undefined,
+      });
+
+      const cleared = store().edges[0].data;
+      expect(cleared?.dispatchMode).toBeUndefined();
+      expect(cleared?.itemsSlot).toBeUndefined();
+      expect(cleared?.itemSlot).toBeUndefined();
+      // Condition survives the clear — the all-or-none invariant only
+      // covers the three dispatch keys, not the routing condition.
+      expect(cleared?.condition).toBe(EDGE_CONDITIONS.DEFAULT);
+    });
+
+    it('deleteEdge clears selectedEdgeId when the deleted edge was selected', () => {
+      const a = store().addAgentNode({ x: 0, y: 0 });
+      const b = store().addAgentNode({ x: 0, y: 100 });
+      store().onConnect({ source: a, target: b, sourceHandle: null, targetHandle: null });
+      const edgeId = store().edges[0].id;
+      store().selectEdge(edgeId);
+
+      store().deleteEdge(edgeId);
+      expect(store().edges).toHaveLength(0);
+      expect(store().selectedEdgeId).toBe(null);
+    });
+  });
 });
