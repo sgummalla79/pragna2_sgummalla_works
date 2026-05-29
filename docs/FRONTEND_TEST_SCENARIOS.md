@@ -1479,6 +1479,215 @@ commits can see what was here); skip when running the scenarios.
 
 ---
 
+## Scenario 16 — Dynamic fan-out: author + visualize a dispatching edge
+
+### Goal
+Prove that the visual editor can declare **per-item dynamic fan-out**
+on an edge (BE future-discussions #35) — N parallel invocations of the
+target node, where N is decided at runtime from a list slot. Verifies
+the EdgePanel inspector wires the three dispatch fields correctly,
+the dispatching edge renders a visible `↴ per-item` badge, and the
+configuration round-trips through save + reload without loss.
+
+Differs from Scenario 10 (aggregator): static fan-out in Scenario 10
+hard-codes the **target** nodes at author time (three sibling
+perspective nodes). **Dynamic fan-out spawns N copies of ONE target
+node**, where N is decided at runtime by the upstream slot's contents.
+
+### Arrange (one-time setup for this scenario)
+
+Requires Scenario 3 Part 1.
+
+#### Build the flow in the visual editor
+
+1. Settings → Flows → **+ New flow**.
+2. Top meta row:
+   - **Display name:** `Dispatch Sketch`
+   - **api-name:** `dispatch-sketch`
+   - **Description:** `Minimal flow to author a per-item dispatch edge.`
+   - **Expose as /slash** unticked (this scenario doesn't run the flow;
+     authoring is the test).
+3. **Add the Producer Agent** (palette → Agent):
+   - **Node id:** `producer`
+   - **Display name:** `Producer`
+   - **Model:** Available-for-Flows.
+   - **System prompt:** (anything — won't run this scenario)
+   - **Context slots → Outputs:** `raw_items`. (The Outputs chip input
+     lives in the NodePanel's "Context slots (advanced)" collapsible.
+     Type the slot name, press Enter.)
+4. **Add the Verifier Agent** (palette → Agent):
+   - **Node id:** `verifier`
+   - **Display name:** `Verifier`
+   - **Model:** as above.
+   - **System prompt:** (anything)
+   - **Context slots → Inputs:** `one_item`.
+5. **Wire the edges** in this order:
+   - `Start → producer` (drag from Start's right handle to the
+     Producer's inbound).
+   - `producer → verifier` (drag from Producer's right handle to the
+     Verifier's inbound). **This is the edge we'll mark as a
+     dispatch.**
+   - `verifier → End`.
+6. **Save** (use the Save button at top right). Confirm the green
+   success banner.
+
+### Act
+
+1. **Click the `producer → verifier` edge** on the canvas (anywhere on
+   the connector line). A new side-panel slides in from the right
+   titled **Edge** with a subheader `producer → verifier`.
+2. In the Edge panel, find the **Dynamic fan-out** section. Tick the
+   **Send per item** checkbox.
+3. Two dropdowns appear below the checkbox: **Items slot (source
+   list)** and **Item slot (per-instance payload)**.
+4. In **Items slot**, pick `raw_items` (the slot you declared on the
+   Producer's Outputs). A built-in entry **`user_query`** is also
+   available — leave it; pick `raw_items` for this test.
+5. In **Item slot**, pick `one_item` (the slot you declared on the
+   Verifier's Inputs).
+6. Below the dropdowns the panel shows a sentence like *"Runtime: one
+   parallel invocation of `verifier` per item in `raw_items`, bound
+   to `one_item` on each instance."*
+7. Close the Edge panel (X button at top).
+8. **Save** again. Green success banner.
+9. Click the **back arrow** to return to the flows list. Then click
+   **Dispatch Sketch** to re-open the flow.
+
+### Assert
+
+- [ ] After step 2 the **Send per item** checkbox is ticked AND the
+  two dropdowns are visible.
+- [ ] After steps 4-5 both dropdowns show your chosen slot names
+  (`raw_items` and `one_item`).
+- [ ] After step 7 the edge **`producer → verifier`** on the canvas
+  shows a small **blue `↴ per-item` chip** near its midpoint.
+- [ ] The dispatching edge's line is rendered **dashed** (not solid)
+  to visually distinguish it from non-dispatching edges.
+- [ ] Hovering the chip surfaces a tooltip mentioning the items slot
+  (e.g. *"Dynamic fan-out: one parallel target invocation per item
+  in 'raw_items'."*).
+- [ ] After step 9 (close + reopen the flow), the **chip is still on
+  the edge** AND clicking the edge re-opens the EdgePanel with the
+  checkbox **still ticked** and both dropdowns **still populated**
+  with `raw_items` and `one_item`. **This is the round-trip check.**
+- [ ] Untick the **Send per item** checkbox. The two dropdowns
+  disappear AND the chip on the edge disappears AND the line goes
+  back to solid. (Optional — confirms the toggle round-trips both
+  ways.)
+
+### If something looks off
+
+- **Clicking the edge doesn't open a panel.** The EdgePanel only
+  opens for plain edges, not for the four omni-handles. Aim for the
+  curved line in the middle of the connector, not for a node.
+- **The Items slot dropdown shows ONLY `user_query`, not
+  `raw_items`.** The Producer node has no `outputs` declared. Re-open
+  it (click the producer card), expand **Context slots (advanced)**,
+  and confirm `raw_items` is in the **Outputs** chip list.
+- **The Item slot dropdown is empty.** The Verifier node has no
+  `inputs` declared. Re-open it and confirm `one_item` is in the
+  **Inputs** chip list.
+- **The Save button is greyed out after I made changes.** The dirty
+  flag may not have fired — try clicking somewhere else on the
+  canvas (deselects edge), then back on the edge, then re-toggle.
+- **The chip appears in step 7 but disappears after reload.** The
+  YAML round-trip is broken. Open the YAML preview (YAML button in
+  the header) — the dispatching edge should show three keys:
+  `dispatch_mode: per_item`, `items_slot: raw_items`,
+  `item_slot: one_item`. If those keys are missing on reload,
+  capture the YAML and report — this is a real round-trip bug.
+
+---
+
+## Scenario 17 — Dynamic fan-out: mutual-exclusion gate with If/Else
+
+### Goal
+Prove that the EdgePanel correctly **prevents** declaring per-item
+dispatch on an edge whose source is an **If/Else** node — the v1
+locked design call: a node either branches via `set_route` OR fans
+out, **not both**. The gate is enforced via a disabled toggle plus
+an amber callout naming the source's `emits`, mirroring the BE YAML
+validator's `mutual-exclusion` error.
+
+### Arrange (one-time setup for this scenario)
+
+Requires Scenario 3 Part 1.
+
+#### Build the flow in the visual editor
+
+1. Settings → Flows → **+ New flow**.
+2. Top meta row:
+   - **Display name:** `Gate Sketch`
+   - **api-name:** `gate-sketch`
+   - **Description:** `Minimal flow to test the dispatch mutual-exclusion gate.`
+   - **Expose as /slash** unticked.
+3. **Add an If/Else node** (palette → If/Else). It drops with two
+   emit chips by default (`passed`, `failed`).
+4. **Add a Worker Agent** (palette → Agent):
+   - **Node id:** `worker`
+   - **Display name:** `Worker`
+   - **Model:** Available-for-Flows.
+   - **Context slots → Inputs:** `payload`.
+5. **Wire the edges:**
+   - `Start → node_1` (drag from Start to the If/Else's inbound; the
+     If/Else's node id defaults to `node_1`).
+   - `node_1 → worker` — drag from the **`port:passed`** port (the
+     top right-side port on the If/Else card; the `else` port is the
+     last one). **The edge we'll click is this one.**
+   - `worker → End`.
+6. **Save**. Confirm the green success banner.
+
+### Act
+
+1. **Click the `node_1 → worker` edge** (the line leaving the If/Else's
+   `port:passed`). The Edge panel slides in.
+2. Find the **Dynamic fan-out** section. **Look at the Send per item
+   checkbox.**
+3. Look for an **amber callout** beneath the checkbox (info-circle
+   icon, amber background, dark amber text).
+4. (Optional) Try to **click the checkbox**.
+
+### Assert
+
+- [ ] The **Send per item** checkbox is **disabled** (cannot be
+  clicked / greyed out).
+- [ ] An **amber callout** is visible beneath the checkbox.
+- [ ] The callout text mentions the source agent's **emits** list
+  (e.g. *"Agent ... already branches via emits ['passed', 'failed']
+  ..."*) AND the words **"either branches or fans out"** (or
+  similar). The exact wording: a node either branches via `emits` or
+  fans out via `dispatch_mode`, not both (v1).
+- [ ] If you tried to click the checkbox in step 4: nothing happens
+  (it stays unticked).
+- [ ] The dropdowns for **Items slot** and **Item slot** are **NOT**
+  rendered (only appear when dispatch is on, and dispatch is gated
+  off here).
+- [ ] The edge on the canvas does **not** show a `↴ per-item` chip.
+
+### If something looks off
+
+- **The checkbox is enabled (not greyed out).** The mutual-exclusion
+  gate has regressed. Re-open the source node (`node_1`), expand
+  **Emit labels**, and confirm both `passed` and `failed` chips are
+  there. If they are AND the checkbox is still enabled, this is a
+  real bug — capture a screenshot of the Edge panel and report.
+- **The checkbox is disabled BUT no callout is visible.** The gate
+  fires but the user has no explanation. Capture a screenshot and
+  report — the callout's purpose is to teach the author *why* the
+  toggle is off.
+- **The callout text mentions a different reason** (e.g. "target is
+  __end__" or "source isn't an agent node"). You may have wired the
+  edge wrong — the test wants the edge to leave `port:passed` and
+  arrive at `worker`. The EdgePanel only renders the FIRST blocking
+  reason it finds; other reasons are still bugs to fix but the test
+  here is specifically the source-has-emits gate.
+- **The checkbox is enabled AND ticking it succeeds, dispatching
+  fields appear.** The gate isn't being checked at all. This is a
+  bigger regression — the BE will reject the YAML on Save with a
+  `mutual-exclusion` 422 error. The test fails here, not at Save.
+
+---
+
 ## If something doesn't work (general gotchas)
 
 Things to check before reporting a bug:
