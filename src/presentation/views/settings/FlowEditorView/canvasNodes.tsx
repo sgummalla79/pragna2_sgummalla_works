@@ -42,11 +42,11 @@ import {
 
 // Faint dots that bump to full opacity on the parent's group-hover.
 const HANDLE_CLASS =
-  '!h-1.5 !w-1.5 !min-h-0 !min-w-0 !bg-muted-foreground opacity-30 transition-opacity group-hover:opacity-100';
+  '!h-1 !w-1 !min-h-0 !min-w-0 !bg-muted-foreground opacity-30 transition-opacity group-hover:opacity-100';
 
-// Slightly larger + label-friendly variant for If/Else's named ports.
+// Slightly larger + label-friendly variant for Decision's named ports.
 const PORT_HANDLE_CLASS =
-  '!h-2 !w-2 !min-h-0 !min-w-0 !bg-primary opacity-70 transition-opacity group-hover:opacity-100';
+  '!h-1.5 !w-1.5 !min-h-0 !min-w-0 !bg-primary opacity-70 transition-opacity group-hover:opacity-100';
 
 // Uniform card body + selected-state highlight. `border-foreground` is
 // white in dark mode (theme-token-aware), matching the user-locked

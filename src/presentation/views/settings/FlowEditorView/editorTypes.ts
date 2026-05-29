@@ -159,14 +159,14 @@ export function newFlowGraph(): {
       exposedAsSlash: true,
       metadata: {},
     },
-    // Horizontal layout: Start on the left (source on its right), End on
-    // the right (target on its left). Matches the OpenAI agent-builder
-    // pattern and the per-node handle spec (start = right source, end =
-    // left target, agent = 4 omni handles, if/else = left target + N+1
-    // right ports).
+    // Only Start is auto-placed on a new flow. The author drops End(s)
+    // from the palette when they wire the flow up; until then, save +
+    // validate will surface "no terminal node" / "Start has no outgoing
+    // edge" as YAML errors, which is the right place to remind them.
+    // (Start is auto-placed because LangGraph has exactly one entry —
+    // making it draggable would invite a dead state on the second drop.)
     nodes: [
-      { id: NODE_START, type: NODE_TYPE_BOUNDARY, position: { x: 80,  y: 200 }, data: { boundary: NODE_START } },
-      { id: NODE_END,   type: NODE_TYPE_BOUNDARY, position: { x: 720, y: 200 }, data: { boundary: NODE_END   } },
+      { id: NODE_START, type: NODE_TYPE_BOUNDARY, position: { x: 80, y: 200 }, data: { boundary: NODE_START } },
     ],
     edges: [],
   };

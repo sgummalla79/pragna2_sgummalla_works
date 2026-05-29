@@ -34,6 +34,7 @@ import {
   type FlowMeta,
   EDGE_TYPE_CONDITION,
   NODE_END,
+  NODE_START,
   NODE_TYPE_AGENT,
   NODE_TYPE_BOUNDARY,
   blankAgent,
@@ -155,10 +156,21 @@ export const useFlowEditorStore = create<FlowEditorState>((set, get) => ({
   endReconnect: () => set({ reconnectingEdgeId: null }),
 
   onNodesChange: (changes) =>
-    set((s) => ({
-      nodes: applyNodeChanges(changes, s.nodes) as EditorNode[],
-      dirty: s.dirty || changes.some(isMutatingNodeChange),
-    })),
+    set((s) => {
+      // Strip any change that would remove the singleton Start node.
+      // Start is auto-placed on every new flow and intentionally absent
+      // from the palette (LangGraph has exactly one entry, so we'd have
+      // no way to add it back). The Backspace/Delete keybinding +
+      // multi-select-delete in React Flow would otherwise let users
+      // drop Start and brick the canvas.
+      const safe = changes.filter(
+        (c) => !(c.type === 'remove' && c.id === NODE_START),
+      );
+      return {
+        nodes: applyNodeChanges(safe, s.nodes) as EditorNode[],
+        dirty: s.dirty || safe.some(isMutatingNodeChange),
+      };
+    }),
 
   onEdgesChange: (changes) =>
     set((s) => ({
@@ -251,12 +263,18 @@ export const useFlowEditorStore = create<FlowEditorState>((set, get) => ({
   },
 
   deleteNode: (nodeId) =>
-    set((s) => ({
-      nodes: s.nodes.filter((n) => n.id !== nodeId),
-      edges: s.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
-      selectedNodeId: s.selectedNodeId === nodeId ? null : s.selectedNodeId,
-      dirty: true,
-    })),
+    set((s) => {
+      // Same guard as onNodesChange — Start is singleton + un-replaceable
+      // (not in the palette), so we silently ignore a delete request on
+      // it instead of bricking the canvas.
+      if (nodeId === NODE_START) return s;
+      return {
+        nodes: s.nodes.filter((n) => n.id !== nodeId),
+        edges: s.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
+        selectedNodeId: s.selectedNodeId === nodeId ? null : s.selectedNodeId,
+        dirty: true,
+      };
+    }),
 
   selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
 

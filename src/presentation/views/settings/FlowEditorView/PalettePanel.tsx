@@ -13,12 +13,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { GripVertical } from 'lucide-react';
+import { useReactFlow } from 'reactflow';
 
 import { useFlowEditorStore } from './useFlowEditorStore';
 import { PALETTE, type PaletteKey } from './paletteRegistry';
-
-/** Cascading offset so successive adds don't stack on top of each other. */
-const CASCADE_OFFSET = 32;
 
 interface Props {
   /** Optional id-prefix scope for the panel — useful when more than one
@@ -27,10 +25,18 @@ interface Props {
 }
 
 export function PalettePanel({ ariaLabel = 'Add node' }: Props) {
-  const nodes = useFlowEditorStore((s) => s.nodes);
   const addAgent = useFlowEditorStore((s) => s.addAgentNode);
   const addIfElse = useFlowEditorStore((s) => s.addIfElseNode);
   const addEnd = useFlowEditorStore((s) => s.addEndNode);
+  // React Flow viewport handle. Used for two things:
+  //  1. screenToFlowPosition — convert screen px → flow coords so the
+  //     initial drop sits where the user expects.
+  //  2. setCenter (called post-drop) — pan the viewport so the new
+  //     node is at the visible centre AFTER any state cascade
+  //     (NodePanel opening, canvas resizing) has settled. This is the
+  //     reliable way to guarantee the node is visible regardless of
+  //     pre-existing pan/zoom or whether the side panel was open.
+  const reactFlow = useReactFlow();
 
   // Drag-to-reposition state. `position` is null until the user moves
   // the palette for the first time — that keeps the initial CSS-driven
@@ -94,19 +100,55 @@ export function PalettePanel({ ariaLabel = 'Add node' }: Props) {
     };
   }, [dragging]);
 
-  function dropPosition(): { x: number; y: number } {
-    // Cascade off the count of non-boundary nodes so it grows with the
-    // graph but doesn't double-count the auto-placed Start/End. y stays
-    // around 200 (the horizontal centre-line for new flows).
-    const agentCount = nodes.filter((n) => n.type === 'agent').length;
-    return { x: 280 + (agentCount % 4) * 60, y: 160 + agentCount * CASCADE_OFFSET };
+  /** Approximate rendered box (in flow units at zoom 1) used to offset
+   *  the drop position so the node's CENTRE lands at the requested
+   *  point (React Flow positions a node by its top-left corner).
+   *  Boundary cards are about half the width of agent cards per the
+   *  `MinimalCard` Tailwind utilities. */
+  function nodeHalfSize(kind: PaletteKey) {
+    return kind === 'end'
+      ? { halfW: 48, halfH: 12 }
+      : { halfW: 70, halfH: 18 };
+  }
+
+  /** Initial drop position in flow coords — the current viewport centre,
+   *  offset by half the node so the node's centre lands there. The
+   *  post-drop `setCenter` below pans the viewport to make the node
+   *  reliably visible regardless of how the rest of the layout reacts. */
+  function dropPosition(kind: PaletteKey): { x: number; y: number } {
+    const { halfW, halfH } = nodeHalfSize(kind);
+    const reactFlowEl = navRef.current?.closest('.react-flow') as HTMLElement | null;
+    const rect = reactFlowEl?.getBoundingClientRect();
+    if (!rect) return { x: 400 - halfW, y: 200 - halfH };
+    const centre = reactFlow.screenToFlowPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    });
+    return { x: centre.x - halfW, y: centre.y - halfH };
   }
 
   function onAdd(key: PaletteKey) {
-    const pos = dropPosition();
+    const pos = dropPosition(key);
     if (key === 'agent') addAgent(pos);
     else if (key === 'if_else') addIfElse(pos);
-    else addEnd({ x: 720, y: 160 + nodes.filter((n) => n.type === 'boundary').length * CASCADE_OFFSET });
+    else addEnd(pos);
+    // Pan the viewport so the new node is at the visible centre AFTER
+    // the React state cascade settles — for agent/decision drops the
+    // NodePanel side drawer mounts and the canvas shrinks by 360px on
+    // the right, so a "centre" computed pre-drop would land under (or
+    // right of the centre of) the just-opened panel. Two RAFs let
+    // React commit + layout flush before we pan, so setCenter measures
+    // the post-resize viewport. Preserving the user's current zoom
+    // keeps the pan smooth (no surprise zoom-in/out).
+    const { halfW, halfH } = nodeHalfSize(key);
+    const nodeCentreX = pos.x + halfW;
+    const nodeCentreY = pos.y + halfH;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const { zoom } = reactFlow.getViewport();
+        reactFlow.setCenter(nodeCentreX, nodeCentreY, { duration: 250, zoom });
+      });
+    });
   }
 
   return (

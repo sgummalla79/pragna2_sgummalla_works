@@ -75,9 +75,11 @@ describe('FlowEditorView (shell)', () => {
     // Meta inputs (label dropped in favour of placeholder + aria-label).
     expect(screen.getByLabelText('Display name')).toBeInTheDocument();
     expect(screen.getByLabelText('API Name')).toBeInTheDocument();
-    // New flow seeds Start + (one) End boundary nodes into the store.
+    // New flow seeds ONLY Start. End nodes are added by the author from
+    // the palette — keeping the canvas empty otherwise lets validate +
+    // save surface "no terminal node" as a structured YAML error.
     const ids = useFlowEditorStore.getState().nodes.map((n) => n.id).sort();
-    expect(ids).toEqual(['__end__', '__start__']);
+    expect(ids).toEqual(['__start__']);
   });
 
   it('clicking the palette Agent entry adds a node and opens the node panel', () => {
@@ -100,15 +102,17 @@ describe('FlowEditorView (shell)', () => {
     expect((agentNodes[0].data as any).agent.displayName).toBe('Decision');
   });
 
-  it('clicking the palette End entry adds another End boundary (multi-End)', () => {
+  it('clicking the palette End entry adds an End boundary', () => {
     renderEditor();
     fireEvent.click(screen.getByRole('button', { name: /^End$/i }));
     const endNodes = useFlowEditorStore
       .getState()
       .nodes.filter((n) => n.type === 'boundary' && (n.data as any).boundary === '__end__');
-    expect(endNodes).toHaveLength(2);
-    // First is the seeded `__end__`; the new one carries the `::n` suffix.
-    expect(endNodes.map((n) => n.id).sort()).toEqual(['__end__', '__end__::2']);
+    // New flow seeds zero End nodes; clicking palette End adds the first.
+    expect(endNodes).toHaveLength(1);
+    // First End palette drop gets the canonical `__end__` id (no `::n`
+    // suffix); subsequent ones get `__end__::2`, `__end__::3`, etc.
+    expect(endNodes.map((n) => n.id)).toEqual(['__end__']);
   });
 
   it('Save is disabled until there are unsaved changes', () => {
