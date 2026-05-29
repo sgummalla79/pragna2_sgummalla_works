@@ -7,10 +7,10 @@
  */
 import { expect, type Page } from '@playwright/test';
 
-/** Drop an Agent / If/Else / End from the palette. */
+/** Drop an Agent / Decision / End from the palette. */
 export async function dropFromPalette(
   page: Page,
-  label: 'Agent' | 'If/Else' | 'End',
+  label: 'Agent' | 'Decision' | 'End',
 ): Promise<void> {
   const palette = page.getByRole('navigation', { name: /add node/i });
   await palette.getByRole('button', { name: new RegExp(`^${label}$`) }).click();

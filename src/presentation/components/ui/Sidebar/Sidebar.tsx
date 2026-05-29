@@ -175,7 +175,7 @@ export function Sidebar({
           </div>
         )}
 
-        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 px-3 py-4">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-0.5 px-3 py-4">
           {items.map((item, index) => {
             // Dividers and section headers are skipped wholesale in
             // collapsed mode — the icons are distinct enough that

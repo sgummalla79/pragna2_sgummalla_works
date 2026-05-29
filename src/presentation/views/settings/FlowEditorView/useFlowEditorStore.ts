@@ -116,12 +116,16 @@ function isMutatingNodeChange(c: NodeChange): boolean {
   return c.type === 'remove' || c.type === 'add' || c.type === 'reset';
 }
 
-/** Allocate a node_id not already used on the canvas. */
+/** Allocate an agent id not already used on the canvas. The YAML wire
+ *  field is still `node_id` (BE schema unchanged), but the auto-allocated
+ *  VALUE uses an `agent_` prefix so users see `agent_1`, `agent_2`, …
+ *  on the canvas + side panel — never `node_1` (we stopped surfacing
+ *  "node" in agent UI strings). */
 function nextNodeId(nodes: EditorNode[]): string {
   const used = new Set(nodes.map((n) => n.id));
   let i = nodes.filter((n) => n.type === NODE_TYPE_AGENT).length + 1;
-  while (used.has(`node_${i}`)) i += 1;
-  return `node_${i}`;
+  while (used.has(`agent_${i}`)) i += 1;
+  return `agent_${i}`;
 }
 
 export const useFlowEditorStore = create<FlowEditorState>((set, get) => ({

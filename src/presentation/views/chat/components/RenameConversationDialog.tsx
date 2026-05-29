@@ -82,7 +82,7 @@ export function RenameConversationDialog({
           </Dialog.Description>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="rename-conv-input">Title</Label>
+            <Label htmlFor="rename-conv-input" className="text-sm font-medium normal-case tracking-normal">Title</Label>
             <Input
               id="rename-conv-input"
               value={title}

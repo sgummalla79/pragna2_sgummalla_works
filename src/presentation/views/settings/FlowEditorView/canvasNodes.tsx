@@ -92,26 +92,26 @@ function MinimalCard({
   return (
     <div
       className={[
-        'rounded-[8px] shadow-sm transition',
-        compact ? 'min-w-[110px] max-w-[140px] px-2 py-1' : 'min-w-[150px] max-w-[200px] px-2.5 py-1.5',
+        'rounded-[6px] shadow-sm transition',
+        compact ? 'min-w-[72px] max-w-[96px] px-1 py-0.5' : 'min-w-[104px] max-w-[140px] px-1.5 py-0.5',
         CARD_BASE,
         selected ? CARD_SELECTED : '',
       ].join(' ')}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <span
           className={[
-            'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md',
+            'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded',
             iconTileClass,
           ].join(' ')}
           aria-hidden="true"
         >
-          <Icon size={13} strokeWidth={2.2} className={iconClass} />
+          <Icon size={9} strokeWidth={2.2} className={iconClass} />
         </span>
-        <span className="text-[11px] font-semibold leading-tight">{label}</span>
+        <span className="text-[9px] font-semibold leading-tight">{label}</span>
       </div>
       {!compact && (
-        <div className="mt-1 truncate text-[10px] text-muted-foreground">
+        <div className="mt-0.5 truncate text-[8px] text-muted-foreground">
           {displayName || 'unnamed'}
         </div>
       )}

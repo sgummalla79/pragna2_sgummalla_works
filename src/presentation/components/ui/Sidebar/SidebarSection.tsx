@@ -9,7 +9,7 @@ interface Props {
  */
 export function SidebarSection({ label }: Props) {
   return (
-    <p className="select-none px-3 pt-3 pb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-sidebar-foreground/55">
+    <p className="select-none px-3 pt-2 pb-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-sidebar-foreground/55">
       {label}
     </p>
   );

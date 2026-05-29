@@ -23,7 +23,7 @@ test('flow-design redesign — palette + N+1 ports + redirect', async ({ page })
   // agents).
   const palette = page.getByRole('navigation', { name: /add node/i });
   const paletteAgent = palette.getByRole('button', { name: /^Agent$/ });
-  const paletteIfElse = palette.getByRole('button', { name: /^If\/Else$/ });
+  const paletteIfElse = palette.getByRole('button', { name: /^Decision$/ });
   const paletteEnd = palette.getByRole('button', { name: /^End$/ });
   await expect(paletteAgent).toBeVisible();
   await expect(paletteIfElse).toBeVisible();
@@ -100,14 +100,11 @@ test('flow-design redesign — palette + N+1 ports + redirect', async ({ page })
   ).toBeAttached();
 
   // ── Card content: minimal (icon + type label + display name) ──────
-  // The If/Else card displays its type label "If/Else" plus its display
-  // name. NOTE: blankIfElseAgent presets displayName='If/Else', so both
-  // lines on the card show "If/Else" — a duplicated label. Worth a UX
-  // tweak (default the displayName to '' so the bottom line is empty
-  // until the author names it). For now we just assert the type label
-  // is present via .first().
+  // The Decision card displays its type label "Decision" plus its
+  // display name. blankIfElseAgent presets displayName='Decision', so
+  // both lines on the card show "Decision" — assert via .first().
   await expect(
-    page.locator('[data-id="node_2"]').getByText('If/Else').first(),
+    page.locator('[data-id="node_2"]').getByText('Decision').first(),
   ).toBeVisible();
   // The chat agent's card: type label "Agent" + node_id (displayName is
   // empty by default → falls back to apiName which equals node_id).

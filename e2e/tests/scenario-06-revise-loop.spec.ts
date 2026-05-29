@@ -81,7 +81,7 @@ test.describe('Scenario 6 — Revise loop with If/Else', () => {
 
     // Reviewer (If/Else — palette entry pre-fills emits=[passed,
     // failed], we keep them; reads `draft`, publishes `critique`).
-    await dropFromPalette(page, 'If/Else');
+    await dropFromPalette(page, 'Decision');
     await configureChatAgent(page, {
       nodeId: REVIEWER_ID,
       display: 'Haiku Reviewer',

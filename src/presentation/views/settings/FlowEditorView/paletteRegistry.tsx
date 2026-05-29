@@ -47,7 +47,7 @@ export const PALETTE: ReadonlyArray<PaletteEntry> = [
   },
   {
     key: 'if_else',
-    label: 'If/Else',
+    label: 'Decision',
     // Split: a single line forking into two paths. Rotated -90° so the
     // stem points LEFT and the branches go RIGHT — matches the
     // horizontal Start-on-left → End-on-right canvas flow. (Tried

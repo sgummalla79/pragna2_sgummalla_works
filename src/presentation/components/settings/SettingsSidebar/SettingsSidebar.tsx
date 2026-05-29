@@ -60,7 +60,7 @@ function ProvidersIcon() {
   // because the source artwork is filled-shape; both styles read fine
   // at this size in either palette mode.
   return (
-    <svg width="15" height="15" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
+    <svg width="18" height="18" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
       <path d="M454.93,150.318c16.294,0,29.551-13.257,29.551-29.551V29.564C484.481,13.262,471.224,0,454.93,0H57.07C40.776,0,27.519,13.262,27.519,29.564v91.203c0,16.294,13.257,29.551,29.551,29.551h186.307v30.523H57.07c-16.294,0-29.551,13.262-29.551,29.564v91.191c0,16.302,13.257,29.564,29.551,29.564h186.307v30.523H57.07c-16.294,0-29.551,13.257-29.551,29.551v91.203C27.519,498.738,40.776,512,57.07,512h397.86c16.294,0,29.551-13.262,29.551-29.564v-91.203c0-16.294-13.257-29.551-29.551-29.551H268.623v-30.523H454.93c16.294,0,29.551-13.262,29.551-29.564v-91.191c0-16.302-13.257-29.564-29.551-29.564H268.623v-30.523H454.93z M454.93,386.929c2.373,0,4.305,1.93,4.305,4.305v91.203c0,2.381-1.931,4.317-4.305,4.317H57.07c-2.373,0-4.305-1.936-4.305-4.317v-91.203c0-2.374,1.931-4.305,4.305-4.305H454.93z M454.93,206.088c2.373,0,4.305,1.936,4.305,4.317v91.191c0,2.381-1.931,4.317-4.305,4.317H57.07c-2.373,0-4.305-1.936-4.305-4.317v-91.191c0-2.381,1.931-4.317,4.305-4.317H454.93z M57.07,125.071c-2.373,0-4.305-1.93-4.305-4.305V29.564c0-2.381,1.931-4.317,4.305-4.317h397.86c2.373,0,4.305,1.936,4.305,4.317v91.203c0,2.374-1.931,4.305-4.305,4.305H57.07z" />
       <path d="M404.904,39.814c-19.489,0-35.345,15.856-35.345,35.345s15.855,35.345,35.345,35.345c19.489,0,35.345-15.856,35.345-35.345S424.393,39.814,404.904,39.814z M404.904,85.258c-5.568,0-10.099-4.53-10.099-10.099s4.53-10.099,10.099-10.099c5.568,0,10.099,4.531,10.099,10.099S410.472,85.258,404.904,85.258z" />
       <path d="M338.417,62.536h-17.673c-6.971,0-12.623,5.653-12.623,12.623c0,6.971,5.651,12.623,12.623,12.623h17.673c6.971,0,12.623-5.653,12.623-12.623S345.388,62.536,338.417,62.536z" />
@@ -80,7 +80,7 @@ function ProvidersIcon() {
 
 function FlowsIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="18" cy="18" r="3" /><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" />
       <path d="M6 9v6M13 6h3a2 2 0 0 1 2 2v7" />
@@ -92,7 +92,7 @@ function AppearanceIcon() {
   // Half-moon "theme" glyph — distinct from the Sun/Moon used in the
   // mode toggle button so the nav row reads as a section, not a control.
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />
       <path d="M12 3a9 9 0 0 1 0 18 6 6 0 0 0 0-12 6 6 0 0 1 0-6z" fill="currentColor" />
@@ -102,7 +102,7 @@ function AppearanceIcon() {
 
 function ProfileIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="8" r="4" />
       <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
@@ -116,7 +116,7 @@ function McpServersIcon() {
   // currentColor). Visually distinct from ProvidersIcon (rack-panel
   // stack) so the eye can sort the two AI-Setup rows.
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 22v-5" />
       <path d="M9 8V2" />

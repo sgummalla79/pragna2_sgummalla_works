@@ -14,8 +14,8 @@ import { db, psql } from '../helpers/db';
 
 test.describe.configure({ mode: 'serial' }); // shared DB → run in order
 
-/** Drop an Agent / If/Else / End node from the palette. */
-async function dropFromPalette(page: Page, label: 'Agent' | 'If/Else' | 'End') {
+/** Drop an Agent / Decision / End node from the palette. */
+async function dropFromPalette(page: Page, label: 'Agent' | 'Decision' | 'End') {
   const palette = page.getByRole('navigation', { name: /add node/i });
   await palette.getByRole('button', { name: new RegExp(`^${label}$`) }).click();
   await page.waitForTimeout(150);

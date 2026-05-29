@@ -4,7 +4,16 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] disabled:pointer-events-none disabled:opacity-50 min-h-[44px] min-w-[44px] px-4 py-2',
+  // Base button text matches the compact form Label exactly — tiny
+  // 10px uppercase with tracking-wider — so admin-form labels and CTAs
+  // share one visual language. Size variants no longer override the
+  // text-size (they used to bump text up to 12/14/16px); they only
+  // control HEIGHT + padding now, so a "lg" button is taller with the
+  // same tiny label, not a bigger label.
+  // User-facing buttons that want sentence-case (e.g. chat-stop, send,
+  // link-style breadcrumbs) opt out via their own `className`
+  // (`normal-case tracking-normal text-sm`).
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-[10px] font-semibold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] disabled:pointer-events-none disabled:opacity-50 min-h-[44px] min-w-[44px] px-4 py-2',
   {
     variants: {
       variant: {
@@ -16,10 +25,10 @@ const buttonVariants = cva(
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {
-        xs: 'h-7 px-2.5 text-[11px] min-h-[28px] gap-1',
-        sm: 'h-9 px-3 text-xs min-h-[36px]',
-        md: 'h-11 px-4 text-sm',
-        lg: 'h-12 px-6 text-base',
+        xs: 'h-7 px-2.5 min-h-[28px] gap-1',
+        sm: 'h-9 px-3 min-h-[36px]',
+        md: 'h-11 px-4',
+        lg: 'h-12 px-6',
         icon: 'h-11 w-11 p-0',
       },
     },

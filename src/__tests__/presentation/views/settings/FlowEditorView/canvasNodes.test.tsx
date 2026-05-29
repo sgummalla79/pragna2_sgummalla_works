@@ -74,8 +74,8 @@ describe('AgentNode', () => {
         } as any)}
       />,
     );
-    // Type label flips to "If/Else" because the node is now branching.
-    expect(screen.getByText('If/Else')).toBeInTheDocument();
+    // Type label flips to "Decision" because the node is now branching.
+    expect(screen.getByText('Decision')).toBeInTheDocument();
     expect(screen.getByText('Reviewer')).toBeInTheDocument();
     // 1 inbound target on the left + N+1 source ports on the right
     // (one per emit + a permanent `port:else`).

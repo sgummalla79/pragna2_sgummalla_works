@@ -70,11 +70,11 @@ describe('FlowEditorView (shell)', () => {
     expect(screen.queryByRole('button', { name: /add node/i })).not.toBeInTheDocument();
     // Palette: 3 click-to-add entries.
     expect(screen.getByRole('button', { name: /^Agent$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^If\/Else$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Decision$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^End$/i })).toBeInTheDocument();
     // Meta inputs (label dropped in favour of placeholder + aria-label).
     expect(screen.getByLabelText('Display name')).toBeInTheDocument();
-    expect(screen.getByLabelText('API name')).toBeInTheDocument();
+    expect(screen.getByLabelText('API Name')).toBeInTheDocument();
     // New flow seeds Start + (one) End boundary nodes into the store.
     const ids = useFlowEditorStore.getState().nodes.map((n) => n.id).sort();
     expect(ids).toEqual(['__end__', '__start__']);
@@ -86,18 +86,18 @@ describe('FlowEditorView (shell)', () => {
     const agentNodes = useFlowEditorStore.getState().nodes.filter((n) => n.type === 'agent');
     expect(agentNodes).toHaveLength(1);
     // The dropped node has emits=[] (chat agent), so the NodePanel
-    // opens on the new node — its Node id field is the panel's first
+    // opens on the new node — its Agent id field is the panel's first
     // input. getByLabelText resolves the aria-label.
-    expect(screen.getByLabelText('Node id')).toBeInTheDocument();
+    expect(screen.getByLabelText('Agent')).toBeInTheDocument();
   });
 
   it('clicking the palette If/Else entry adds a node preset with emits=[passed,failed]', () => {
     renderEditor();
-    fireEvent.click(screen.getByRole('button', { name: /^If\/Else$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Decision$/i }));
     const agentNodes = useFlowEditorStore.getState().nodes.filter((n) => n.type === 'agent');
     expect(agentNodes).toHaveLength(1);
     expect((agentNodes[0].data as any).agent.emits).toEqual(['passed', 'failed']);
-    expect((agentNodes[0].data as any).agent.displayName).toBe('If/Else');
+    expect((agentNodes[0].data as any).agent.displayName).toBe('Decision');
   });
 
   it('clicking the palette End entry adds another End boundary (multi-End)', () => {

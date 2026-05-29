@@ -119,7 +119,7 @@ export default function RegisterView() {
           {/* Registration form */}
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="name">
+              <Label htmlFor="name" className="text-sm font-medium normal-case tracking-normal">
                 Display name <span className="text-muted-foreground font-normal">(optional)</span>
               </Label>
               <Input
@@ -135,7 +135,7 @@ export default function RegisterView() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-sm font-medium normal-case tracking-normal">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -150,7 +150,7 @@ export default function RegisterView() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-sm font-medium normal-case tracking-normal">Password</Label>
               <PasswordInput
                 id="password"
                 autoComplete="new-password"

@@ -96,7 +96,7 @@ test.describe('Scenario 7 — Triage router', () => {
     });
 
     // Router (If/Else with custom 3-way emits).
-    await dropFromPalette(page, 'If/Else');
+    await dropFromPalette(page, 'Decision');
     await configureChatAgent(page, {
       nodeId: ROUTER_ID,
       display: 'Triage Router',

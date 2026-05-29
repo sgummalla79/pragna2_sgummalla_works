@@ -12,7 +12,7 @@ import 'reactflow/dist/style.css';
 import * as Dialog from '@radix-ui/react-dialog';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml as yamlLang } from '@codemirror/lang-yaml';
-import { AlertCircle, ArrowLeft, CheckCircle2, Code2, Save, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, Code2, Save, ShieldCheck, X } from 'lucide-react';
 import { isAxiosError } from 'axios';
 
 import {
@@ -106,6 +106,15 @@ function EditorInner({ flowId }: { flowId?: string }) {
   const [errors, setErrors] = useState<YamlError[]>([]);
   const [banner, setBanner] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [yamlOpen, setYamlOpen] = useState(false);
+  // Accordion-style errors list. Starts COLLAPSED — the banner summary
+  // already names the count ("N issues blocking save"); users who want
+  // the detail expand it via the chevron. We also reset to collapsed on
+  // every new error round so a stale-expanded panel doesn't carry over
+  // between save attempts.
+  const [errorsExpanded, setErrorsExpanded] = useState(false);
+  useEffect(() => {
+    if (errors.length > 0) setErrorsExpanded(false);
+  }, [errors]);
 
   // Seed the store from the flow's stored YAML (or a fresh Start/End
   // canvas for a new flow) AND clear the store on unmount so a different
@@ -141,12 +150,16 @@ function EditorInner({ flowId }: { flowId?: string }) {
     setErrors([]);
     try {
       const result = await validateMutation.mutateAsync(graphToYaml(meta, nodes, edges));
-      setErrors(result.errors);
-      setBanner(
-        result.valid
-          ? { kind: 'ok', text: 'Looks good — ready to save.' }
-          : { kind: 'err', text: `Found ${result.errors.length} issue(s).` },
-      );
+      // When the YAML parses fine the validator returns valid=true with
+      // an empty error list — show the success banner. When it doesn't,
+      // we set ONLY the errors array; the banner derives its summary
+      // ("N issues blocking save") from `errors.length`, so we don't
+      // double-message with a separate "Found N issue(s)" toast.
+      if (result.valid) {
+        setBanner({ kind: 'ok', text: 'Looks good — ready to save.' });
+      } else {
+        setErrors(result.errors);
+      }
     } catch {
       setBanner({ kind: 'err', text: "Couldn't reach the server." });
     }
@@ -166,14 +179,17 @@ function EditorInner({ flowId }: { flowId?: string }) {
         navigate(ROUTES.FLOW_EDITOR.replace(':flowId', flow.id), { replace: true });
       }
     } catch (err) {
+      // Same single-source-of-message rule as handleValidate: when we
+      // have structured errors to show, ONLY set the errors list (the
+      // banner derives its summary from `errors.length`). Bare "didn't
+      // reach the server" failures still need a banner.text because
+      // there's no error row to count.
       const saveErrors = extractSaveErrors(err);
       const collision = extractCollisionError(err);
       if (saveErrors.length > 0) {
         setErrors(saveErrors);
-        setBanner({ kind: 'err', text: `Save rejected — ${saveErrors.length} issue(s).` });
       } else if (collision) {
         setErrors([collision]);
-        setBanner({ kind: 'err', text: 'Save rejected — name already in use.' });
       } else {
         setBanner({ kind: 'err', text: 'Save failed unexpectedly.' });
       }
@@ -185,123 +201,205 @@ function EditorInner({ flowId }: { flowId?: string }) {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="icon" aria-label="Back to flows">
-            <Link to={ROUTES.SETTINGS_FLOWS}>
-              <ArrowLeft size={16} aria-hidden="true" />
-            </Link>
-          </Button>
-          <div className="flex items-center gap-2">
-            <h1 className="text-base font-semibold">{flowId ? meta.displayName || 'Edit flow' : 'New flow'}</h1>
-            {/* Decorative draft chip — Publish semantics are parked
-                (future-discussions #33); the chip just names the state
-                visually so the page reads as "an editor of a draft". */}
-            <span className="rounded-full border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Draft
-            </span>
+    <div className="flex h-screen flex-col">
+      {/* ── Header ──────────────────────────────────────────────────────
+           Row 1: Back · flow icon · Display Name (borderless heading-
+                  style input) · <ml-auto spacer> · Draft/Saved chip ·
+                  action buttons.
+           Row 2: API Name · Description (fills middle) · Slash Name
+                  (conditional, right) · Expose-as-slash checkbox
+                  (right end). */}
+      <div className="border-b border-border px-4 py-2">
+        {/* Row 1 — title slot */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Button asChild variant="ghost" size="icon" aria-label="Back to flows">
+              <Link to={ROUTES.SETTINGS_FLOWS}>
+                <ArrowLeft size={16} aria-hidden="true" />
+              </Link>
+            </Button>
+            {/* Flow glyph — the project's own FlowsIcon (3-node graph,
+                same SVG used in the settings sidebar's "Flows" item) so
+                the brand is consistent. */}
+            <FlowsIcon />
+            {/* Borderless title-as-input. */}
+            <Input
+              id="flow-display-name"
+              aria-label="Display name"
+              className="h-10 w-72 min-w-0 max-w-[18rem] border-transparent bg-transparent px-1 text-lg font-semibold shadow-none focus-visible:border-input focus-visible:bg-background"
+              value={meta.displayName}
+              onChange={(e) => setMeta({ displayName: e.target.value })}
+              placeholder={flowId ? 'Untitled flow' : 'New flow'}
+            />
+            {/* Publish state chip — sits in the left cluster with a
+                slightly larger gap (ml-4) after Expose so the eye reads
+                three groups: title · expose-toggle · publish-state.
+                State mapping (Publish semantics are parked at
+                future-discussions #33, so today we derive the chip from
+                save-state, not a `meta.published` flag):
+                  • Saved — flow has an id AND no pending edits →
+                    subtle green w/ white text.
+                  • Draft — new flow or pending unsaved edits →
+                    subtle amber w/ white text. */}
+            {(() => {
+              const saved = !!flowId && !dirty;
+              const tone = saved ? 'bg-emerald-600' : 'bg-amber-600';
+              const label = saved ? 'Saved' : 'Draft';
+              return (
+                <span className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white ${tone}`}>
+                  {label}
+                </span>
+              );
+            })()}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button size="sm" onClick={() => setYamlOpen(true)} aria-label="View YAML source">
+              <Code2 size={14} aria-hidden="true" />
+              YAML
+            </Button>
+            <Button size="sm" onClick={handleValidate} disabled={validateMutation.isPending}>
+              <ShieldCheck size={14} aria-hidden="true" />
+              {validateMutation.isPending ? 'Validating…' : 'Validate'}
+            </Button>
+            <Button size="sm" onClick={() => void handleSave()} disabled={isSaving || !dirty} aria-busy={isSaving}>
+              <Save size={14} aria-hidden="true" />
+              {isSaving ? 'Saving…' : 'Save'}
+            </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setYamlOpen(true)} aria-label="View YAML source">
-            <Code2 size={14} aria-hidden="true" />
-            YAML
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleValidate} disabled={validateMutation.isPending}>
-            {validateMutation.isPending ? 'Validating…' : 'Validate'}
-          </Button>
-          <Button size="sm" onClick={() => void handleSave()} disabled={isSaving || !dirty} aria-busy={isSaving}>
-            <Save size={14} aria-hidden="true" />
-            {isSaving ? 'Saving…' : 'Save'}
-          </Button>
+
+        {/* Row 2 — API Name + Description. Description takes the
+            remaining horizontal space via flex-1. Left padding aligns
+            the first field's edge with the Display Name input on row 1:
+            back button 44px + gap-2 8px + flow icon 18px + gap-2 8px
+            = 78px. */}
+        <div className="mt-2 flex flex-wrap items-end gap-3 pl-[78px]">
+          <div className="flex flex-col gap-0.5">
+            <label htmlFor="flow-api-name" className="text-[10px] font-semibold uppercase tracking-wider text-foreground">
+              API Name
+            </label>
+            <Input
+              id="flow-api-name"
+              className="h-9 w-72 font-mono text-sm"
+              value={meta.apiName}
+              onChange={(e) => setMeta({ apiName: e.target.value })}
+              placeholder="api-name (kebab-case)"
+            />
+          </div>
+          <div className="flex min-w-[18rem] flex-1 flex-col gap-0.5">
+            <label htmlFor="flow-desc" className="text-[10px] font-semibold uppercase tracking-wider text-foreground">
+              Description
+            </label>
+            <Input
+              id="flow-desc"
+              className="h-9 w-full text-sm"
+              value={meta.description ?? ''}
+              onChange={(e) => setMeta({ description: e.target.value || null })}
+              placeholder="What this flow does — the LLM reads this to decide when to invoke it"
+            />
+          </div>
+          {/* Slash Name — only shown when Expose is on. Sits to the
+              right of Description so the form reads "internal id |
+              description | public name + toggle". */}
+          {meta.exposedAsSlash && (
+            <div className="flex flex-col gap-0.5">
+              <label htmlFor="flow-slash" className="text-[10px] font-semibold uppercase tracking-wider text-foreground">
+                Slash Name
+              </label>
+              <Input
+                id="flow-slash"
+                className="h-9 w-44 font-mono text-sm"
+                value={meta.slashApiName ?? ''}
+                onChange={(e) => setMeta({ slashApiName: e.target.value || null })}
+                placeholder="slash-name"
+              />
+            </div>
+          )}
+          {/* Expose-as-slash checkbox — right end of row 2, after Slash
+              Name. h-7 keeps it bottom-aligned with the input row. */}
+          <label className="flex h-9 shrink-0 select-none items-center gap-1.5 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={meta.exposedAsSlash}
+              onChange={(e) => setMeta({ exposedAsSlash: e.target.checked })}
+            />
+            Expose as /slash
+          </label>
         </div>
       </div>
 
-      {/* ── Flow-meta bar ──────────────────────────────────────────────── */}
-      {/* Labels live inside the placeholders + `aria-label` (rather than a
-       *  visible <Label> above each input) — keeps the bar tight at the
-       *  top of the canvas without losing screen-reader semantics. */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-1.5">
-        <Input
-          id="flow-display-name"
-          aria-label="Display name"
-          className="h-8 w-48"
-          value={meta.displayName}
-          onChange={(e) => setMeta({ displayName: e.target.value })}
-          placeholder="Display name (e.g. Research Pipeline)"
-        />
-        <Input
-          id="flow-api-name"
-          aria-label="API name"
-          className="h-8 w-48 font-mono text-[12px]"
-          value={meta.apiName}
-          onChange={(e) => setMeta({ apiName: e.target.value })}
-          placeholder="api-name (kebab-case)"
-        />
-        <Input
-          id="flow-desc"
-          aria-label="Description"
-          className="h-8 w-[28rem]"
-          value={meta.description ?? ''}
-          onChange={(e) => setMeta({ description: e.target.value || null })}
-          placeholder="What this flow does — the LLM reads this to decide when to invoke it"
-        />
-        <label className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={meta.exposedAsSlash}
-            onChange={(e) => setMeta({ exposedAsSlash: e.target.checked })}
-          />
-          Expose as /slash
-        </label>
-        {meta.exposedAsSlash && (
-          <Input
-            id="flow-slash"
-            aria-label="Slash name"
-            className="h-8 w-40 font-mono text-[12px]"
-            value={meta.slashApiName ?? ''}
-            onChange={(e) => setMeta({ slashApiName: e.target.value || null })}
-            placeholder="slash-name (kebab-case)"
-          />
-        )}
-      </div>
-
-      {/* ── Banner + errors ────────────────────────────────────────────── */}
+      {/* ── Banner ───────────────────────────────────────────────────────
+           One banner, three states:
+             • success → muted emerald + uniform white text
+             • error w/o detail → muted deep-red + uniform white text
+             • error w/ detail → muted deep-red + collapsible accordion
+                                 listing each YAML/save issue
+           Uses red-900 / emerald-800 — deep enough for white text to
+           read cleanly, dark enough to avoid the alarm-grade saturation
+           of `bg-destructive`. All text white for consistency (no
+           per-element accent colours). */}
       {(banner || errors.length > 0) && (
-        <div className="space-y-2 border-b border-border px-4 py-2">
-          {banner && (
-            <div
-              role="status"
-              className={
-                banner.kind === 'ok'
-                  ? 'flex items-center gap-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success'
-                  : 'flex items-center gap-2 rounded-md bg-destructive px-3 py-2 text-sm text-destructive-foreground'
-              }
-            >
-              {banner.kind === 'ok' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-              <span>{banner.text}</span>
-            </div>
-          )}
-          {errors.length > 0 && (
-            <ul className="space-y-1 font-mono text-xs" role="list">
-              {errors.map((e, i) => (
-                <li key={i} className="text-destructive">
-                  <span className="text-muted-foreground">{e.path || '(document)'}</span>
-                  {' — '}
-                  {e.message}
-                </li>
-              ))}
-            </ul>
-          )}
+        <div className="border-b border-border px-4 py-2">
+          {(() => {
+            const isErr = banner?.kind === 'err' || errors.length > 0;
+            const tone = isErr ? 'bg-red-900' : 'bg-emerald-800';
+            // banner.text wins when set (e.g. "Save failed unexpectedly.",
+            // "Looks good — ready to save."); otherwise we derive the
+            // summary from the errors count so there's never a duplicate
+            // "Found N issue(s)" + "N issues blocking save" pairing.
+            const summary = banner?.text
+              ?? (errors.length === 1
+                ? '1 issue blocking save'
+                : `${errors.length} issues blocking save`);
+            return (
+              <div role="status" className={`rounded-md text-white ${tone}`}>
+                <div className="flex items-center gap-2 px-3 py-2 text-sm">
+                  {isErr ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
+                  <span className="flex-1 font-medium">{summary}</span>
+                  {errors.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setErrorsExpanded((v) => !v)}
+                      aria-label={errorsExpanded ? 'Collapse errors' : 'Expand errors'}
+                      aria-expanded={errorsExpanded}
+                      className="rounded p-0.5 text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+                    >
+                      {errorsExpanded ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setBanner(null); setErrors([]); }}
+                    aria-label="Dismiss"
+                    className="rounded p-0.5 text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+                  >
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                </div>
+                {errors.length > 0 && errorsExpanded && (
+                  <ul className="space-y-1 border-t border-white/15 px-3 py-2 font-mono text-xs text-white" role="list">
+                    {errors.map((e, i) => (
+                      <li key={i}>
+                        <span className="text-white/70">{e.path || '(document)'}</span>
+                        {' — '}
+                        {e.message}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
       {/* ── Palette + canvas + panel ──────────────────────────────────── */}
       <div className="flex min-h-0 flex-1">
-        <PalettePanel />
-        <div className="min-h-0 flex-1 bg-background">
+        {/* `relative` anchors the floating PalettePanel inside the
+            canvas column so it overlays React Flow without stealing
+            horizontal space. */}
+        <div className="relative min-h-0 flex-1 bg-background">
+          <PalettePanel />
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -375,6 +473,32 @@ function EditorInner({ flowId }: { flowId?: string }) {
         </Dialog.Portal>
       </Dialog.Root>
     </div>
+  );
+}
+
+/** Inline copy of the FlowsIcon used in the settings sidebar — kept
+ *  locally rather than imported so it tracks any future theme/stroke
+ *  tweaks against the single canonical SVG (sidebar version stays the
+ *  source of truth; if it changes shape, mirror it here). */
+function FlowsIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="shrink-0 text-muted-foreground"
+    >
+      <circle cx="18" cy="18" r="3" />
+      <circle cx="6" cy="6" r="3" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M6 9v6M13 6h3a2 2 0 0 1 2 2v7" />
+    </svg>
   );
 }
 

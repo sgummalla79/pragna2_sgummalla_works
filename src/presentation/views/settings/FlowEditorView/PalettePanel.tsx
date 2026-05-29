@@ -11,6 +11,9 @@
  * canvas drop target, which is more code than this branch's scope.
  */
 
+import { useEffect, useRef, useState } from 'react';
+import { GripVertical } from 'lucide-react';
+
 import { useFlowEditorStore } from './useFlowEditorStore';
 import { PALETTE, type PaletteKey } from './paletteRegistry';
 
@@ -29,6 +32,68 @@ export function PalettePanel({ ariaLabel = 'Add node' }: Props) {
   const addIfElse = useFlowEditorStore((s) => s.addIfElseNode);
   const addEnd = useFlowEditorStore((s) => s.addEndNode);
 
+  // Drag-to-reposition state. `position` is null until the user moves
+  // the palette for the first time — that keeps the initial CSS-driven
+  // top-3/left-3 placement working without race-prone measurements on
+  // mount. Once set, it's an absolute offset (px) inside the canvas
+  // column (the `relative` parent set up by FlowEditorView).
+  const navRef = useRef<HTMLElement | null>(null);
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const dragStateRef = useRef<{
+    parentRect: DOMRect;
+    pointerOffsetX: number;
+    pointerOffsetY: number;
+    navWidth: number;
+    navHeight: number;
+  } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  function onHandlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    // Left-button only; ignore right-click / middle-click.
+    if (e.button !== 0) return;
+    const nav = navRef.current;
+    const parent = nav?.offsetParent as HTMLElement | null;
+    if (!nav || !parent) return;
+    const navRect = nav.getBoundingClientRect();
+    const parentRect = parent.getBoundingClientRect();
+    dragStateRef.current = {
+      parentRect,
+      pointerOffsetX: e.clientX - navRect.left,
+      pointerOffsetY: e.clientY - navRect.top,
+      navWidth: navRect.width,
+      navHeight: navRect.height,
+    };
+    setDragging(true);
+    e.preventDefault();
+  }
+
+  useEffect(() => {
+    if (!dragging) return;
+    function onMove(e: PointerEvent) {
+      const s = dragStateRef.current;
+      if (!s) return;
+      // Translate cursor → palette top-left relative to its positioning
+      // parent. Clamp inside the parent so the palette can't be dragged
+      // entirely off-canvas (leave 24px of palette visible on each edge).
+      const minVisible = 24;
+      let x = e.clientX - s.parentRect.left - s.pointerOffsetX;
+      let y = e.clientY - s.parentRect.top - s.pointerOffsetY;
+      x = Math.max(minVisible - s.navWidth, Math.min(s.parentRect.width - minVisible, x));
+      y = Math.max(0, Math.min(s.parentRect.height - minVisible, y));
+      setPosition({ x, y });
+    }
+    function onUp() {
+      setDragging(false);
+      dragStateRef.current = null;
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, [dragging]);
+
   function dropPosition(): { x: number; y: number } {
     // Cascade off the count of non-boundary nodes so it grows with the
     // graph but doesn't double-count the auto-placed Start/End. y stays
@@ -45,17 +110,39 @@ export function PalettePanel({ ariaLabel = 'Add node' }: Props) {
   }
 
   return (
-    // Floating "tool tray" — sits inside the canvas area as a card with
-    // its own elevation, NOT a flat sticky sidebar. m-3 keeps the
-    // canvas grid visible around the tray; w-52 gives the rows breathing
-    // room without dominating the canvas.
+    // Floating "tool tray" — overlays the canvas at the top-left
+    // corner rather than taking a fixed column. `absolute` lifts it
+    // out of the flex row so React Flow gets the full canvas width;
+    // `z-10` keeps it above the React Flow background grid + edges
+    // but below modals. `w-fit` sizes the panel to its widest row
+    // (the longest label — currently "Decision") instead of a fixed
+    // px width that wastes space. The user can drag the header to
+    // move the tray out of the way when it covers a node.
     <nav
+      ref={navRef}
       aria-label={ariaLabel}
-      className="m-3 flex w-52 shrink-0 flex-col gap-0.5 self-start rounded-xl border border-border/60 bg-card/95 p-2 shadow-sm backdrop-blur-sm"
+      className={[
+        'absolute z-10 flex w-fit flex-col gap-1 rounded-xl border border-border/60 bg-card/95 p-2.5 shadow-sm backdrop-blur-sm',
+        position ? '' : 'left-3 top-3',
+        dragging ? 'select-none' : '',
+      ].join(' ')}
+      style={position ? { left: position.x, top: position.y } : undefined}
     >
-      <h2 className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
-        Nodes
-      </h2>
+      {/* Drag handle. Only this strip starts a reposition — the
+          buttons below stay clickable and don't get hijacked by a
+          stray pointerdown. The grip icon + cursor-move signal that
+          the strip is grabbable. */}
+      <div
+        onPointerDown={onHandlePointerDown}
+        className={[
+          'flex items-center gap-1.5 px-2 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80',
+          dragging ? 'cursor-grabbing' : 'cursor-grab',
+        ].join(' ')}
+        title="Drag to move the palette"
+      >
+        <GripVertical size={12} aria-hidden="true" className="opacity-60" />
+        <h2 className="leading-none">Nodes</h2>
+      </div>
       {PALETTE.map((entry) => {
         const Icon = entry.icon;
         return (
@@ -68,16 +155,16 @@ export function PalettePanel({ ariaLabel = 'Add node' }: Props) {
             // background bump on the whole row so it reads as a single
             // clickable target, and the icon tile saturates slightly via
             // the parent's group-hover.
-            className="group flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[13px] transition hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            className="group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
             <span
               className={[
-                'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition group-hover:scale-[1.04]',
+                'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition group-hover:scale-[1.04]',
                 entry.iconTileClass,
               ].join(' ')}
               aria-hidden="true"
             >
-              <Icon size={15} strokeWidth={2.2} className={entry.iconClass} />
+              <Icon size={18} strokeWidth={2.2} className={entry.iconClass} />
             </span>
             <span className="font-medium leading-none">{entry.label}</span>
           </button>

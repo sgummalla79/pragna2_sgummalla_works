@@ -62,7 +62,7 @@ export function FormField({
           rendered next to the input below. Other types get the standard
           label-above-input treatment. */}
       {field.type !== 'checkbox' && (
-        <Label htmlFor={id} className="text-[13px] font-medium">
+        <Label htmlFor={id} className="text-[13px] font-medium normal-case tracking-normal">
           {field.label}
           {requiredMark}
         </Label>

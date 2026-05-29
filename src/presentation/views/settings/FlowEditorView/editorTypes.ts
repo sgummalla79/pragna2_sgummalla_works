@@ -128,7 +128,7 @@ export function blankIfElseAgent(apiName: string): EditorAgent {
   const emits = ['passed', 'failed'];
   return {
     apiName,
-    displayName: 'If/Else',
+    displayName: 'Decision',
     description: null,
     userModel: '',
     systemPrompt: IF_ELSE_PROMPT_TEMPLATE.replace('{emits}', emits.join(', ')),

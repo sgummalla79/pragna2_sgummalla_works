@@ -102,7 +102,7 @@ describe('NodePanel', () => {
 
   it('renders the selected node + agent fields', () => {
     render(<NodePanel />);
-    expect((screen.getByLabelText('Node id') as HTMLInputElement).value).toBe('researcher_1');
+    expect((screen.getByLabelText('Agent') as HTMLInputElement).value).toBe('researcher_1');
     expect((screen.getByLabelText('Display name') as HTMLInputElement).value).toBe('Researcher');
   });
 
@@ -115,7 +115,7 @@ describe('NodePanel', () => {
 
   it('a unique node_id rename applies and drags the agent api_name with it', () => {
     render(<NodePanel />);
-    const input = screen.getByLabelText('Node id');
+    const input = screen.getByLabelText('Agent');
     fireEvent.change(input, { target: { value: 'analyst' } });
     fireEvent.blur(input);
     const node = store().nodes.find((n) => n.id === 'analyst');
@@ -126,7 +126,7 @@ describe('NodePanel', () => {
 
   it('rejects a duplicate node_id with an inline error and no store change', () => {
     render(<NodePanel />);
-    const input = screen.getByLabelText('Node id');
+    const input = screen.getByLabelText('Agent');
     fireEvent.change(input, { target: { value: 'reviewer_1' } });
     fireEvent.blur(input);
     expect(screen.getByRole('alert')).toHaveTextContent(/already uses/i);
@@ -137,7 +137,7 @@ describe('NodePanel', () => {
 
   it('rejects a reserved boundary id', () => {
     render(<NodePanel />);
-    const input = screen.getByLabelText('Node id');
+    const input = screen.getByLabelText('Agent');
     fireEvent.change(input, { target: { value: '__start__' } });
     fireEvent.blur(input);
     expect(screen.getByRole('alert')).toHaveTextContent(/reserved/i);
@@ -146,7 +146,11 @@ describe('NodePanel', () => {
 
   it('deletes the node', () => {
     render(<NodePanel />);
-    fireEvent.click(screen.getByRole('button', { name: /delete node/i }));
+    // Open the confirm dialog by clicking the destructive CTA in the
+    // side panel footer, then commit by clicking Delete in the dialog
+    // (added in the destructive-actions-confirm pass).
+    fireEvent.click(screen.getByRole('button', { name: /delete agent/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Delete$/ }));
     expect(store().nodes.some((n) => n.id === 'researcher_1')).toBe(false);
   });
 
