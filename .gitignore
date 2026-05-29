@@ -145,3 +145,17 @@ vite.config.ts.timestamp-*
 # macOS Finder metadata — never commit
 .DS_Store
 **/.DS_Store
+
+# Claude Code per-developer config (permissions, hooks, statusline, etc.).
+# Local-only — not shared across the team.
+.claude/
+
+# Vite TypeScript build info — regenerated on every build.
+**/*.tsbuildinfo
+
+# Playwright e2e artifacts at the FE-root level too (the `e2e/.gitignore`
+# already covers them when running from inside `e2e/`, but tests invoked
+# from the repo root drop them here).
+test-results/
+playwright-report/
+.playwright/
