@@ -1,48 +1,63 @@
 /**
  * Custom React Flow node renderers for the visual flow editor.
  *
- * - `AgentNode` — a clickable card showing the node_id, its agent's
- *   display name, and the model it runs on. Clicking selects it (the
- *   side-panel opens to edit the inline agent).
- * - `BoundaryNode` — the non-deletable `__start__` / `__end__` markers.
+ * Post-#33 the visual model is:
+ *   - Every node card shares the SAME neutral dark body (no per-type
+ *     background tint) — uniform black on the dark canvas. The role is
+ *     read off the colored icon-tile chip at the top-left, not off the
+ *     card colour.
+ *   - Selected nodes get a SOLID WHITE border highlight (no dashed
+ *     boundary border, no orange ring). One visual language for
+ *     "selected" across boundaries and agents.
+ *   - Icon tiles are vivid (full-saturation) brand-colour squares with
+ *     a white icon inside — same hue as the matching palette entry, so
+ *     dropping an "Agent" gives you a card with a sky-blue chip; "If/Else"
+ *     amber; "End" rose; "Start" emerald.
  *
- * Both expose a `Handle` on ALL FOUR sides. Combined with
- * `ConnectionMode.Loose` on the canvas, a connector can be drawn out of
- * any side and into any side — so a back-edge (e.g. reviewer → drafter)
- * can leave one node's left and enter another's left, routing cleanly
- * instead of looping. Each handle has a stable per-side id (`top` /
- * `right` / `bottom` / `left`) so the chosen sides persist across saves.
+ * Three concrete node shapes:
+ *   - **Agent** (`AgentNode`) — when `agent.emits` is empty: chat agent,
+ *     4 omni handles (back-edge routing preserved). When non-empty: If/Else
+ *     router, 1 left target + N+1 right `port:<emit>` + `port:else`.
+ *   - **Start** (singleton boundary) — single right-side `source` id 'out'.
+ *   - **End** (multi-instance boundary) — single left-side `target` id 'in'.
  */
 
 import { Handle, type NodeProps, Position } from 'reactflow';
 
-import { type AgentNodeData, type BoundaryNodeData, NODE_START } from './editorTypes';
+import { EDGE_CONDITIONS } from '@/constants/edgeConditions';
 
-// Faint by default, full opacity on hover. The handle dots double as
-// (a) drag-from points to draw a new connector and (b) the visible
-// endpoint anchors of existing edges — so making them fully invisible
-// at rest hid the endpoint the author had to grab to RECONNECT an
-// edge to a different side. opacity-30 is subtle enough that 4 dots
-// per node read as a hint, not clutter; the group-hover bump makes
-// the active node's handles unmissable when the author is reaching.
-// React Flow's default min-width/min-height (5px) gets bypassed with
-// !min-h-0 !min-w-0 so we can go below the lib's default 6×6 sizing
-// if we want.
+import {
+  type AgentNodeData,
+  type BoundaryNodeData,
+  NODE_START,
+  PORT_HANDLE_ELSE,
+  portHandleFor,
+} from './editorTypes';
+import {
+  END_ICON_TILE_CLASS,
+  START_ICON,
+  START_ICON_TILE_CLASS,
+  paletteEntryFor,
+} from './paletteRegistry';
+
+// Faint dots that bump to full opacity on the parent's group-hover.
 const HANDLE_CLASS =
   '!h-1.5 !w-1.5 !min-h-0 !min-w-0 !bg-muted-foreground opacity-30 transition-opacity group-hover:opacity-100';
 
-// Subtle per-role tints — bg/border pairs that read at a glance without
-// being loud. Tailwind opacity utilities keep them theme-neutral (work
-// against light AND dark canvas backgrounds). Selected state's ring +
-// border-primary still wins on top.
-const TINT_NO_EMITS = 'bg-sky-500/8 border-sky-500/40';
-const TINT_HAS_EMITS = 'bg-amber-500/8 border-amber-500/40';
-const TINT_START = 'bg-emerald-500/8 border-emerald-500/50 text-emerald-700 dark:text-emerald-300';
-const TINT_END = 'bg-rose-500/8 border-rose-500/50 text-rose-700 dark:text-rose-300';
+// Slightly larger + label-friendly variant for If/Else's named ports.
+const PORT_HANDLE_CLASS =
+  '!h-2 !w-2 !min-h-0 !min-w-0 !bg-primary opacity-70 transition-opacity group-hover:opacity-100';
 
-/** A source+target-capable handle on each side (Loose mode lets a
- *  `source` handle also receive connections, so one set covers both). */
-function SideHandles() {
+// Uniform card body + selected-state highlight. `border-foreground` is
+// white in dark mode (theme-token-aware), matching the user-locked
+// "white border highlight, not dashed" spec across both modes.
+const CARD_BASE = 'bg-card text-card-foreground border border-border';
+const CARD_SELECTED = 'border-foreground ring-2 ring-foreground/40';
+
+/** 4 omni-directional source+target handles (Loose-mode source can also
+ *  receive). Each handle has a stable per-side id so the chosen sides
+ *  persist across save/reload via `metadata.edge_handles`. */
+function OmniHandles() {
   return (
     <>
       <Handle id="top" type="source" position={Position.Top} className={HANDLE_CLASS} />
@@ -53,64 +68,152 @@ function SideHandles() {
   );
 }
 
-export function AgentNode({ data, selected }: NodeProps<AgentNodeData>) {
-  const agent = data.agent;
-  const hasModel = Boolean(agent.userModel);
-  const hasEmits = agent.emits.length > 0;
-  const slotCount = (data.inputs?.length ?? 0) + (data.outputs?.length ?? 0);
-  // Branching nodes (emits) get amber; pure sequential / leaf nodes get
-  // sky-blue. Selected ring + border-primary overrides both.
-  const tint = hasEmits ? TINT_HAS_EMITS : TINT_NO_EMITS;
+/** A minimal card: vivid icon tile + type label + optional display name. */
+function MinimalCard({
+  label,
+  displayName,
+  Icon,
+  iconTileClass,
+  iconClass,
+  selected,
+  compact = false,
+}: {
+  label: string;
+  displayName?: string;
+  Icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  iconTileClass: string;
+  /** Optional transform on the icon glyph (e.g. `-rotate-90`). */
+  iconClass?: string;
+  selected: boolean;
+  /** Boundary nodes (Start / End) skip the display-name row so they
+   *  stay compact — there's no agent identity to show. */
+  compact?: boolean;
+}) {
   return (
     <div
       className={[
-        'group min-w-[130px] max-w-[180px] rounded-[8px] border px-2.5 py-1.5 text-card-foreground shadow-sm transition',
-        selected ? 'border-primary bg-card ring-2 ring-primary/40' : tint,
+        'rounded-[8px] shadow-sm transition',
+        compact ? 'min-w-[110px] max-w-[140px] px-2 py-1' : 'min-w-[150px] max-w-[200px] px-2.5 py-1.5',
+        CARD_BASE,
+        selected ? CARD_SELECTED : '',
       ].join(' ')}
     >
-      <SideHandles />
-      <div className="text-[11px] font-semibold leading-tight">{data.nodeId}</div>
-      <div className="mt-0.5 truncate text-[10px] text-muted-foreground">
-        {agent.displayName || agent.apiName || 'unnamed agent'}
-      </div>
-      <div className="mt-1 flex flex-wrap items-center gap-1">
+      <div className="flex items-center gap-2">
         <span
           className={[
-            'rounded px-1 py-0.5 text-[9px]',
-            hasModel
-              ? 'bg-muted text-muted-foreground'
-              : 'bg-destructive/15 text-destructive',
+            'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md',
+            iconTileClass,
           ].join(' ')}
+          aria-hidden="true"
         >
-          {hasModel ? agent.userModel : 'no model'}
+          <Icon size={13} strokeWidth={2.2} className={iconClass} />
         </span>
-        {hasEmits && (
-          <span className="rounded bg-primary/15 px-1 py-0.5 text-[9px] text-primary">
-            {agent.emits.length} emit{agent.emits.length > 1 ? 's' : ''}
-          </span>
-        )}
-        {slotCount > 0 && (
-          <span className="rounded bg-muted px-1 py-0.5 text-[9px] text-muted-foreground">
-            slots
-          </span>
-        )}
+        <span className="text-[11px] font-semibold leading-tight">{label}</span>
       </div>
+      {!compact && (
+        <div className="mt-1 truncate text-[10px] text-muted-foreground">
+          {displayName || 'unnamed'}
+        </div>
+      )}
     </div>
   );
 }
 
-export function BoundaryNode({ data }: NodeProps<BoundaryNodeData>) {
-  const isStart = data.boundary === NODE_START;
-  const tint = isStart ? TINT_START : TINT_END;
+export function AgentNode({ data, selected }: NodeProps<AgentNodeData>) {
+  const agent = data.agent;
+  // Branching is driven by emits, not a stored kind — emits.length > 0
+  // means this node owns a set_route binding (BE behaviour post-#25).
+  const branching = agent.emits.length > 0;
+  const paletteKey = branching ? 'if_else' : 'agent';
+  const entry = paletteEntryFor(paletteKey);
+
+  // `group` wrapper is the hover target for the handle dots'
+  // `group-hover:opacity-100` rule. Must enclose BOTH the card and the
+  // <Handle> elements (which are siblings, not children of MinimalCard).
   return (
-    <div
-      className={[
-        'group rounded-md border border-dashed px-2.5 py-1 text-[11px] font-medium',
-        tint,
-      ].join(' ')}
-    >
-      <SideHandles />
-      {isStart ? '▶ Start' : '■ End'}
+    <div className="group">
+      <MinimalCard
+        label={entry.label}
+        displayName={agent.displayName || agent.apiName || data.nodeId}
+        Icon={entry.icon}
+        iconTileClass={entry.iconTileClass}
+        iconClass={entry.iconClass}
+        selected={!!selected}
+      />
+      {branching ? (
+        <>
+          {/* If/Else: single inbound target on the left, N+1 outbound
+              source ports on the right — one per declared emit + a
+              permanent `else` port that serializes to EDGE_DEFAULT. The
+              edge's condition is DERIVED from which port it leaves. */}
+          <Handle
+            id="in"
+            type="target"
+            position={Position.Left}
+            className={PORT_HANDLE_CLASS}
+          />
+          {[...agent.emits, EDGE_CONDITIONS.DEFAULT].map((emit, idx, arr) => {
+            const isElse = emit === EDGE_CONDITIONS.DEFAULT;
+            const handleId = isElse ? PORT_HANDLE_ELSE : portHandleFor(emit);
+            // Distribute the ports vertically along the right edge.
+            const top = `${((idx + 1) / (arr.length + 1)) * 100}%`;
+            return (
+              <Handle
+                key={handleId}
+                id={handleId}
+                type="source"
+                position={Position.Right}
+                className={PORT_HANDLE_CLASS}
+                style={{ top }}
+                title={isElse ? 'else (default — fires when no declared emit matched)' : emit}
+              />
+            );
+          })}
+        </>
+      ) : (
+        // Content-producing Agent: 4 omni handles preserve back-edge
+        // routing flexibility (loops can leave one side and enter the
+        // other without an awkward bottom→top arc).
+        <OmniHandles />
+      )}
+    </div>
+  );
+}
+
+/** Boundary node renderer — handles both Start (singleton, right source)
+ *  and End (multi-instance, left target). Same minimal-card body as
+ *  agents; the icon-tile colour signals the role. */
+export function BoundaryNode({ data, selected }: NodeProps<BoundaryNodeData>) {
+  const isStart = data.boundary === NODE_START;
+  const Icon = isStart ? START_ICON : paletteEntryFor('end').icon;
+  const iconTileClass = isStart ? START_ICON_TILE_CLASS : END_ICON_TILE_CLASS;
+  const label = isStart ? 'Start' : 'End';
+  // `group` wrapper anchors the handle dots' `group-hover:opacity-100`
+  // rule — see AgentNode above for the same pattern + reasoning.
+  return (
+    <div className="group">
+      <MinimalCard
+        label={label}
+        Icon={Icon}
+        iconTileClass={iconTileClass}
+        selected={!!selected}
+        compact
+      />
+      {isStart ? (
+        <Handle
+          id="out"
+          type="source"
+          position={Position.Right}
+          className={HANDLE_CLASS}
+        />
+      ) : (
+        <Handle
+          id="in"
+          type="target"
+          position={Position.Left}
+          className={HANDLE_CLASS}
+        />
+      )}
     </div>
   );
 }

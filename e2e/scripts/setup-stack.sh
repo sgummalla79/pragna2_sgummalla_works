@@ -75,7 +75,17 @@ echo "user_id=$USER_ID"
 
 # ── 5. Seed a flow-eligible model ─────────────────────────────────────
 step "5. Seeding a flow-eligible user_model"
-bash "$HERE/scripts/seed-model.sh" "$USER_ID"
+if [ -n "${E2E_ANTHROPIC_API_KEY:-}" ]; then
+  # Real-key path — runtime tests that exercise Act / Assert against a
+  # live LLM go through this branch. The ENCRYPTION_KEY env var must be
+  # the same value the BE booted with (we set it in step 3), so the
+  # encrypted blob seed-model.sh writes can be decrypted at LLM-call
+  # time.
+  ENCRYPTION_KEY="$ENCRYPTION_KEY" \
+    bash "$HERE/scripts/seed-model.sh" "$USER_ID" "$E2E_ANTHROPIC_API_KEY"
+else
+  bash "$HERE/scripts/seed-model.sh" "$USER_ID"
+fi
 
 # ── 6. Apply the auth-strategy patch + boot FE ────────────────────────
 step "6. Applying auth-strategy patch + booting FE on :$FE_PORT"

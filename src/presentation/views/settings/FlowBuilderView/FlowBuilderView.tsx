@@ -35,7 +35,7 @@ export default function FlowBuilderView() {
           </p>
         </div>
         <Button asChild size="sm">
-          <Link to={ROUTES.SETTINGS_FLOW_EDITOR_NEW}>
+          <Link to={ROUTES.FLOW_EDITOR_NEW}>
             <Plus size={16} aria-hidden="true" />
             New flow
           </Link>
@@ -52,7 +52,7 @@ export default function FlowBuilderView() {
       ) : (
         <ul className="space-y-3 list-none" role="list">
           {flows.map((f) => {
-            const editPath = ROUTES.SETTINGS_FLOW_EDITOR.replace(':flowId', f.id);
+            const editPath = ROUTES.FLOW_EDITOR.replace(':flowId', f.id);
             return (
               <li key={f.id}>
                 <Card>

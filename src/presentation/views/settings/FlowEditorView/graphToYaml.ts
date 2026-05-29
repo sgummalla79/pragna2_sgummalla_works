@@ -21,11 +21,29 @@ import {
   type BoundaryNodeData,
   type ConditionEdgeData,
   type FlowMeta,
+  NODE_END,
   NODE_TYPE_AGENT,
+  PORT_HANDLE_ELSE,
+  PORT_HANDLE_PREFIX,
+  isEndInstanceId,
 } from './editorTypes';
 
 type EditorNode = Node<AgentNodeData | BoundaryNodeData>;
 type EditorEdge = Edge<ConditionEdgeData>;
+
+/** The condition this edge carries, derived from which port it leaves.
+ *
+ *  - A branching agent's right-side ports have ids `port:<emit>` and
+ *    `port:else`; `port:else` maps to `EDGE_CONDITIONS.DEFAULT`, every
+ *    other port unwraps to its emit label.
+ *  - A non-port source handle (chat agent's omni handles, Start's `out`,
+ *    legacy edges) is unconditional → `EDGE_CONDITIONS.DEFAULT`. */
+function deriveEdgeCondition(e: EditorEdge): string {
+  const sh = e.sourceHandle ?? '';
+  if (!sh.startsWith(PORT_HANDLE_PREFIX)) return EDGE_CONDITIONS.DEFAULT;
+  if (sh === PORT_HANDLE_ELSE) return EDGE_CONDITIONS.DEFAULT;
+  return sh.slice(PORT_HANDLE_PREFIX.length);
+}
 
 /** One serialised `agents:` entry. Optional keys are omitted when empty
  *  so the YAML stays clean and round-trips to defaults. */
@@ -93,21 +111,48 @@ export function graphToYaml(
     };
   }
 
-  // Which side each connector attaches to, keyed by `source|target` (a
-  // stable key — onConnect dedupes parallel source→target). Lets the
-  // hand-drawn routing survive reload. Only recorded when a handle is set.
+  // Per-edge side-handle routing. The key format depends on whether the
+  // source is a branching agent:
+  //   - branching → `source|sourceHandle|target` (sourceHandle is a
+  //     `port:*` id that distinguishes N+1 outbound edges from the same
+  //     source); buildEditorGraph derives sourceHandle from condition.
+  //   - chat / Start → legacy `source|target` (sourceHandle is the side
+  //     the user dragged from; buildEditorGraph recovers it from here).
+  // Both formats coexist in the same map; buildEditorGraph reads both.
+  const emitsByNodeId = new Map<string, number>();
+  for (const n of agentNodes) {
+    emitsByNodeId.set(n.id, n.data.agent.emits.length);
+  }
   const edgeHandles: Record<string, { source?: string; target?: string }> = {};
   for (const e of edges) {
-    if (e.sourceHandle || e.targetHandle) {
-      edgeHandles[`${e.source}|${e.target}`] = {
-        source: e.sourceHandle ?? undefined,
-        target: e.targetHandle ?? undefined,
-      };
-    }
+    if (!e.sourceHandle && !e.targetHandle) continue;
+    const targetForKey = isEndInstanceId(e.target) ? NODE_END : e.target;
+    const sourceBranches = (emitsByNodeId.get(e.source) ?? 0) > 0;
+    const key = sourceBranches
+      ? `${e.source}|${e.sourceHandle ?? ''}|${targetForKey}`
+      : `${e.source}|${targetForKey}`;
+    edgeHandles[key] = {
+      source: e.sourceHandle ?? undefined,
+      target: e.targetHandle ?? undefined,
+    };
+  }
+
+  // Multi-End round-trip (#33): the YAML `to: __end__` is ambiguous when
+  // multiple End instances exist on the canvas. We record which canvas
+  // End each terminating edge attaches to, keyed by `from|condition`.
+  // buildEditorGraph reads this to re-route on reload; legacy flows
+  // without this map fall back to the single original End.
+  const endRouting: Record<string, string> = {};
+  for (const e of edges) {
+    if (!isEndInstanceId(e.target)) continue;
+    if (e.target === NODE_END) continue; // single End — no entry needed
+    const condition = deriveEdgeCondition(e);
+    endRouting[`${e.source}|${condition}`] = e.target;
   }
 
   const metadata: Record<string, unknown> = { ...meta.metadata, positions };
   if (Object.keys(edgeHandles).length) metadata.edge_handles = edgeHandles;
+  if (Object.keys(endRouting).length) metadata.end_routing = endRouting;
 
   const doc: Record<string, unknown> = {
     api_name: meta.apiName,
@@ -124,8 +169,10 @@ export function graphToYaml(
   doc.flow = {
     nodes: agentNodes.map((n) => nodeEntry(n.data)),
     edges: edges.map((e) => {
-      const condition = e.data?.condition ?? EDGE_CONDITIONS.DEFAULT;
-      const entry: Record<string, unknown> = { from: e.source, to: e.target };
+      const condition = deriveEdgeCondition(e);
+      // Collapse any End id suffix back to the BE sentinel `__end__`.
+      const to = isEndInstanceId(e.target) ? NODE_END : e.target;
+      const entry: Record<string, unknown> = { from: e.source, to };
       if (condition !== EDGE_CONDITIONS.DEFAULT) entry.condition = condition;
       return entry;
     }),

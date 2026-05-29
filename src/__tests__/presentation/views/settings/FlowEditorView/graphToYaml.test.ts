@@ -14,6 +14,8 @@ import {
   NODE_START,
   NODE_TYPE_AGENT,
   NODE_TYPE_BOUNDARY,
+  PORT_HANDLE_ELSE,
+  portHandleFor,
 } from '@/presentation/views/settings/FlowEditorView/editorTypes';
 
 const META: FlowMeta = {
@@ -31,6 +33,7 @@ function agentNode(
   x: number,
   y: number,
   extra: Partial<AgentNodeData> = {},
+  emits: string[] = [],
 ): Node<AgentNodeData> {
   return {
     id,
@@ -45,7 +48,7 @@ function agentNode(
         userModel: 'claude-sonnet-4-6',
         systemPrompt: `You are ${agentApiName}.`,
         tools: [],
-        emits: [],
+        emits,
       },
       ...extra,
     },
@@ -56,11 +59,25 @@ function boundary(b: typeof NODE_START | typeof NODE_END, x: number, y: number):
   return { id: b, type: NODE_TYPE_BOUNDARY, position: { x, y }, data: { boundary: b } };
 }
 
-function edge(source: string, target: string, condition?: ConditionEdgeData['condition']): Edge<ConditionEdgeData> {
+/** Post-#33: edge condition is derived from the source handle. Tests
+ *  authoring a branching edge must set `sourceHandle = port:<cond>`
+ *  (or `port:else` for the default branch). For chat-agent edges the
+ *  sourceHandle stays unset and condition stays default. */
+function edge(
+  source: string,
+  target: string,
+  condition?: ConditionEdgeData['condition'],
+): Edge<ConditionEdgeData> {
+  const sourceHandle = condition
+    ? condition === 'default'
+      ? PORT_HANDLE_ELSE
+      : portHandleFor(condition)
+    : undefined;
   return {
     id: `${source}->${target}`,
     source,
     target,
+    sourceHandle,
     data: condition ? { condition } : undefined,
   };
 }
@@ -69,7 +86,9 @@ describe('graphToYaml', () => {
   const nodes = [
     boundary(NODE_START, 0, 0),
     agentNode('researcher_1', 'researcher', 100, 80),
-    agentNode('reviewer_1', 'reviewer', 100, 200, { inputs: ['research_notes'] }),
+    // Reviewer is the branching node — declares emits so its outbound
+    // edges' conditions can be derived from their source handles.
+    agentNode('reviewer_1', 'reviewer', 100, 200, { inputs: ['research_notes'] }, ['passed', 'failed']),
     boundary(NODE_END, 100, 320),
   ];
   const edges = [
@@ -115,25 +134,38 @@ describe('graphToYaml', () => {
   });
 
   it('persists + restores per-side connector handles via metadata', () => {
-    // A back-edge drawn left→left should keep its sides across a save +
-    // reload so the hand-drawn routing doesn't snap back to defaults.
+    // A chat-agent edge whose author dragged out of the left side back
+    // into another node's left should keep its sides across a save +
+    // reload so the hand-drawn routing doesn't snap back. (Branching
+    // edges don't go through edge_handles — their sourceHandle is
+    // derived from the condition; only chat-agent / Start edges record
+    // their physical side here.)
+    const chatNodes = [
+      boundary(NODE_START, 0, 0),
+      agentNode('researcher_1', 'researcher', 100, 80),
+      agentNode('aggregator_1', 'aggregator', 300, 80),
+      boundary(NODE_END, 400, 200),
+    ];
     const sideEdges = [
       edge(NODE_START, 'researcher_1'),
-      { ...edge('reviewer_1', 'researcher_1', 'failed'), sourceHandle: 'left', targetHandle: 'left' },
+      { ...edge('researcher_1', 'aggregator_1'), sourceHandle: 'left', targetHandle: 'left' },
     ];
-    const doc = yaml.load(graphToYaml(META, nodes, sideEdges)) as Record<string, any>;
-    expect(doc.metadata.edge_handles['reviewer_1|researcher_1']).toEqual({
+    const doc = yaml.load(graphToYaml(META, chatNodes, sideEdges)) as Record<string, any>;
+    // Post-#33: chat-agent edges use the legacy `source|target` key
+    // (sourceHandle is the physical side, recovered on reload). Branching
+    // edges use `source|sourceHandle|target` to distinguish N+1 ports.
+    expect(doc.metadata.edge_handles['researcher_1|aggregator_1']).toEqual({
       source: 'left',
       target: 'left',
     });
     // Round-trip back into the editor model.
-    const rebuilt = buildEditorGraph(graphToYaml(META, nodes, sideEdges));
-    const back = rebuilt.edges.find((e) => e.source === 'reviewer_1' && e.target === 'researcher_1');
+    const rebuilt = buildEditorGraph(graphToYaml(META, chatNodes, sideEdges));
+    const back = rebuilt.edges.find((e) => e.source === 'researcher_1' && e.target === 'aggregator_1');
     expect(back?.sourceHandle).toBe('left');
     expect(back?.targetHandle).toBe('left');
   });
 
-  it('defaults edges to bottom→top when no handles are persisted (legacy flows)', () => {
+  it('legacy edges (no edge_handles) default Start→out, →End→in, chat→bottom/top', () => {
     // A flow authored before per-side handles has no metadata.edge_handles.
     const legacyYaml = [
       'api_name: legacy',
@@ -149,10 +181,12 @@ describe('graphToYaml', () => {
     ].join('\n');
     const rebuilt = buildEditorGraph(legacyYaml);
     expect(rebuilt.edges).toHaveLength(2);
-    for (const e of rebuilt.edges) {
-      expect(e.sourceHandle).toBe('bottom');
-      expect(e.targetHandle).toBe('top');
-    }
+    const startEdge = rebuilt.edges.find((e) => e.source === '__start__');
+    expect(startEdge?.sourceHandle).toBe('out');
+    expect(startEdge?.targetHandle).toBe('top');
+    const endEdge = rebuilt.edges.find((e) => e.target === '__end__');
+    expect(endEdge?.sourceHandle).toBe('bottom');
+    expect(endEdge?.targetHandle).toBe('in');
   });
 
   it('collapses agent api_name onto node_id on load', () => {

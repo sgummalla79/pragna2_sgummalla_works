@@ -12,7 +12,7 @@ import 'reactflow/dist/style.css';
 import * as Dialog from '@radix-ui/react-dialog';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml as yamlLang } from '@codemirror/lang-yaml';
-import { AlertCircle, ArrowLeft, CheckCircle2, Code2, Plus, Save, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, Code2, Save, X } from 'lucide-react';
 import { isAxiosError } from 'axios';
 
 import {
@@ -30,6 +30,7 @@ import { ROUTES } from '@/constants/routes';
 import { AgentNode, BoundaryNode } from './canvasNodes';
 import { ConditionEdge } from './ConditionEdge';
 import { NodePanel } from './NodePanel';
+import { PalettePanel } from './PalettePanel';
 import { buildEditorGraph } from './buildEditorGraph';
 import { graphToYaml } from './graphToYaml';
 import { newFlowGraph } from './editorTypes';
@@ -97,7 +98,6 @@ function EditorInner({ flowId }: { flowId?: string }) {
     return isValidFlowConnection(state.edges, conn, state.reconnectingEdgeId);
   }, []);
   const selectNode = useFlowEditorStore((s) => s.selectNode);
-  const addAgentNode = useFlowEditorStore((s) => s.addAgentNode);
   const setMeta = useFlowEditorStore((s) => s.setMeta);
   const hydrate = useFlowEditorStore((s) => s.hydrate);
   const reset = useFlowEditorStore((s) => s.reset);
@@ -136,12 +136,6 @@ function EditorInner({ flowId }: { flowId?: string }) {
     selectNode(node.type === 'agent' ? node.id : null);
   };
 
-  function handleAddNode() {
-    // Cascade new nodes so they don't stack on top of each other.
-    const agentCount = nodes.filter((n) => n.type === 'agent').length;
-    addAgentNode({ x: 360, y: 120 + agentCount * 40 });
-  }
-
   async function handleValidate() {
     setBanner(null);
     setErrors([]);
@@ -169,7 +163,7 @@ function EditorInner({ flowId }: { flowId?: string }) {
       markClean();
       setBanner({ kind: 'ok', text: created ? `Created "${flow.displayName}".` : `Saved "${flow.displayName}".` });
       if (created && !flowId) {
-        navigate(ROUTES.SETTINGS_FLOW_EDITOR.replace(':flowId', flow.id), { replace: true });
+        navigate(ROUTES.FLOW_EDITOR.replace(':flowId', flow.id), { replace: true });
       }
     } catch (err) {
       const saveErrors = extractSaveErrors(err);
@@ -200,16 +194,17 @@ function EditorInner({ flowId }: { flowId?: string }) {
               <ArrowLeft size={16} aria-hidden="true" />
             </Link>
           </Button>
-          <div>
+          <div className="flex items-center gap-2">
             <h1 className="text-base font-semibold">{flowId ? meta.displayName || 'Edit flow' : 'New flow'}</h1>
-            <p className="text-xs text-muted-foreground">Drag to connect nodes · click a node to edit its agent.</p>
+            {/* Decorative draft chip — Publish semantics are parked
+                (future-discussions #33); the chip just names the state
+                visually so the page reads as "an editor of a draft". */}
+            <span className="rounded-full border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Draft
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleAddNode}>
-            <Plus size={14} aria-hidden="true" />
-            Add node
-          </Button>
           <Button variant="outline" size="sm" onClick={() => setYamlOpen(true)} aria-label="View YAML source">
             <Code2 size={14} aria-hidden="true" />
             YAML
@@ -303,8 +298,9 @@ function EditorInner({ flowId }: { flowId?: string }) {
         </div>
       )}
 
-      {/* ── Canvas + panel ─────────────────────────────────────────────── */}
+      {/* ── Palette + canvas + panel ──────────────────────────────────── */}
       <div className="flex min-h-0 flex-1">
+        <PalettePanel />
         <div className="min-h-0 flex-1 bg-background">
           <ReactFlow
             nodes={nodes}

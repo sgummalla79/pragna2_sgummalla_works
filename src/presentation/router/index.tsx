@@ -1,9 +1,16 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { ROUTES } from '@/constants/routes';
 import { ProtectedRoute } from './ProtectedRoute';
 import { GuestOnlyRoute } from './GuestOnlyRoute';
 import { SettingsLayout } from '@/presentation/components/settings/SettingsLayout/SettingsLayout';
+
+/** Forward old `/settings/flows/:flowId/edit` to the new top-level
+ *  `/flows/:flowId/edit`, substituting the captured flowId param. */
+function RedirectFlowEditor() {
+  const { flowId } = useParams<{ flowId: string }>();
+  return <Navigate to={ROUTES.FLOW_EDITOR.replace(':flowId', flowId ?? '')} replace />;
+}
 
 // ── Auth pages ──────────────────────────────────────────────────────────────
 const LoginView        = lazy(() => import('@/presentation/views/auth/LoginView'));
@@ -58,6 +65,12 @@ export function AppRoutes() {
           <Route path=":id" element={<ChatSessionView />} />
         </Route>
 
+        {/* ── Flow editor (full-page, NOT inside SettingsLayout — see
+                future-discussions #33). The listing stays under /settings;
+                only the editor canvas got promoted to a top-level route. ── */}
+        <Route path={ROUTES.FLOW_EDITOR_NEW} element={<ProtectedRoute><FlowEditorView /></ProtectedRoute>} />
+        <Route path={ROUTES.FLOW_EDITOR}     element={<ProtectedRoute><FlowEditorView /></ProtectedRoute>} />
+
         {/* ── Settings (2-panel layout with sidebar) ── */}
         <Route
           path={ROUTES.SETTINGS}
@@ -68,8 +81,6 @@ export function AppRoutes() {
           <Route path={ROUTES.SETTINGS_PROVIDERS}  element={<ProvidersView />} />
           <Route path={ROUTES.SETTINGS_APPEARANCE}        element={<AppearanceView />} />
           <Route path={ROUTES.SETTINGS_FLOWS}           element={<FlowBuilderView />} />
-          <Route path={ROUTES.SETTINGS_FLOW_EDITOR_NEW} element={<FlowEditorView />} />
-          <Route path={ROUTES.SETTINGS_FLOW_EDITOR}     element={<FlowEditorView />} />
           <Route path={ROUTES.SETTINGS_FLOW_AGENTS}     element={<FlowAgentsView />} />
           <Route path={ROUTES.SETTINGS_MCP_SERVERS}     element={<McpServersView />} />
           <Route path={ROUTES.SETTINGS_PROFILE}   element={<ProfileView />} />
@@ -80,6 +91,10 @@ export function AppRoutes() {
         <Route path={ROUTES.FLOWS}         element={<Navigate to={ROUTES.SETTINGS_FLOWS}     replace />} />
         <Route path={ROUTES.FLOW_DETAIL}   element={<Navigate to={ROUTES.SETTINGS_FLOWS}     replace />} />
         <Route path={ROUTES.CONVERSATIONS} element={<Navigate to={ROUTES.CHAT} replace />} />
+
+        {/* ── Old in-settings editor URLs → new top-level routes (preserves bookmarks) ── */}
+        <Route path={ROUTES.SETTINGS_FLOW_EDITOR_NEW} element={<Navigate to={ROUTES.FLOW_EDITOR_NEW} replace />} />
+        <Route path={ROUTES.SETTINGS_FLOW_EDITOR}     element={<RedirectFlowEditor />} />
 
         {/* ── Design system showcase (no auth guard — dev only) ── */}
         <Route path={ROUTES.UI_FRAMEWORK} element={<UIFrameworkView />} />

@@ -60,35 +60,61 @@ describe('FlowEditorView (shell)', () => {
     useFlowEditorStore.getState().reset();
   });
 
-  it('renders the toolbar + flow-meta form for a new flow', () => {
+  it('renders the toolbar + flow-meta form + palette for a new flow', () => {
     renderEditor();
-    expect(screen.getByRole('button', { name: /add node/i })).toBeInTheDocument();
+    // Toolbar buttons remain (Add-node was REMOVED post-#33 — its job
+    // moved to the left-side palette panel, which lists Agent / If/Else
+    // / End. Start is auto-placed by newFlowGraph().)
     expect(screen.getByRole('button', { name: /validate/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
-    // Labels were dropped in favour of placeholders + aria-label so the
-    // meta bar can stay compact at the top of the canvas. getByLabelText
-    // still resolves an input by its aria-label, so this asserts the
-    // accessible name even though there's no visible <Label> element.
+    expect(screen.queryByRole('button', { name: /add node/i })).not.toBeInTheDocument();
+    // Palette: 3 click-to-add entries.
+    expect(screen.getByRole('button', { name: /^Agent$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^If\/Else$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^End$/i })).toBeInTheDocument();
+    // Meta inputs (label dropped in favour of placeholder + aria-label).
     expect(screen.getByLabelText('Display name')).toBeInTheDocument();
     expect(screen.getByLabelText('API name')).toBeInTheDocument();
-    // New flow seeds Start + End boundary nodes into the store.
+    // New flow seeds Start + (one) End boundary nodes into the store.
     const ids = useFlowEditorStore.getState().nodes.map((n) => n.id).sort();
     expect(ids).toEqual(['__end__', '__start__']);
   });
 
-  it('Add node adds an agent node to the store and opens the node panel', () => {
+  it('clicking the palette Agent entry adds a node and opens the node panel', () => {
     renderEditor();
-    fireEvent.click(screen.getByRole('button', { name: /add node/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Agent$/i }));
     const agentNodes = useFlowEditorStore.getState().nodes.filter((n) => n.type === 'agent');
     expect(agentNodes).toHaveLength(1);
-    // Panel opens on the new node → its Node id field appears.
+    // The dropped node has emits=[] (chat agent), so the NodePanel
+    // opens on the new node — its Node id field is the panel's first
+    // input. getByLabelText resolves the aria-label.
     expect(screen.getByLabelText('Node id')).toBeInTheDocument();
+  });
+
+  it('clicking the palette If/Else entry adds a node preset with emits=[passed,failed]', () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole('button', { name: /^If\/Else$/i }));
+    const agentNodes = useFlowEditorStore.getState().nodes.filter((n) => n.type === 'agent');
+    expect(agentNodes).toHaveLength(1);
+    expect((agentNodes[0].data as any).agent.emits).toEqual(['passed', 'failed']);
+    expect((agentNodes[0].data as any).agent.displayName).toBe('If/Else');
+  });
+
+  it('clicking the palette End entry adds another End boundary (multi-End)', () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole('button', { name: /^End$/i }));
+    const endNodes = useFlowEditorStore
+      .getState()
+      .nodes.filter((n) => n.type === 'boundary' && (n.data as any).boundary === '__end__');
+    expect(endNodes).toHaveLength(2);
+    // First is the seeded `__end__`; the new one carries the `::n` suffix.
+    expect(endNodes.map((n) => n.id).sort()).toEqual(['__end__', '__end__::2']);
   });
 
   it('Save is disabled until there are unsaved changes', () => {
     renderEditor();
     expect(screen.getByRole('button', { name: /^save$/i })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: /add node/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Agent$/i }));
     expect(screen.getByRole('button', { name: /^save$/i })).toBeEnabled();
   });
 
