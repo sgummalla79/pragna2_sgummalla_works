@@ -1,11 +1,12 @@
 /**
  * End-to-end tests for the visual flow editor — items 1–10 from the
- * original verify plan. The unit + integration suites cover the logic;
- * these are the pointer/visual + DB-round-trip cases jsdom can't reach.
+ * original verify plan, adapted to the post-#33 visual model (top-level
+ * `/flows/new` route, left-side palette instead of "Add node" button,
+ * minimal cards with icon + type label + display name).
  *
  * Requires the stack to be running (`npm run setup` first).
  */
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { login } from '../helpers/auth';
 import { dragSide, openPanelFor, revealAndGetHandle } from '../helpers/canvas';
@@ -13,48 +14,72 @@ import { db, psql } from '../helpers/db';
 
 test.describe.configure({ mode: 'serial' }); // shared DB → run in order
 
+/** Drop an Agent / If/Else / End node from the palette. */
+async function dropFromPalette(page: Page, label: 'Agent' | 'If/Else' | 'End') {
+  const palette = page.getByRole('navigation', { name: /add node/i });
+  await palette.getByRole('button', { name: new RegExp(`^${label}$`) }).click();
+  await page.waitForTimeout(150);
+}
+
 test.describe('Visual flow editor', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
-    await page.goto('/settings/flows/new', { waitUntil: 'networkidle' });
-    await page.waitForSelector('button:has-text("Add node")');
+    await page.goto('/flows/new', { waitUntil: 'networkidle' });
+    // Wait for the palette to render — anchors the rest of the test on a
+    // fully-mounted editor (the palette is the first interactive surface
+    // post-redesign).
+    await page.waitForSelector('nav[aria-label="Add node"]');
   });
 
-  test('#1 mounts with Start + End boundary nodes', async ({ page }) => {
-    await expect(page.getByText(/▶ Start/)).toBeVisible();
-    await expect(page.getByText(/■ End/)).toBeVisible();
-    await expect(page.getByRole('button', { name: /add node/i })).toBeVisible();
+  test('#1 mounts with Start + End boundary nodes and the palette', async ({ page }) => {
+    // Cards now display the plain "Start" / "End" labels (no ▶ / ■
+    // prefix glyph anymore — the icon-tile carries the role visually).
+    await expect(
+      page.locator('.react-flow__node[data-id="__start__"]').getByText(/^Start$/),
+    ).toBeVisible();
+    await expect(
+      page.locator('.react-flow__node[data-id="__end__"]').getByText(/^End$/),
+    ).toBeVisible();
+    // Palette has the three entries.
+    const palette = page.getByRole('navigation', { name: /add node/i });
+    await expect(palette.getByRole('button', { name: /^Agent$/ })).toBeVisible();
+    await expect(palette.getByRole('button', { name: /^If\/Else$/ })).toBeVisible();
+    await expect(palette.getByRole('button', { name: /^End$/ })).toBeVisible();
+    // Header still has the YAML / Validate / Save buttons.
     await expect(page.getByRole('button', { name: /view yaml source/i })).toBeVisible();
   });
 
-  test('#2 four side handles are hidden until node hover', async ({ page }) => {
-    const handle = page.locator('.react-flow__node[data-id="__start__"] .react-flow__handle').first();
-    expect(await handle.evaluate((el) => window.getComputedStyle(el).opacity)).toBe('0');
-    await page.locator('.react-flow__node[data-id="__start__"]').hover();
+  test('#2 four omni handles on an Agent are hidden until node hover', async ({ page }) => {
+    // Pre-redesign this tested __start__, which now has only a single
+    // right-side `out` handle (Start became a singleton boundary with
+    // one handle). Switched to a chat-Agent which still has 4 omni
+    // handles as before.
+    await dropFromPalette(page, 'Agent');
+    const handle = page.locator('.react-flow__node[data-id="node_1"] .react-flow__handle').first();
+    expect(await handle.evaluate((el) => window.getComputedStyle(el).opacity)).toBe('0.3');
+    await page.locator('.react-flow__node[data-id="node_1"]').hover();
     await page.waitForTimeout(250);
     expect(
       Number(await handle.evaluate((el) => window.getComputedStyle(el).opacity)),
-    ).toBeGreaterThan(0.5);
-    // All four sides exist.
+    ).toBeGreaterThan(0.8);
     for (const side of ['top', 'right', 'bottom', 'left']) {
       await expect(
-        page.locator(`.react-flow__node[data-id="__start__"] .react-flow__handle[data-handleid="${side}"]`),
+        page.locator(`.react-flow__node[data-id="node_1"] .react-flow__handle[data-handleid="${side}"]`),
       ).toHaveCount(1);
     }
   });
 
-  test('#3 Add node creates an agent card AND opens the side panel', async ({ page }) => {
-    await page.getByRole('button', { name: /add node/i }).click();
+  test('#3 dropping Agent from palette creates a node and opens the side panel', async ({ page }) => {
+    await dropFromPalette(page, 'Agent');
     await expect(page.locator('.react-flow__node[data-id="node_1"]')).toBeVisible();
     await expect(page.locator('#np-node-id')).toBeVisible();
     expect(await page.locator('#np-node-id').inputValue()).toBe('node_1');
   });
 
   test('#7 node_id collision shows inline error and reverts the draft', async ({ page }) => {
-    // Add two nodes so we have a collision target.
-    await page.getByRole('button', { name: /add node/i }).click();
+    await dropFromPalette(page, 'Agent');
     await page.getByRole('button', { name: /close panel/i }).click();
-    await page.getByRole('button', { name: /add node/i }).click();
+    await dropFromPalette(page, 'Agent');
     // Panel is on node_2; rename to node_1 → collision.
     await page.locator('#np-node-id').fill('node_1');
     await page.locator('#np-node-id').blur();
@@ -63,8 +88,7 @@ test.describe('Visual flow editor', () => {
   });
 
   test('#8 YAML "view source" dialog shows the collapse invariant', async ({ page }) => {
-    // Need at least one agent node so agents: + flow.nodes: have entries.
-    await page.getByRole('button', { name: /add node/i }).click();
+    await dropFromPalette(page, 'Agent');
     await page.getByRole('button', { name: /close panel/i }).click();
     await page.getByRole('button', { name: /view yaml source/i }).click();
     const dialog = page.getByRole('dialog');
@@ -76,9 +100,8 @@ test.describe('Visual flow editor', () => {
   });
 
   test('#5a self-loop is rejected at draw time (no edge created)', async ({ page }) => {
-    await page.getByRole('button', { name: /add node/i }).click();
+    await dropFromPalette(page, 'Agent');
     await page.getByRole('button', { name: /close panel/i }).click();
-    // Drag from node_1 bottom back to node_1 top.
     const bottom = await revealAndGetHandle(page, 'node_1', 'bottom');
     const top = await revealAndGetHandle(page, 'node_1', 'top');
     await page.mouse.move(bottom.x + bottom.width / 2, bottom.y + bottom.height / 2);
@@ -89,29 +112,35 @@ test.describe('Visual flow editor', () => {
     await expect(page.locator('.react-flow__edge')).toHaveCount(0);
   });
 
-  test('#4 + #5b + #6 + #9 + #10 — full authoring cycle through Save + prune', async ({ page }) => {
-    // ── Two agent nodes ──
-    await page.getByRole('button', { name: /add node/i }).click();
+  test('#4 + #5b + #9 + #10 — full authoring cycle through Save + prune', async ({ page }) => {
+    // The pre-redesign version also covered #6 ("condition not in source
+    // emits → red dashed warning"). That UI is gone — the edge-midpoint
+    // dropdown was deleted in the #33 redesign; edge condition derives
+    // from which port (`port:passed` / `port:else` / ...) the edge
+    // leaves. The branching-specific assertion lives in Scenario 6 in
+    // FRONTEND_TEST_SCENARIOS.md; this test stays focused on chat
+    // agents (no emits) plus the save/prune DB invariants.
+
+    await dropFromPalette(page, 'Agent');
     await page.getByRole('button', { name: /close panel/i }).click();
-    await page.getByRole('button', { name: /add node/i }).click();
+    await dropFromPalette(page, 'Agent');
     await page.getByRole('button', { name: /close panel/i }).click();
 
-    // ── #4 side-handle drag (right → left) ──
+    // ── #4 side-handle drag (right → left) creates an edge ──
     await dragSide(page, { nodeId: 'node_1', side: 'right' }, { nodeId: 'node_2', side: 'left' });
     await expect(page.locator('.react-flow__edge')).toHaveCount(1);
 
-    // ── #5b duplicate source→target is blocked ──
+    // ── #5b duplicate (source, target) is blocked even when handles
+    // differ (chat agents dedupe on source-target — port-handle dedupe
+    // only kicks in for branching nodes; covered elsewhere). ──
     await dragSide(page, { nodeId: 'node_1', side: 'bottom' }, { nodeId: 'node_2', side: 'top' });
     await expect(page.locator('.react-flow__edge')).toHaveCount(1);
 
-    // ── #6 condition not in source emits → red dashed warning ──
-    await page.locator('select[aria-label="Edge condition"]').first().selectOption('passed');
-    await page.waitForTimeout(200);
-    const edgeStyle = await page.locator('.react-flow__edge .react-flow__edge-path').first().getAttribute('style');
-    expect(edgeStyle).toMatch(/destructive/);
-    expect(edgeStyle).toMatch(/dasharray/);
-
-    // ── Set model + display name + system prompt on each node ──
+    // ── Set top-meta fields (slash is on by default → slash-name is
+    // required for save to succeed) ──
+    await page.locator('#flow-api-name').fill('my-flow');
+    await page.locator('#flow-display-name').fill('My Flow');
+    await page.locator('#flow-slash').fill('my-flow');
     for (const id of ['node_1', 'node_2'] as const) {
       await openPanelFor(page, id);
       await page.locator('#np-agent-display').fill(`Agent ${id}`);
@@ -135,7 +164,6 @@ test.describe('Visual flow editor', () => {
     expect(nodes.map((r) => r[0]).sort()).toEqual(['node_1', 'node_2']);
 
     // ── #10 Prune on resave (delete node_2 + save) ──
-    // We're still on the editor (URL switched to /edit/{flowId} on create).
     await openPanelFor(page, 'node_2');
     await page.getByRole('button', { name: /delete node/i }).click();
     await page.waitForTimeout(200);
