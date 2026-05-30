@@ -9,6 +9,7 @@ import { INTERRUPT_TOOL_NAMES } from '@/constants/interruptTools';
 import { SET_ROUTE_TOOL_NAME } from '@/constants/routingTool';
 import { AttachmentChip } from './AttachmentChip';
 import { FlowProposalCard } from './FlowProposalCard';
+import { MarkdownMessage } from './MarkdownMessage';
 import { MessageActions } from './MessageActions';
 import { ModelBadge } from './ModelBadge';
 import { ToolCallBadge } from './ToolCallBadge';
@@ -92,6 +93,13 @@ interface ChatMessageProps {
    * between existing ones.
    */
   isLastAssistant?: boolean;
+  /**
+   * True only when this turn is the in-flight streaming assistant message.
+   * Threaded into :class:`MarkdownMessage` to enable Streamdown's
+   * incomplete-markdown repair while tokens arrive. False for user turns,
+   * completed turns, and historical rows.
+   */
+  isStreaming?: boolean;
 }
 
 /**
@@ -115,6 +123,7 @@ export function ChatMessage({
   conversationId,
   finishReason,
   isLastAssistant = false,
+  isStreaming = false,
 }: ChatMessageProps) {
   const { attachmentService } = useServices();
   // R6a: load the user's flows once per render and surface the
@@ -265,11 +274,20 @@ export function ChatMessage({
                 ))}
               </div>
             )}
-            {message.content && (
-              <div className="whitespace-pre-wrap break-words">
-                {message.content}
-              </div>
-            )}
+            {message.content &&
+              (message.role === 'assistant' ? (
+                // Assistant turns render as markdown (Claude.ai style);
+                // see MarkdownMessage. User turns stay plain text — we
+                // never markdown-render what the user typed.
+                <MarkdownMessage
+                  content={message.content}
+                  isStreaming={isStreaming}
+                />
+              ) : (
+                <div className="whitespace-pre-wrap break-words">
+                  {message.content}
+                </div>
+              ))}
             {message.role === 'assistant' && message.toolCalls && (
               <div className={message.content ? 'mt-1' : ''}>
                 {message.toolCalls.map((call) => {

@@ -790,6 +790,11 @@ function ChatSurface({
                 isLastAssistant={
                   m.role === 'assistant' && m.id === lastAssistantId
                 }
+                isStreaming={
+                  status === 'running' &&
+                  m.role === 'assistant' &&
+                  m.id === lastAssistantId
+                }
               />
             ))}
             {/* R7.1#3 follow-up — thinking strip rendered after the

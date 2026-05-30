@@ -128,7 +128,14 @@ test.describe('Scenario 8 — Plan & Execute', () => {
       const planner = bubbles[0];
       const executor = bubbles[1];
       expect(planner).toMatch(/Plan:/i);
-      expect(planner).toMatch(/1\./);
+      // The planner is prompted to emit a numbered list. Streamdown
+      // renders it as <ol>, so the "1." marker is CSS-generated list
+      // styling and is NOT present in textContent. Assert the ordered
+      // list actually rendered (3-5 steps per the planner prompt)
+      // instead of grepping the now-marker-less text.
+      expect(
+        await page.locator('[data-role="assistant"]').first().locator('ol li').count(),
+      ).toBeGreaterThanOrEqual(3);
       expect(executor).toMatch(/Step\s*1\b/i);
       expect(executor).toMatch(/Done\./i);
     }).toPass({ timeout: 150_000, intervals: [500, 1000, 2000] });
