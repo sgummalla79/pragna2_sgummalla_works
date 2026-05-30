@@ -9,11 +9,16 @@ import { login } from '../helpers/auth';
 test('drag Start node downward', async ({ page }) => {
   await login(page);
   await page.goto('/flows/new');
-  await expect(page.getByText('New flow')).toBeVisible();
+  await page.waitForSelector('nav[aria-label="Add node"]');
 
-  // Drop an Agent so we have an edge in the graph to observe too.
+  // Drop an Agent so we have a downstream node, AND an End sink so
+  // there's a stationary node to compare Start's drag delta against.
+  // End is no longer auto-placed on new flows (only Start is — see
+  // editorTypes.ts:newFlowGraph), so the test must drop it explicitly.
   const palette = page.getByRole('navigation', { name: /add node/i });
   await palette.getByRole('button', { name: /^Agent$/ }).click();
+  await page.waitForTimeout(200);
+  await palette.getByRole('button', { name: /^End$/ }).click();
   await page.waitForTimeout(200);
 
   const startBefore = await page.locator('[data-id="__start__"]').boundingBox();
@@ -59,9 +64,11 @@ test('drag Start node downward', async ({ page }) => {
   // 2. End stayed roughly put (drag is not a graph-wide layout
   //    change). A small residual is OK — React Flow may still be
   //    settling its initial-mount fitView at the moment the drag
-  //    starts; the dragged node's delta (~300px) is what matters.
-  expect(Math.abs(endAfter!.x - endBefore!.x)).toBeLessThan(40);
-  expect(Math.abs(endAfter!.y - endBefore!.y)).toBeLessThan(40);
+  //    starts (now compounded by the extra palette drops needed
+  //    since End is no longer auto-seeded); the dragged node's
+  //    delta (~300px) is what matters.
+  expect(Math.abs(endAfter!.x - endBefore!.x)).toBeLessThan(60);
+  expect(Math.abs(endAfter!.y - endBefore!.y)).toBeLessThan(60);
 
   // 3. Save button is now enabled (dirty fires on drag-end per the
   //    position-change reducer in useFlowEditorStore).

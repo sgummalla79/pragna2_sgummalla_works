@@ -22,6 +22,7 @@
 import { expect, test } from '@playwright/test';
 
 import { login } from '../helpers/auth';
+import { psql } from '../helpers/db';
 import {
   configureChatAgent,
   connectViaStore,
@@ -37,6 +38,12 @@ const SLASH_NAME = 'dispatch-sketch';
 
 test.describe('Scenario 16 — Dynamic fan-out: author + visualize', () => {
   test.beforeEach(async ({ page }) => {
+    // Re-runs accumulate flows under the shared e2e test user; the
+    // per-user (user_id, api_name) uniqueness on `flows` then 409s the
+    // saveFlow call. Wipe this scenario's row up-front so the test
+    // starts from a clean slate. Cascade on flows clears the
+    // dependent flow_nodes / flow_edges / user_agents rows.
+    psql(`DELETE FROM flows WHERE api_name = '${FLOW_API_NAME}';`);
     await login(page);
   });
 
@@ -161,8 +168,26 @@ test.describe('Scenario 16 — Dynamic fan-out: author + visualize', () => {
     // selector is correct here. React renders `style={{ strokeDasharray:
     // '6 3' }}` as `style="stroke-dasharray: 6 3"` (inline CSS, not an
     // SVG attribute), so we assert via toHaveCSS.
+    //
+    // IMPORTANT: re-read the edge id from the store AFTER save —
+    // buildEditorGraph regenerates ids on re-hydrate (`e_1`, `e_2`),
+    // so the `targetEdgeId` captured pre-save is stale.
+    const postSaveEdgeId = await page.evaluate(() => {
+      const store = (window as unknown as {
+        __flowEditorStore?: {
+          getState: () => {
+            edges: Array<{ id: string; source: string; target: string }>;
+          };
+        };
+      }).__flowEditorStore;
+      const e = store!
+        .getState()
+        .edges.find((x) => x.source === 'producer' && x.target === 'verifier');
+      if (!e) throw new Error('producer→verifier edge missing post-save');
+      return e.id;
+    });
     const path = page.locator(
-      `[data-testid="rf__edge-${targetEdgeId}"] .react-flow__edge-path`,
+      `[data-testid="rf__edge-${postSaveEdgeId}"] .react-flow__edge-path`,
     );
     await expect(path).toHaveCSS('stroke-dasharray', /6.*3/);
 

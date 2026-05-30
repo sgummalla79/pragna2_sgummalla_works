@@ -12,7 +12,7 @@ test('drag Start node slowly downward, watch for amplification', async ({ page }
 
   await login(page);
   await page.goto('/flows/new');
-  await expect(page.getByText('New flow')).toBeVisible();
+  await page.waitForSelector('nav[aria-label="Add node"]');
 
   // Read React Flow viewport transform + zoom for context.
   const viewport = await page.locator('.react-flow__viewport').boundingBox();

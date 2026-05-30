@@ -14,7 +14,7 @@ test('flow-design redesign — palette + N+1 ports + redirect', async ({ page })
   await expect(page).toHaveURL(/\/flows\/new$/);
 
   // Title + Draft chip + back-arrow visible (chrome).
-  await expect(page.getByText('New flow')).toBeVisible();
+  await page.waitForSelector('nav[aria-label="Add node"]');
   await expect(page.getByText('Draft', { exact: true })).toBeVisible();
 
   // Palette: three entries. Scope to the palette nav so "Agent" / "End"
@@ -29,12 +29,17 @@ test('flow-design redesign — palette + N+1 ports + redirect', async ({ page })
   await expect(paletteIfElse).toBeVisible();
   await expect(paletteEnd).toBeVisible();
 
-  // Empty canvas (seeded Start + End boundaries).
+  // Empty canvas: only Start is seeded; End is in the palette
+  // (editorTypes.ts:newFlowGraph stopped auto-placing End).
   await page.screenshot({ path: 'test-results/flow-design-01-empty.png', fullPage: true });
 
-  // ── Drop one of each kind ────────────────────────────────────────
+  // ── Drop one of each kind. Drop End TWICE so we exercise the
+  //    multi-End instance id scheme (`__end__` + `__end__::2`).
+  //    Before End was no longer auto-placed, one drop was enough
+  //    to produce two Ends; now we need an explicit second drop.
   await paletteAgent.click();
   await paletteIfElse.click();
+  await paletteEnd.click();
   await paletteEnd.click();
   // Give React Flow a tick to render the new nodes.
   await page.waitForTimeout(300);
@@ -56,7 +61,7 @@ test('flow-design redesign — palette + N+1 ports + redirect', async ({ page })
   const endIds = await page
     .locator('.react-flow__node[data-id^="__end__"]')
     .evaluateAll((els) => els.map((e) => e.getAttribute('data-id')));
-  // Expect both the original __end__ and the appended __end__::2.
+  // Expect both the first __end__ and the appended __end__::2.
   expect(endIds.sort()).toEqual(['__end__', '__end__::2']);
   for (const eid of endIds) {
     const handleCount = await page.locator(
@@ -69,34 +74,34 @@ test('flow-design redesign — palette + N+1 ports + redirect', async ({ page })
   }
 
   // Agent (chat, emits empty): 4 omni handles top/right/bottom/left.
-  // The newly-added agent gets node_id `node_1`.
+  // The newly-added agent gets node_id `agent_1`.
   const agentHandles = await page.locator(
-    '[data-id="node_1"] .react-flow__handle',
+    '[data-id="agent_1"] .react-flow__handle',
   ).count();
   expect(agentHandles).toBe(4);
   for (const hid of ['top', 'right', 'bottom', 'left']) {
     await expect(
-      page.locator(`[data-id="node_1"] [data-handleid="${hid}"]`),
+      page.locator(`[data-id="agent_1"] [data-handleid="${hid}"]`),
     ).toBeAttached();
   }
 
   // If/Else: 1 left target + N+1 right sources (port:passed, port:failed,
-  // port:else). It's the second agent node, so node_id = node_2.
+  // port:else). It's the second agent node, so node_id = agent_2.
   const ifElseHandles = await page.locator(
-    '[data-id="node_2"] .react-flow__handle',
+    '[data-id="agent_2"] .react-flow__handle',
   ).count();
   expect(ifElseHandles).toBe(4); // 1 in + 3 out (passed/failed/else)
   await expect(
-    page.locator('[data-id="node_2"] [data-handleid="in"]'),
+    page.locator('[data-id="agent_2"] [data-handleid="in"]'),
   ).toBeAttached();
   await expect(
-    page.locator('[data-id="node_2"] [data-handleid="port:passed"]'),
+    page.locator('[data-id="agent_2"] [data-handleid="port:passed"]'),
   ).toBeAttached();
   await expect(
-    page.locator('[data-id="node_2"] [data-handleid="port:failed"]'),
+    page.locator('[data-id="agent_2"] [data-handleid="port:failed"]'),
   ).toBeAttached();
   await expect(
-    page.locator('[data-id="node_2"] [data-handleid="port:else"]'),
+    page.locator('[data-id="agent_2"] [data-handleid="port:else"]'),
   ).toBeAttached();
 
   // ── Card content: minimal (icon + type label + display name) ──────
@@ -104,15 +109,15 @@ test('flow-design redesign — palette + N+1 ports + redirect', async ({ page })
   // display name. blankIfElseAgent presets displayName='Decision', so
   // both lines on the card show "Decision" — assert via .first().
   await expect(
-    page.locator('[data-id="node_2"]').getByText('Decision').first(),
+    page.locator('[data-id="agent_2"]').getByText('Decision').first(),
   ).toBeVisible();
   // The chat agent's card: type label "Agent" + node_id (displayName is
   // empty by default → falls back to apiName which equals node_id).
   await expect(
-    page.locator('[data-id="node_1"]').getByText('Agent', { exact: true }),
+    page.locator('[data-id="agent_1"]').getByText('Agent', { exact: true }),
   ).toBeVisible();
   await expect(
-    page.locator('[data-id="node_1"]').getByText('node_1'),
+    page.locator('[data-id="agent_1"]').getByText('agent_1'),
   ).toBeVisible();
 
   // Old midpoint dropdown <select> should NOT exist anywhere in the

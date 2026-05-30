@@ -10,7 +10,7 @@ test('drag Start far past viewport bottom, then attempt recovery', async ({ page
 
   await login(page);
   await page.goto('/flows/new');
-  await expect(page.getByText('New flow')).toBeVisible();
+  await page.waitForSelector('nav[aria-label="Add node"]');
 
   // Page + canvas dimensions.
   const pageBox = await page.evaluate(() => ({

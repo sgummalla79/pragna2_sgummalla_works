@@ -15,6 +15,7 @@
 import { expect, test } from '@playwright/test';
 
 import { login } from '../helpers/auth';
+import { psql } from '../helpers/db';
 import {
   configureChatAgent,
   connectViaStore,
@@ -30,6 +31,11 @@ const SLASH_NAME = 'gate-sketch';
 
 test.describe('Scenario 17 — Dynamic fan-out: mutual-exclusion gate', () => {
   test.beforeEach(async ({ page }) => {
+    // Re-runs accumulate flows under the shared e2e test user; the
+    // per-user (user_id, api_name) uniqueness on `flows` then 409s
+    // the saveFlow call. Wipe this scenario's row up-front so the
+    // test starts from a clean slate. Cascade clears children.
+    psql(`DELETE FROM flows WHERE api_name = '${FLOW_API_NAME}';`);
     await login(page);
   });
 

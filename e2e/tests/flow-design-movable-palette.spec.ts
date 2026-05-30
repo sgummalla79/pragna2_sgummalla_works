@@ -10,7 +10,7 @@ test('palette can be dragged to a new position via the header', async ({ page })
 
   await login(page);
   await page.goto('/flows/new');
-  await expect(page.getByText('New flow')).toBeVisible();
+  await page.waitForSelector('nav[aria-label="Add node"]');
 
   const palette = page.getByRole('navigation', { name: /add node/i });
   const before = await palette.boundingBox();
@@ -45,5 +45,5 @@ test('palette can be dragged to a new position via the header', async ({ page })
   // Buttons still clickable after the move — drop an Agent.
   await palette.getByRole('button', { name: /^Agent$/ }).click();
   await page.waitForTimeout(200);
-  await expect(page.locator('[data-id="node_1"]')).toBeVisible();
+  await expect(page.locator('[data-id="agent_1"]')).toBeVisible();
 });
