@@ -39,27 +39,3 @@ export const STREAMDOWN_CONTROLS: ControlsConfig = {
   code: true,
   mermaid: { panZoom: true, fullscreen: true, copy: true, download: true },
 };
-
-/**
- * Smooth-streaming reveal cadence (claude.ai / ChatGPT-style typing flow).
- *
- * The BE delivers assistant text in uneven bursts — often a few large
- * chunks (it calls the LLM non-streaming), not a steady token trickle.
- * Rendering each chunk the instant it lands reads as a chunky flash.
- * ``useSmoothStreamingText`` instead "types" the accumulated text at a
- * steady rate while bounding how far it may lag behind the buffer:
- *
- * - ``STREAM_REVEAL_BASE_CPS`` — the steady typing speed (characters per
- *   second) used whenever the backlog is small. This is the speed the eye
- *   reads as "smooth."
- * - ``STREAM_REVEAL_MAX_LAG_SECONDS`` — the longest the reveal is allowed
- *   to trail the buffer. When a big chunk lands, the rate rises just enough
- *   to clear the backlog within this window (``backlog / MAX_LAG``), so a
- *   long reply never feels stuck yet still animates instead of snapping.
- *   Effective rate = ``max(BASE_CPS, backlog / MAX_LAG_SECONDS)``.
- *
- * Raise BASE for faster typing; raise MAX_LAG for a gentler reveal of large
- * replies (more smoothing, more total delay); lower it to hug the stream.
- */
-export const STREAM_REVEAL_BASE_CPS = 25;
-export const STREAM_REVEAL_MAX_LAG_SECONDS = 3.5;

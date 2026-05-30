@@ -5,7 +5,6 @@ import { Streamdown } from 'streamdown';
 // no `./katex.css` entry of its own).
 import 'katex/dist/katex.min.css';
 import { normalizeMathDelimiters } from '@/presentation/views/chat/utils/markdownStreaming';
-import { useSmoothStreamingText } from '@/presentation/views/chat/hooks/useSmoothStreamingText';
 import { SHIKI_THEMES, STREAMDOWN_CONTROLS } from '@/constants/markdown';
 import { cn } from '@/lib/utils';
 
@@ -42,11 +41,6 @@ interface MarkdownMessageProps {
  */
 function MarkdownMessageImpl({ content, isStreaming = false }: MarkdownMessageProps) {
   const normalized = useMemo(() => normalizeMathDelimiters(content), [content]);
-  // Reveal the normalized text at a steady cadence while streaming so the
-  // reply "types" smoothly (claude.ai / ChatGPT feel) instead of lurching
-  // with each raw SSE burst. No-op (returns the full string) once the turn
-  // completes or for non-streaming turns.
-  const revealed = useSmoothStreamingText(normalized, isStreaming);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Throttle Mermaid wheel-zoom. Streamdown attaches a non-passive ``wheel``
@@ -94,7 +88,7 @@ function MarkdownMessageImpl({ content, isStreaming = false }: MarkdownMessagePr
         controls={STREAMDOWN_CONTROLS}
         className="break-words"
       >
-        {revealed}
+        {normalized}
       </Streamdown>
     </div>
   );
