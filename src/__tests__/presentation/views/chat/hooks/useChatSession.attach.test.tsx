@@ -313,3 +313,175 @@ describe('useChatSession messages lazy useState init (M5.2 follow-up — blank-s
     expect(result.current.messages).toEqual([]);
   });
 });
+
+describe('useChatSession reasoning_content event (BE migration 0026)', () => {
+  beforeEach(() => {
+    mockInstances.length = 0;
+    useAuthStore.setState({
+      accessToken: 'test-token',
+      user: {
+        id: 'u1',
+        email: 'a@b.com',
+        name: null,
+        identityProvider: 'local',
+        settings: {},
+      },
+      isAuthenticated: true,
+      bootstrapped: true,
+    });
+  });
+
+  type Subscriber = {
+    onCustomEvent?: (arg: { event: { name: string; value: unknown } }) => void;
+    onTextMessageStartEvent?: (arg: { event: { messageId: string } }) => void;
+  };
+
+  function mountWithSeed(
+    seed: Array<{ id: string; role: 'assistant'; content: string }>,
+  ) {
+    const { result } = renderHook(
+      () =>
+        useChatSession('default', {
+          threadId: 'conv-uuid',
+          initialMessages: seed,
+        }),
+      { wrapper },
+    );
+    const built = mockInstances[mockInstances.length - 1] as unknown as {
+      subscribe: ReturnType<typeof vi.fn>;
+    };
+    const subscriber = built.subscribe.mock.calls[0][0] as Subscriber;
+    return { result, subscriber };
+  }
+
+  it('stamps reasoning onto the message named by the event message_id', () => {
+    const { result, subscriber } = mountWithSeed([
+      { id: 'm1', role: 'assistant', content: 'The answer.' },
+    ]);
+
+    act(() => {
+      subscriber.onCustomEvent?.({
+        event: {
+          name: 'reasoning_content',
+          value: { message_id: 'm1', reasoning: 'My private trace.' },
+        },
+      });
+    });
+
+    const asst = result.current.messages.find((m) => m.id === 'm1');
+    expect(asst?.reasoning).toBe('My private trace.');
+  });
+
+  it('falls back to the last TEXT_MESSAGE_START id when message_id is omitted', () => {
+    const { result, subscriber } = mountWithSeed([
+      { id: 'm2', role: 'assistant', content: 'Answer two.' },
+    ]);
+
+    act(() => {
+      // The BE accumulator's _last_message_id mirror: the most recent
+      // streaming start is the implicit target.
+      subscriber.onTextMessageStartEvent?.({ event: { messageId: 'm2' } });
+      subscriber.onCustomEvent?.({
+        event: {
+          name: 'reasoning_content',
+          value: { reasoning: 'Implicit target trace.' },
+        },
+      });
+    });
+
+    const asst = result.current.messages.find((m) => m.id === 'm2');
+    expect(asst?.reasoning).toBe('Implicit target trace.');
+  });
+
+  it('ignores a reasoning_content event carrying no reasoning string', () => {
+    const { result, subscriber } = mountWithSeed([
+      { id: 'm3', role: 'assistant', content: 'Answer three.' },
+    ]);
+
+    act(() => {
+      subscriber.onCustomEvent?.({
+        event: { name: 'reasoning_content', value: { message_id: 'm3' } },
+      });
+    });
+
+    const asst = result.current.messages.find((m) => m.id === 'm3');
+    expect(asst?.reasoning).toBeUndefined();
+  });
+});
+
+describe('useChatSession streaming-turn set (fan-out smooth reveal)', () => {
+  beforeEach(() => {
+    mockInstances.length = 0;
+    useAuthStore.setState({
+      accessToken: 'test-token',
+      user: {
+        id: 'u1',
+        email: 'a@b.com',
+        name: null,
+        identityProvider: 'local',
+        settings: {},
+      },
+      isAuthenticated: true,
+      bootstrapped: true,
+    });
+  });
+
+  type StreamSub = {
+    onRunInitialized?: (arg: unknown) => void;
+    onRunFinalized?: (arg: unknown) => void;
+    onTextMessageStartEvent?: (arg: { event: { messageId: string } }) => void;
+    onTextMessageEndEvent?: (arg: { event: { messageId: string } }) => void;
+  };
+
+  it('tracks EVERY concurrently-streaming turn, not just the last (fan-out)', () => {
+    const { result } = renderHook(
+      () => useChatSession('default', { threadId: 'conv-uuid' }),
+      { wrapper },
+    );
+    const built = mockInstances[mockInstances.length - 1] as unknown as {
+      subscribe: ReturnType<typeof vi.fn>;
+    };
+    const sub = built.subscribe.mock.calls[0][0] as StreamSub;
+
+    // Two sub-agent turns open their streams before either ends — the
+    // shape a parallel fan-out produces. BOTH must be marked streaming;
+    // the pre-fix "last assistant only" logic would have animated just one.
+    act(() => {
+      sub.onRunInitialized?.({});
+      sub.onTextMessageStartEvent?.({ event: { messageId: 'fanout-a' } });
+      sub.onTextMessageStartEvent?.({ event: { messageId: 'fanout-b' } });
+    });
+    expect(result.current.streamingMessageIds.has('fanout-a')).toBe(true);
+    expect(result.current.streamingMessageIds.has('fanout-b')).toBe(true);
+
+    // Each turn leaves the set independently as its own END arrives.
+    act(() => {
+      sub.onTextMessageEndEvent?.({ event: { messageId: 'fanout-a' } });
+    });
+    expect(result.current.streamingMessageIds.has('fanout-a')).toBe(false);
+    expect(result.current.streamingMessageIds.has('fanout-b')).toBe(true);
+  });
+
+  it('clears the streaming set when the run settles', () => {
+    const { result } = renderHook(
+      () => useChatSession('default', { threadId: 'conv-uuid' }),
+      { wrapper },
+    );
+    const built = mockInstances[mockInstances.length - 1] as unknown as {
+      subscribe: ReturnType<typeof vi.fn>;
+    };
+    const sub = built.subscribe.mock.calls[0][0] as StreamSub;
+
+    act(() => {
+      sub.onRunInitialized?.({});
+      sub.onTextMessageStartEvent?.({ event: { messageId: 'm1' } });
+    });
+    expect(result.current.streamingMessageIds.size).toBe(1);
+
+    // RUN_FINISHED is a backstop even if a trailing END never arrived.
+    act(() => {
+      sub.onRunFinalized?.({});
+    });
+    expect(result.current.streamingMessageIds.size).toBe(0);
+  });
+});

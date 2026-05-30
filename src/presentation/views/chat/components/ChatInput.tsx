@@ -448,9 +448,8 @@ export function ChatInput({
         className={cn(
           // `relative` anchors the slash-command popover above the
           // composer (it uses `absolute bottom-full`).
-          'relative rounded-3xl border border-border bg-card shadow-sm',
+          'relative rounded-3xl bg-muted shadow-sm',
           'transition-colors',
-          'focus-within:border-input',
           // R5: drop-target affordance.
           dragging && attachmentsEnabled && 'ring-2 ring-primary ring-offset-1',
         )}

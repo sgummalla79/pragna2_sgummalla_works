@@ -75,6 +75,10 @@ interface ApiMessageResponse {
    *  historical rows. The FE renders a Continue affordance when this
    *  reads ``'length'`` on an assistant turn. */
   finish_reason: 'stop' | 'length' | 'tool_calls' | 'other' | null;
+  /** BE migration 0026. Assistant-only extended-thinking trace; ``null``
+   *  for non-assistant turns, turns without thinking, and historical
+   *  rows. Optional so older deployments omitting the field still map. */
+  reasoning_content?: string | null;
 }
 
 function mapConversation(raw: ApiConversationResponse): Conversation {
@@ -119,6 +123,9 @@ function mapMessage(raw: ApiMessageResponse): PersistedMessage {
     // exhaustive when older deployments return responses without the
     // field at all.
     finishReason: raw.finish_reason ?? null,
+    // BE migration 0026 — the captured thinking trace. ``?? null``
+    // keeps the type exhaustive when older deployments omit the field.
+    reasoning: raw.reasoning_content ?? null,
   };
 }
 

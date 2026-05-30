@@ -5,7 +5,9 @@ import { Streamdown } from 'streamdown';
 // no `./katex.css` entry of its own).
 import 'katex/dist/katex.min.css';
 import { normalizeMathDelimiters } from '@/presentation/views/chat/utils/markdownStreaming';
+import { useSmoothStreamingText } from '@/presentation/views/chat/hooks/useSmoothStreamingText';
 import { SHIKI_THEMES, STREAMDOWN_CONTROLS } from '@/constants/markdown';
+import { cn } from '@/lib/utils';
 
 // Only every Nth wheel tick over a Mermaid diagram reaches Streamdown's
 // zoom handler — the rest are dropped. Streamdown zooms a fixed 0.1 step per
@@ -40,6 +42,11 @@ interface MarkdownMessageProps {
  */
 function MarkdownMessageImpl({ content, isStreaming = false }: MarkdownMessageProps) {
   const normalized = useMemo(() => normalizeMathDelimiters(content), [content]);
+  // Reveal the normalized text at a steady cadence while streaming so the
+  // reply "types" smoothly (claude.ai / ChatGPT feel) instead of lurching
+  // with each raw SSE burst. No-op (returns the full string) once the turn
+  // completes or for non-streaming turns.
+  const revealed = useSmoothStreamingText(normalized, isStreaming);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Throttle Mermaid wheel-zoom. Streamdown attaches a non-passive ``wheel``
@@ -72,7 +79,14 @@ function MarkdownMessageImpl({ content, isStreaming = false }: MarkdownMessagePr
   }, []);
 
   return (
-    <div ref={wrapperRef}>
+    <div
+      ref={wrapperRef}
+      // ``--animate`` (streaming only) fades each newly-revealed block in
+      // once on mount — the claude.ai / ChatGPT / Gemini reveal. Streamdown
+      // memoises blocks by content, so completed blocks keep their DOM node
+      // and never re-fire the animation; only genuinely-new blocks animate.
+      className={cn('chat-markdown', isStreaming && 'chat-markdown--animate')}
+    >
       <Streamdown
         mode={isStreaming ? 'streaming' : 'static'}
         parseIncompleteMarkdown={isStreaming}
@@ -80,7 +94,7 @@ function MarkdownMessageImpl({ content, isStreaming = false }: MarkdownMessagePr
         controls={STREAMDOWN_CONTROLS}
         className="break-words"
       >
-        {normalized}
+        {revealed}
       </Streamdown>
     </div>
   );

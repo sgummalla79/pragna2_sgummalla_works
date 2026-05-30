@@ -118,3 +118,57 @@ describe('ConversationRepository.create', () => {
     });
   });
 });
+
+describe('ConversationRepository.getMessages — reasoning_content mapping (0026)', () => {
+  const CONVO_ID = '22222222-2222-2222-2222-222222222222';
+
+  function messageRow(overrides: Record<string, unknown>) {
+    return {
+      id: 'm1',
+      role: 'assistant',
+      content: 'answer',
+      tool_calls: null,
+      user_model_id: null,
+      attachments: [],
+      message_index: 0,
+      created_at: '2026-05-25T00:00:00Z',
+      modified_at: '2026-05-25T00:00:00Z',
+      finish_reason: null,
+      ...overrides,
+    };
+  }
+
+  it('maps reasoning_content → reasoning for thinking turns', async () => {
+    server.use(
+      http.get(`${BASE_URL}/api/conversations/${CONVO_ID}/messages`, () =>
+        HttpResponse.json([
+          messageRow({ reasoning_content: 'I thought hard.' }),
+        ]),
+      ),
+    );
+    const [msg] = await repo.getMessages(CONVO_ID);
+    expect(msg.reasoning).toBe('I thought hard.');
+  });
+
+  it('maps a null reasoning_content to null', async () => {
+    server.use(
+      http.get(`${BASE_URL}/api/conversations/${CONVO_ID}/messages`, () =>
+        HttpResponse.json([messageRow({ reasoning_content: null })]),
+      ),
+    );
+    const [msg] = await repo.getMessages(CONVO_ID);
+    expect(msg.reasoning).toBeNull();
+  });
+
+  it('defaults reasoning to null when the field is absent (older BE)', async () => {
+    // An older deployment omits reasoning_content entirely; the ?? null
+    // keeps PersistedMessage.reasoning exhaustive rather than undefined.
+    server.use(
+      http.get(`${BASE_URL}/api/conversations/${CONVO_ID}/messages`, () =>
+        HttpResponse.json([messageRow({})]),
+      ),
+    );
+    const [msg] = await repo.getMessages(CONVO_ID);
+    expect(msg.reasoning).toBeNull();
+  });
+});

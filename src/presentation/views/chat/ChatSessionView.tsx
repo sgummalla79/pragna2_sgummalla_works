@@ -199,7 +199,17 @@ export default function ChatSessionView() {
  */
 function persistedToAGUIMessage(m: PersistedMessage): Message {
   if (m.role === 'assistant') {
-    return { id: m.id, role: 'assistant', content: m.content } as Message;
+    // Carry the persisted reasoning trace through as a non-standard
+    // field on the AG-UI message; ``toChatMessage`` reads it back off
+    // the message object so the reasoning timeline survives hydration
+    // (BE migration 0026). HttpAgent preserves seed-message objects
+    // verbatim in ``agent.messages``, so the extra field round-trips.
+    return {
+      id: m.id,
+      role: 'assistant',
+      content: m.content,
+      ...(m.reasoning ? { reasoning: m.reasoning } : {}),
+    } as Message;
   }
   if (m.role === 'system') {
     return { id: m.id, role: 'system', content: m.content } as Message;
@@ -325,9 +335,31 @@ function ChatSurface({
     return null;
   }, [persistedMessages]);
 
-  const { messages, status, error, progressLabel, send, sendWithModel, sendWithOverrides, stop, attach, replaceMessages, streamingModelByMessageId } = useChatSession(
+  const { messages, status, error, progressLabel, send, sendWithModel, sendWithOverrides, stop, attach, replaceMessages, streamingModelByMessageId, streamingMessageIds } = useChatSession(
     agentName,
     { threadId, initialMessages },
+  );
+
+  // Whether a given turn should animate the smooth typewriter reveal.
+  // ``streamingMessageIds`` is the set of turns with an open
+  // ``TEXT_MESSAGE_START`` (no ``END`` yet) — so EVERY concurrently
+  // streaming turn animates, which matters for parallel fan-out flows.
+  // We also treat the last live assistant turn as streaming while the run
+  // is in flight: its END fires just before RUN_FINISHED, and this keeps
+  // it revealing smoothly through to the end instead of snapping early.
+  // (``lastAssistantId`` above is BE-history-derived and does NOT contain
+  // the in-flight turn, so it can't be used here — that was the original
+  // "text dumps in" bug.)
+  const lastLiveAssistantId = useMemo(() => {
+    if (status !== 'running') return null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') return messages[i].id;
+    }
+    return null;
+  }, [messages, status]);
+  const isMessageStreaming = useCallback(
+    (id: string) => streamingMessageIds.has(id) || id === lastLiveAssistantId,
+    [streamingMessageIds, lastLiveAssistantId],
   );
 
   // After /resume completes, the buffered SSE stream is discarded by
@@ -784,7 +816,7 @@ function ChatSurface({
         {messages.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="mx-auto flex max-w-3xl flex-col gap-4">
+          <div className="mx-auto flex max-w-3xl flex-col gap-2">
             {messages.map((m) => (
               <ChatMessage
                 key={m.id}
@@ -819,11 +851,7 @@ function ChatSurface({
                 isLastAssistant={
                   m.role === 'assistant' && m.id === lastAssistantId
                 }
-                isStreaming={
-                  status === 'running' &&
-                  m.role === 'assistant' &&
-                  m.id === lastAssistantId
-                }
+                isStreaming={isMessageStreaming(m.id)}
               />
             ))}
             {/* R7.1#3 follow-up — thinking strip rendered after the

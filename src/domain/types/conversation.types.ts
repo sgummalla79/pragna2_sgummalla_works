@@ -99,6 +99,14 @@ export interface PersistedMessage {
    * affordance on assistant bubbles where `finishReason === 'length'`.
    */
   finishReason: 'stop' | 'length' | 'tool_calls' | 'other' | null;
+  /**
+   * BE migration 0026. For assistant turns produced by an
+   * extended-thinking model with thinking enabled, the captured
+   * reasoning/thinking trace. `null` for non-assistant turns, assistant
+   * turns without thinking, and historical rows. Rendered as a
+   * collapsible reasoning timeline beneath the assistant message.
+   */
+  reasoning: string | null;
 }
 
 /** Partial-update payload for ``PATCH /api/conversations/{id}``. */

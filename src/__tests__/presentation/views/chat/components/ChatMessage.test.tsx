@@ -109,3 +109,51 @@ describe('ChatMessage set_route suppression (#25)', () => {
     expect(screen.queryByText(/passed/)).not.toBeInTheDocument();
   });
 });
+
+describe('ChatMessage reasoning timeline (BE migration 0026)', () => {
+  function renderAssistant(message: {
+    id: string;
+    role: 'assistant';
+    content: string;
+    reasoning?: string;
+  }) {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const services = {
+      flowService: { list: () => Promise.resolve([]) },
+    } as unknown as Services;
+    return render(
+      <QueryClientProvider client={qc}>
+        <ServiceContext.Provider value={services}>
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          <ChatMessage message={message as any} />
+        </ServiceContext.Provider>
+      </QueryClientProvider>,
+    );
+  }
+
+  it('renders the reasoning disclosure when reasoning is present', () => {
+    renderAssistant({
+      id: 'asst-r1',
+      role: 'assistant',
+      content: 'Final answer.',
+      reasoning: 'First I considered the constraints, then I decided.',
+    });
+    // Collapsed header shows the summary preview of the trace.
+    expect(
+      screen.getByText(/First I considered the constraints/),
+    ).toBeInTheDocument();
+    // The answer renders alongside it.
+    expect(screen.getByText('Final answer.')).toBeInTheDocument();
+  });
+
+  it('renders no reasoning disclosure when reasoning is absent', () => {
+    renderAssistant({
+      id: 'asst-r2',
+      role: 'assistant',
+      content: 'Just an answer.',
+    });
+    expect(screen.getByText('Just an answer.')).toBeInTheDocument();
+    // No disclosure trigger when there's no trace.
+    expect(screen.queryByRole('button', { name: /reasoning/i })).not.toBeInTheDocument();
+  });
+});

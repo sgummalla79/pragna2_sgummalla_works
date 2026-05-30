@@ -11,6 +11,7 @@ import { AttachmentChip } from './AttachmentChip';
 import { FlowProposalCard } from './FlowProposalCard';
 import { MarkdownMessage } from './MarkdownMessage';
 import { MessageActions } from './MessageActions';
+import { ReasoningPanel } from './ReasoningPanel';
 import { ModelBadge } from './ModelBadge';
 import { ToolCallBadge } from './ToolCallBadge';
 
@@ -207,6 +208,17 @@ export function ChatMessage({
             : 'flex w-full flex-col gap-1.5'
         }
       >
+        {/* Reasoning timeline — claude.ai style, ABOVE the answer so the
+            thinking reads before the conclusion it produced. Assistant
+            turns only, when a trace was captured (BE migration 0026).
+            Expanded live while streaming; collapsed once persisted. */}
+        {!editing && message.role === 'assistant' && message.reasoning && (
+          <ReasoningPanel
+            reasoning={message.reasoning}
+            defaultOpen={isStreaming}
+          />
+        )}
+
         {/* Bubble (or inline editor) */}
         {editing && isUser ? (
           <div className="w-full max-w-2xl rounded-2xl border border-border bg-input p-2">
@@ -240,8 +252,8 @@ export function ChatMessage({
           <div
             className={
               isUser
-                ? 'rounded-2xl bg-muted px-4 py-3 text-[16px] leading-normal text-card-foreground'
-                : 'w-full text-[16px] leading-normal text-card-foreground'
+                ? 'rounded-2xl bg-muted px-4 py-3 text-[17px] leading-normal text-card-foreground'
+                : 'w-full text-[17px] leading-normal text-card-foreground'
             }
           >
             {/* R5: attachment chips above the message text on user

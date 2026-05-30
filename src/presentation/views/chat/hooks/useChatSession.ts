@@ -41,6 +41,14 @@ export interface ChatMessage {
   content: string;
   /** Assistant-only: any tool calls the LLM emitted during the turn. */
   toolCalls?: ChatToolCall[];
+  /**
+   * Assistant-only. The model's extended-thinking trace, when thinking
+   * was enabled. Sourced live from the BE ``reasoning_content`` custom
+   * event during streaming, or from the persisted message on hydration.
+   * ``undefined`` for turns produced without thinking. Rendered as a
+   * collapsible reasoning timeline beneath the message.
+   */
+  reasoning?: string;
 }
 
 export type ChatStatus = 'idle' | 'running' | 'error';
@@ -219,7 +227,7 @@ export function useChatSession(
   // are accumulated only during live runs); ``toChatMessage`` reads
   // the map only when a message has ``toolCalls`` ids to resolve.
   const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    (initialMessages ?? []).map((m) => toChatMessage(m, new Map())),
+    (initialMessages ?? []).map((m) => toChatMessage(m, new Map(), new Map())),
   );
   const [status, setStatus] = useState<ChatStatus>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -231,6 +239,20 @@ export function useChatSession(
   // toolCallId → ChatToolCall, accumulated across the run so partial-args
   // events can update the right call regardless of arrival interleaving.
   const toolCallsRef = useRef<Map<string, ChatToolCall>>(new Map());
+
+  // messageId → reasoning trace. Filled by the BE ``reasoning_content``
+  // custom event (fired once per LLM call after the thinking trace is
+  // captured). ``toChatMessage`` reads it to populate ``reasoning`` on
+  // the streaming assistant message. Persisted reasoning (page reload /
+  // post-run refetch) flows through the message object itself, so this
+  // ref only needs to cover the live-streaming window.
+  const reasoningByMessageIdRef = useRef<Map<string, string>>(new Map());
+
+  // Most recent ``TEXT_MESSAGE_START`` id — the FE mirror of the BE
+  // accumulator's ``_last_message_id``. A ``reasoning_content`` event
+  // whose payload omits ``message_id`` falls back to this so the trace
+  // still attaches on single-message turns (the common case).
+  const lastStreamingMessageIdRef = useRef<string | null>(null);
 
   // Streaming-time per-message model attribution. Mirrors the BE
   // ``_TurnAccumulator`` rolling state — every agent node on the BE
@@ -248,6 +270,16 @@ export function useChatSession(
   const lastModelEntityIdRef = useRef<string | null>(null);
   const [streamingModelByMessageId, setStreamingModelByMessageId] =
     useState<Map<string, string>>(() => new Map());
+
+  // Ids of assistant turns currently mid-stream — every message with an open
+  // ``TEXT_MESSAGE_START`` that hasn't seen its ``TEXT_MESSAGE_END`` yet.
+  // The chat surface reads this to drive the smooth typewriter reveal per
+  // turn. Tracking the SET (not just the last turn) is what lets parallel
+  // fan-out flows animate every concurrently-streaming sub-agent reply, not
+  // only the most recent one. Mirrors the BE accumulator's "open slots".
+  const [streamingMessageIds, setStreamingMessageIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   // R4 #1 regen-with-model: when `sendWithModel` runs, it mutates
   // `agent.url` to include `?user_model_id=<id>` so the pragna route
@@ -305,13 +337,16 @@ export function useChatSession(
   // re-render; React bails out internally if shallow contents match.
   const syncMessages = useCallback(() => {
     if (!agent) return;
-    const mirrored = agent.messages.map((m: Message) => toChatMessage(m, toolCallsRef.current));
+    const mirrored = agent.messages.map((m: Message) =>
+      toChatMessage(m, toolCallsRef.current, reasoningByMessageIdRef.current),
+    );
     setMessages(mirrored);
   }, [agent]);
 
   useEffect(() => {
     if (!agent) return undefined;
     toolCallsRef.current = new Map();
+    reasoningByMessageIdRef.current = new Map();
     setStatus('idle');
     setError(null);
     // Hydrate React state from the agent's seed history. For a brand-new
@@ -337,6 +372,12 @@ export function useChatSession(
         // entries are no longer consulted. Clearing bounds growth.
         lastModelEntityIdRef.current = null;
         setStreamingModelByMessageId(new Map());
+        // Reset the reasoning accumulator so the new run's thinking
+        // timeline starts clean rather than carrying the last turn's.
+        reasoningByMessageIdRef.current = new Map();
+        // Clear the open-stream set so a fresh run starts with no turns
+        // marked as mid-stream.
+        setStreamingMessageIds(new Set());
       },
       onRunFailed: ({ error: e }) => {
         // Background-Run Execution M5.2 follow-up — AbortError is the
@@ -351,6 +392,8 @@ export function useChatSession(
         // on an unmounted component — but the guard here covers the
         // same-conversation cases (stop button, slash-URL override
         // restore mid-run, future paths) without forcing a remount.
+        // Any terminal failure ends every open stream.
+        setStreamingMessageIds(new Set());
         if (
           e instanceof Error
           && (e.name === 'AbortError' || /aborted/i.test(e.message))
@@ -369,6 +412,9 @@ export function useChatSession(
       onRunFinalized: () => {
         setStatus((prev) => (prev === 'error' ? prev : 'idle'));
         setProgressLabel(null);
+        // Run settled — no turn is mid-stream anymore. Belt-and-braces in
+        // case a provider omitted a trailing TEXT_MESSAGE_END.
+        setStreamingMessageIds(new Set());
         // Restore the agent URL after a regen-with-model run so the
         // next plain `send` reverts to the conversation's persisted
         // user_model_id (the per-turn override is exactly that —
@@ -407,6 +453,17 @@ export function useChatSession(
       },
       onTextMessageStartEvent: ({ event }) => {
         syncMessages();
+        // Track the latest streaming message id for the reasoning-event
+        // fallback (mirrors the BE accumulator's _last_message_id).
+        lastStreamingMessageIdRef.current = event.messageId;
+        // Mark this turn as mid-stream so its bubble animates the smooth
+        // reveal. Tracking the set (not just the last id) keeps parallel
+        // fan-out turns animating concurrently.
+        setStreamingMessageIds((prev) => {
+          const next = new Set(prev);
+          next.add(event.messageId);
+          return next;
+        });
         // Snapshot the rolling per-run ``model_attribution`` value
         // onto this message's streaming id. The BE emits a
         // ``model_attribution`` custom event in the same agent-node
@@ -426,8 +483,16 @@ export function useChatSession(
       onTextMessageContentEvent: () => {
         syncMessages();
       },
-      onTextMessageEndEvent: () => {
+      onTextMessageEndEvent: ({ event }) => {
         syncMessages();
+        // Turn finished streaming — drop it from the open set so the
+        // bubble snaps to its final text (no lingering caret/reveal).
+        setStreamingMessageIds((prev) => {
+          if (!prev.has(event.messageId)) return prev;
+          const next = new Set(prev);
+          next.delete(event.messageId);
+          return next;
+        });
       },
       onToolCallStartEvent: ({ event }) => {
         toolCallsRef.current.set(event.toolCallId, {
@@ -524,6 +589,40 @@ export function useChatSession(
               ? value.model_entity_id
               : null;
           if (modelId) lastModelEntityIdRef.current = modelId;
+          return;
+        }
+
+        // reasoning_content — BE emits this once per LLM call whose
+        // model produced an extended-thinking trace, carrying
+        // ``{message_id, reasoning}``. Stamp it onto the streaming
+        // message id so ``toChatMessage`` surfaces it as the message's
+        // ``reasoning`` and the collapsible timeline renders inline
+        // the moment the trace arrives. ``message_id`` may be absent
+        // (provider didn't surface a stable id) — fall back to the
+        // most recent streaming message so single-message turns (the
+        // common case) still attach correctly.
+        if (event.name === 'reasoning_content') {
+          const value = event.value as
+            | { message_id?: unknown; reasoning?: unknown }
+            | null
+            | undefined;
+          const reasoning =
+            value &&
+            typeof value === 'object' &&
+            typeof value.reasoning === 'string'
+              ? value.reasoning
+              : null;
+          const messageId =
+            value &&
+            typeof value === 'object' &&
+            typeof value.message_id === 'string' &&
+            value.message_id
+              ? value.message_id
+              : lastStreamingMessageIdRef.current;
+          if (reasoning && messageId) {
+            reasoningByMessageIdRef.current.set(messageId, reasoning);
+            syncMessages();
+          }
           return;
         }
 
@@ -733,6 +832,7 @@ export function useChatSession(
     attach,
     replaceMessages,
     streamingModelByMessageId,
+    streamingMessageIds,
   };
 }
 
@@ -743,16 +843,27 @@ export function useChatSession(
 function toChatMessage(
   m: Message,
   toolCalls: Map<string, ChatToolCall>,
+  reasoningByMessageId?: Map<string, string>,
 ): ChatMessage {
   if (m.role === 'assistant') {
     const calls = m.toolCalls
       ?.map((tc) => toolCalls.get(tc.id))
       .filter((tc): tc is ChatToolCall => Boolean(tc));
+    // Reasoning has two sources: the live-streaming ref map (current
+    // run) and the message object itself (persisted/hydrated turns,
+    // where ``persistedToAGUIMessage`` carries it through). The ref
+    // wins when both exist — it's the freshest during a live run.
+    const reasoning =
+      reasoningByMessageId?.get(m.id) ??
+      (typeof (m as { reasoning?: unknown }).reasoning === 'string'
+        ? (m as { reasoning?: string }).reasoning
+        : undefined);
     return {
       id: m.id,
       role: 'assistant',
       content: m.content ?? '',
       toolCalls: calls && calls.length > 0 ? calls : undefined,
+      reasoning: reasoning || undefined,
     };
   }
   if (m.role === 'tool') {
