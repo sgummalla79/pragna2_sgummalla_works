@@ -528,8 +528,7 @@ export function ChatInput({
             // pb-2 (8px) = 40px content; min-h-11 (44px) leaves a
             // sliver of breathing room above the button row without
             // floating the placeholder.
-            'px-4 pt-2 pb-2 text-[15px] leading-6 text-card-foreground',
-            '[&:not(:placeholder-shown)]:font-semibold',
+            'px-4 pt-2 pb-2 text-[16px] leading-6 text-card-foreground',
             'placeholder:text-muted-foreground',
             'min-h-11',
             'disabled:cursor-not-allowed disabled:opacity-60',

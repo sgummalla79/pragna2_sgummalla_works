@@ -1,6 +1,6 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useNavigate } from 'react-router-dom';
-import { Settings as SettingsIcon, LogOut } from 'lucide-react';
+import { Settings as SettingsIcon, LogOut, ChevronDown } from 'lucide-react';
 import { ROUTES } from '@/constants/routes';
 import { useAuth } from '@/presentation/hooks/auth/useAuth';
 import { cn } from '@/lib/utils';
@@ -58,7 +58,7 @@ export function AvatarMenu({ collapsed }: AvatarMenuProps) {
           aria-label="Account menu"
           title={collapsed ? displayName : undefined}
           className={cn(
-            'flex w-full items-center gap-4 rounded-md px-2 py-2 font-medium',
+            'group flex w-full items-center gap-2 rounded-md px-2 py-1.5 font-medium',
             'text-foreground transition-colors',
             'hover:bg-accent',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
@@ -68,16 +68,29 @@ export function AvatarMenu({ collapsed }: AvatarMenuProps) {
           <span
             aria-hidden="true"
             className={cn(
-              'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full',
-              'bg-primary/10 text-primary font-semibold',
+              'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full',
+              'bg-primary/10 text-primary text-xs font-semibold',
             )}
           >
             {initial}
           </span>
           {!collapsed && (
-            <span className="truncate text-left text-base flex-1 min-w-0">
-              {displayName}
-            </span>
+            <>
+              <span className="truncate text-left text-sm flex-1 min-w-0">
+                {displayName}
+              </span>
+              {/* Chevron marks this as a dropdown; rotates 180° while open.
+                  Driven by Radix's data-state on the trigger — no extra
+                  state. */}
+              <ChevronDown
+                size={16}
+                aria-hidden="true"
+                className={cn(
+                  'flex-shrink-0 text-muted-foreground transition-transform',
+                  'group-data-[state=open]:rotate-180',
+                )}
+              />
+            </>
           )}
         </button>
       </DropdownMenu.Trigger>

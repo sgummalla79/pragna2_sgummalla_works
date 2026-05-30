@@ -240,8 +240,8 @@ export function ChatMessage({
           <div
             className={
               isUser
-                ? 'rounded-2xl bg-muted px-4 py-3 text-[18px] leading-relaxed text-card-foreground'
-                : 'w-full text-[18px] leading-relaxed text-card-foreground'
+                ? 'rounded-2xl bg-muted px-4 py-3 text-[16px] leading-normal text-card-foreground'
+                : 'w-full text-[16px] leading-normal text-card-foreground'
             }
           >
             {/* R5: attachment chips above the message text on user

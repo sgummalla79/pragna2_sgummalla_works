@@ -28,15 +28,14 @@ export const SHIKI_THEMES: [typeof SHIKI_THEME_LIGHT, typeof SHIKI_THEME_DARK] =
 /**
  * Streamdown interaction controls.
  *
- * ``mermaid.panZoom: false`` disables the diagram's wheel pan/zoom: without
- * it, scrolling the chat while the cursor is over a Mermaid diagram zooms
- * the diagram instead of scrolling the page. Disabling it lets the wheel
- * event pass through to the chat scroll container (matches claude.ai, which
- * renders diagrams statically). Fullscreen + copy + download stay on for
- * intentional zoom / export; table + code copy controls stay on too.
+ * ``mermaid.panZoom: true`` keeps wheel pan/zoom on the diagram. The raw
+ * wheel-zoom is far too fast (Streamdown zooms a fixed step per tick with no
+ * speed prop), so ``MarkdownMessage`` throttles the wheel events feeding it —
+ * see ``MERMAID_ZOOM_WHEEL_THROTTLE`` there. Fullscreen / copy / download and
+ * the table + code controls stay on too.
  */
 export const STREAMDOWN_CONTROLS: ControlsConfig = {
   table: true,
   code: true,
-  mermaid: { panZoom: false, fullscreen: true, copy: true, download: true },
+  mermaid: { panZoom: true, fullscreen: true, copy: true, download: true },
 };

@@ -709,6 +709,32 @@ function ChatSurface({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const didInitialScroll = useRef(false);
+  // Whether the live-tail auto-scroll is "stuck" to the bottom. True while
+  // the user is at (or near) the bottom; flips false the moment they scroll
+  // up to read history — so a streaming reply no longer yanks them back down.
+  // Matches claude.ai / ChatGPT: scrolling up pauses follow; scrolling back
+  // to the bottom resumes it. A ref (not state) because the scroll handler
+  // and the tail effect read it without needing a re-render.
+  const stickToBottom = useRef(true);
+
+  // Distance (px) from the bottom within which we still consider the user
+  // "at the bottom" — tolerates fractional scroll positions + the pb-10
+  // breathing room so follow doesn't disengage on a near-bottom rest.
+  const BOTTOM_STICK_THRESHOLD = 80;
+
+  // Track the user's scroll position to drive ``stickToBottom``. Re-engages
+  // follow when they return to the bottom; disengages when they scroll up.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const distanceFromBottom =
+        el.scrollHeight - el.scrollTop - el.clientHeight;
+      stickToBottom.current = distanceFromBottom <= BOTTOM_STICK_THRESHOLD;
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
 
   // First mount on a resumed conversation: jump to the bottom once,
   // without animation, so the user lands at the latest turn. Avoids
@@ -721,10 +747,13 @@ function ChatSurface({
     didInitialScroll.current = true;
   }, [messages]);
 
-  // Live tail: keep the latest message in view as it streams in or
-  // when a new turn arrives.
+  // Live tail: keep the latest message in view as it streams in or when a
+  // new turn arrives — but ONLY while the user is stuck to the bottom. If
+  // they've scrolled up to read earlier content, leave their position alone
+  // so the streaming reply doesn't snap them back down.
   useEffect(() => {
     if (!didInitialScroll.current) return;
+    if (!stickToBottom.current) return;
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, status]);
@@ -941,7 +970,13 @@ function ChatSurface({
               leaving an empty band for the full LLM-run duration. */}
           {(!activeFormSchema || activeFormSchema.allow_text_input) && (
           <ChatInput
-            onSend={send}
+            // Sending a new message always re-engages bottom-follow, even if
+            // the user had scrolled up to read history — their own turn (and
+            // the reply) should snap into view.
+            onSend={(text, attachmentIds) => {
+              stickToBottom.current = true;
+              send(text, attachmentIds);
+            }}
             // R7.1#3 cancel UX v2 + resume-Stop extension. Three cases:
             //   1) Resume mutation in flight (form just submitted,
             //      LLM running). The BE has flipped the episode to

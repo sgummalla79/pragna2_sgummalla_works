@@ -184,7 +184,7 @@ export function Sidebar({ browseMode = false, onShowBrowser, onNewChat }: ChatSi
           opens a Radix dropdown containing user identity, settings
           navigation, and sign-out — modelled after claude.ai's chat.
           See [AvatarMenu.tsx](./AvatarMenu.tsx). */}
-      <div className="border-t border-border p-2">
+      <div className="p-2">
         <AvatarMenu collapsed={collapsed} />
       </div>
     </aside>
