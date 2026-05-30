@@ -188,8 +188,11 @@ export async function configureChatAgent(
   }
 
   if ((opts.inputs && opts.inputs.length) || (opts.outputs && opts.outputs.length)) {
-    // Expand the `<details>` block holding the slot inputs.
-    await page.locator('summary:has-text("Context slots")').click();
+    // Expand the `<details>` block holding the slot inputs. The
+    // summary label was renamed from "Context slots" to "Context
+    // variables (advanced)" in the FE polish commit 1d8962e — the
+    // helper follows.
+    await page.locator('summary:has-text("Context variables")').click();
     if (opts.inputs?.length) {
       for (const slot of opts.inputs) {
         await page.locator('#np-inputs').fill(slot);

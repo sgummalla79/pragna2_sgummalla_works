@@ -90,9 +90,13 @@ test.describe('Scenario 16 — Dynamic fan-out: author + visualize', () => {
       { nodeId: '__end__', handleId: 'in' },
     );
 
-    await saveFlow(page);
-
     // ── Act — click the producer→verifier edge, declare dispatch ────
+    // Configure dispatch BEFORE the first save. Verifier declares
+    // `inputs: [one_item]` and no upstream node outputs it directly —
+    // only the dispatching edge's `item_slot` registers it as
+    // produced (BE validator pass added in #35 implementation). If we
+    // saved before configuring dispatch, the BE would 422 with
+    // "Node 'verifier' reads slot 'one_item' which no node produces".
     // Identify the dispatching edge by its endpoints. React Flow tags
     // each <g class="react-flow__edge"> with data-id="<edge-id>" (same
     // attribute scheme as nodes — see canvas.ts:revealAndGetHandle).
@@ -117,7 +121,7 @@ test.describe('Scenario 16 — Dynamic fan-out: author + visualize', () => {
     // Click the edge SVG group. dispatchEvent bypasses React Flow's
     // pointer hit-test (same z-index trick used in canvas.openPanelFor).
     await page
-      .locator(`.react-flow__edge[data-id="${targetEdgeId}"]`)
+      .locator(`[data-testid="rf__edge-${targetEdgeId}"]`)
       .dispatchEvent('click');
     await expect(page.getByTestId('edge-panel')).toBeVisible();
     await expect(page.getByTestId('edge-panel')).toContainText(
@@ -141,26 +145,34 @@ test.describe('Scenario 16 — Dynamic fan-out: author + visualize', () => {
     await saveFlow(page);
 
     // ── Assert — visual badge + dashed stroke ───────────────────────
-    const badge = page
-      .locator(`.react-flow__edge[data-id="${targetEdgeId}"]`)
-      .getByTestId('dispatch-badge');
+    // React Flow's EdgeLabelRenderer portals labels OUTSIDE the edge
+    // <g> element, so the badge is asserted at PAGE scope. Only one
+    // dispatching edge exists in this flow, so the unique-testid
+    // assumption holds.
+    const badge = page.getByTestId('dispatch-badge');
     await expect(badge).toBeVisible();
     await expect(badge).toContainText('↴ per-item');
 
     // Tooltip names the items_slot — exposed via the chip's `title=`.
     await expect(badge).toHaveAttribute('title', /raw_items/);
 
-    // Dashed stroke on the SVG path. React Flow renders the BaseEdge
-    // path inside the edge <g> as <path class="react-flow__edge-path">.
+    // Dashed stroke on the SVG path. The path IS inside the edge <g>
+    // (it's the BaseEdge connector, not the label) so the edge-scoped
+    // selector is correct here. React renders `style={{ strokeDasharray:
+    // '6 3' }}` as `style="stroke-dasharray: 6 3"` (inline CSS, not an
+    // SVG attribute), so we assert via toHaveCSS.
     const path = page.locator(
-      `.react-flow__edge[data-id="${targetEdgeId}"] .react-flow__edge-path`,
+      `[data-testid="rf__edge-${targetEdgeId}"] .react-flow__edge-path`,
     );
-    await expect(path).toHaveAttribute('stroke-dasharray', /6 3|6, 3/);
+    await expect(path).toHaveCSS('stroke-dasharray', /6.*3/);
 
     // ── Round-trip — back to flow list, reopen, verify it stuck ────
     await page.getByRole('link', { name: /back/i }).click();
     await page.waitForURL('**/flows');
-    await page.getByRole('link', { name: /Dispatch Sketch/i }).click();
+    // The flows list renders each flow as a card with both a body
+    // link AND an edit-action link — `.first()` picks the body link
+    // (which is enough; both lead to the same /flows/{id}/edit URL).
+    await page.getByRole('link', { name: /Dispatch Sketch/i }).first().click();
     await page.waitForSelector('nav[aria-label="Add node"]');
 
     // Refetch the rebuilt edge id (post-reload, ids regenerate from YAML).
@@ -195,15 +207,12 @@ test.describe('Scenario 16 — Dynamic fan-out: author + visualize', () => {
     expect(reloadedEdgeId!.itemsSlot).toBe('raw_items');
     expect(reloadedEdgeId!.itemSlot).toBe('one_item');
 
-    // Badge still on the edge after reload.
-    const reloadedBadge = page
-      .locator(`.react-flow__edge[data-id="${reloadedEdgeId!.id}"]`)
-      .getByTestId('dispatch-badge');
-    await expect(reloadedBadge).toBeVisible();
+    // Badge still rendered after reload (page scope — see above).
+    await expect(page.getByTestId('dispatch-badge')).toBeVisible();
 
     // Re-click the edge — panel re-opens with the same picks.
     await page
-      .locator(`.react-flow__edge[data-id="${reloadedEdgeId!.id}"]`)
+      .locator(`[data-testid="rf__edge-${reloadedEdgeId!.id}"]`)
       .dispatchEvent('click');
     await expect(page.getByTestId('edge-panel')).toBeVisible();
     await expect(page.getByTestId('dispatch-toggle')).toBeChecked();
