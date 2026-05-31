@@ -69,7 +69,7 @@ export function ConversationList() {
       )}
       {recentRows.length > 0 && (
         <>
-          <div className="px-2.5 pt-6 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="px-2.5 pt-7 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             Recent
           </div>
           {recentRows.map((c) => (
