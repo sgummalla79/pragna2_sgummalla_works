@@ -168,6 +168,13 @@ export interface ChatSessionApi {
    * immediately on RUN_FINISHED — no visible flip.
    */
   streamingModelByMessageId: Map<string, string>;
+  /**
+   * Ids of assistant turns currently mid-stream (open ``TEXT_MESSAGE_START``
+   * with no ``TEXT_MESSAGE_END`` yet). The chat surface reads this to drive
+   * the per-turn smooth-reveal animation; tracking the SET (not just the
+   * last turn) lets parallel fan-out turns each animate.
+   */
+  streamingMessageIds: Set<string>;
 }
 
 export interface UseChatSessionOptions {
