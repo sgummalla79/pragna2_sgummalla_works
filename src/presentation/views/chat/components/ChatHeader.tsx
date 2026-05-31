@@ -1,4 +1,4 @@
-import { APP_NAME, CHAT_PLACEHOLDER_TITLE } from '@/constants/api';
+import { CHAT_PLACEHOLDER_TITLE } from '@/constants/api';
 import type { Conversation } from '@/domain/types/conversation.types';
 
 interface ChatHeaderProps {
@@ -57,7 +57,6 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
       <span className="text-[14px] font-semibold text-foreground truncate">
         {title}
       </span>
-      <span className="ml-auto text-[11px] text-muted-foreground">{APP_NAME}</span>
     </div>
   );
 }
