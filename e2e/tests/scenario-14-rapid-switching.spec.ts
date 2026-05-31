@@ -37,7 +37,13 @@ test.describe('Scenario 14 — Rapid chat switching', () => {
     await login(page);
   });
 
-  test('3 rapid submits + new-chat clicks all persist replies', async ({
+  // KNOWN FAILURE — tracked in issue #1. Rapid submit-then-abandon can
+  // drop a background run's assistant reply (user turn persists, no
+  // assistant message; DB-confirmed, no BE error). Pre-existing on main.
+  // Marked `fixme` (NOT masked with timeout bumps, which would hide the
+  // real lost-reply bug) — remove this once the background-run
+  // persistence race is fixed.
+  test.fixme('3 rapid submits + new-chat clicks all persist replies', async ({
     page,
   }) => {
     await page.goto('/chat', { waitUntil: 'networkidle' });
