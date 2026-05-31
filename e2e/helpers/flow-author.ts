@@ -17,6 +17,17 @@ export async function dropFromPalette(
   await page.waitForTimeout(150);
 }
 
+/** Drop the End terminator onto the canvas and close the boundary panel
+ *  if it opened. End is no longer auto-placed on a new flow — the author
+ *  drags it out to wire the terminator (see editorTypes.ts:newFlowGraph
+ *  and flow-editor.spec #1). The first (only) End instance gets the id
+ *  `__end__`; connect to it via `connectViaStore({ nodeId: '__end__' })`. */
+export async function placeEnd(page: Page): Promise<void> {
+  await dropFromPalette(page, 'End');
+  const closeBtn = page.getByRole('button', { name: /close panel/i });
+  if (await closeBtn.count()) await closeBtn.first().click();
+}
+
 /** Reveal a node's handles via hover and return one handle's bounding box. */
 export async function handleBox(
   page: Page,

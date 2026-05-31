@@ -20,9 +20,10 @@ import { login } from '../helpers/auth';
 import { db } from '../helpers/db';
 import {
   configureChatAgent,
-  dragHandle,
+  connectViaStore,
   dropFromPalette,
   fillFlowMeta,
+  placeEnd,
   saveFlow,
 } from '../helpers/flow-author';
 
@@ -65,12 +66,15 @@ test.describe('Scenario 3 — Single-agent slash flow', () => {
       prompt: AGENT_PROMPT,
     });
 
-    await dragHandle(
+    // End is no longer auto-placed — drop it before wiring the terminator.
+    await placeEnd(page);
+
+    await connectViaStore(
       page,
       { nodeId: '__start__', handleId: 'out' },
       { nodeId: AGENT_NODE_ID, handleId: 'left' },
     );
-    await dragHandle(
+    await connectViaStore(
       page,
       { nodeId: AGENT_NODE_ID, handleId: 'right' },
       { nodeId: '__end__', handleId: 'in' },

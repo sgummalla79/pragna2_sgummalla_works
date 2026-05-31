@@ -24,9 +24,10 @@ import { login } from '../helpers/auth';
 import { db } from '../helpers/db';
 import {
   configureChatAgent,
-  dragHandle,
+  connectViaStore,
   dropFromPalette,
   fillFlowMeta,
+  placeEnd,
   saveFlow,
 } from '../helpers/flow-author';
 
@@ -93,22 +94,25 @@ test.describe('Scenario 6 — Revise loop with If/Else', () => {
 
     // Wire the four edges, including the revise back-edge from the
     // reviewer's `port:failed` to the drafter.
-    await dragHandle(
+    // End is no longer auto-placed — drop it before wiring the terminator.
+    await placeEnd(page);
+
+    await connectViaStore(
       page,
       { nodeId: '__start__', handleId: 'out' },
       { nodeId: DRAFTER_ID, handleId: 'left' },
     );
-    await dragHandle(
+    await connectViaStore(
       page,
       { nodeId: DRAFTER_ID, handleId: 'right' },
       { nodeId: REVIEWER_ID, handleId: 'in' },
     );
-    await dragHandle(
+    await connectViaStore(
       page,
       { nodeId: REVIEWER_ID, handleId: 'port:passed' },
       { nodeId: '__end__', handleId: 'in' },
     );
-    await dragHandle(
+    await connectViaStore(
       page,
       { nodeId: REVIEWER_ID, handleId: 'port:failed' },
       { nodeId: DRAFTER_ID, handleId: 'top' },

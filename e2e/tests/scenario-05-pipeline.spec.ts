@@ -17,9 +17,10 @@ import { login } from '../helpers/auth';
 import { db } from '../helpers/db';
 import {
   configureChatAgent,
-  dragHandle,
+  connectViaStore,
   dropFromPalette,
   fillFlowMeta,
+  placeEnd,
   saveFlow,
 } from '../helpers/flow-author';
 
@@ -86,17 +87,20 @@ test.describe('Scenario 5 — Sequential pipeline', () => {
       inputs: ['research_notes'],
     });
 
-    await dragHandle(
+    // End is no longer auto-placed — drop it before wiring the terminator.
+    await placeEnd(page);
+
+    await connectViaStore(
       page,
       { nodeId: '__start__', handleId: 'out' },
       { nodeId: RESEARCHER_ID, handleId: 'left' },
     );
-    await dragHandle(
+    await connectViaStore(
       page,
       { nodeId: RESEARCHER_ID, handleId: 'right' },
       { nodeId: SUMMARIZER_ID, handleId: 'left' },
     );
-    await dragHandle(
+    await connectViaStore(
       page,
       { nodeId: SUMMARIZER_ID, handleId: 'right' },
       { nodeId: '__end__', handleId: 'in' },
