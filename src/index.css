@@ -156,10 +156,8 @@
 
 /* ── Streaming reveal: per-block fade-in ───────────────────────────────
    Industry-standard "smooth printing" finish (claude.ai / ChatGPT /
-   Gemini): each newly-revealed markdown block fades up once as it lands.
-   The calm per-character cadence is produced server-side by the Response
-   Gateway pacer (pragna2-api: stream_pacing.py); this is purely the visual
-   entrance, the FE's half of the effect.
+   Gemini): each newly-revealed markdown block fades up once as it lands,
+   layered on top of the cadence smoothing in ``useSmoothStreamingText``.
    The ``--animate`` class is present only while streaming, and Streamdown
    memoises blocks by content — so a block's DOM node is created once, runs
    the animation once on mount, then merely grows (the tail block) or stays

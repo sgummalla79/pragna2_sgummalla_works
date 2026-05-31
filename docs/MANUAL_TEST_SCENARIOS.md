@@ -40,13 +40,9 @@ streaming); it cannot judge whether the motion looks smooth.
 - [ ] When the reply finishes, the full text is shown with no leftover
       half-revealed line.
 
-**Tuning reference:** the cadence is produced **server-side** by the
-Response Gateway pacer — `pragna2-api/src/constants.py`
-(`STREAM_PACE_FLOOR_CPS`, `STREAM_PACE_CEILING_CPS`,
-`STREAM_PACE_MAX_LAG_SECONDS`). The FE only renders + fades. This is what
-makes the smoothness **model-agnostic** (Claude and Gemini look the same);
-verify M1 with **both** a Claude-class and a fast model (e.g. Gemini Flash)
-— both should type in calmly, neither should "dump."
+**Tuning reference:** speed lives in
+[`src/constants/markdown.ts`](../src/constants/markdown.ts)
+(`STREAM_REVEAL_BASE_CPS`, `STREAM_REVEAL_MAX_LAG_SECONDS`).
 
 ---
 
