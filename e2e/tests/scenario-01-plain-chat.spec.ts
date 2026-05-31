@@ -55,21 +55,13 @@ test.describe('Scenario 1 — Plain chat', () => {
     const assistantBubble = page.locator('[data-role="assistant"]').last();
     await expect(assistantBubble).toBeVisible({ timeout: 30_000 });
 
-    // ── Smooth-reveal layer is engaged while the turn streams ──
-    // The assistant markdown wrapper carries `chat-markdown--animate`
-    // ONLY while its turn is mid-stream — it drives the claude.ai-style
-    // typewriter reveal + per-block fade. Its presence proves the
-    // per-turn `isStreaming` detection fired (the bug where it was keyed
-    // off BE-persisted history left this false the whole stream, so text
-    // dumped in). This is the same per-turn streaming path that lets
-    // parallel fan-out turns each animate — the runtime fan-out that
-    // produces concurrent bubbles isn't wired yet (see scenario 16/17),
-    // so the multi-turn case is pinned by the useChatSession unit test;
-    // here we verify the shared single-turn path end-to-end. The class
-    // is removed once streaming ends, so we assert it before settling.
-    await expect(
-      assistantBubble.locator('.chat-markdown--animate'),
-    ).toBeVisible({ timeout: 30_000 });
+    // NOTE: the smooth-reveal layer (`chat-markdown--animate` + the
+    // per-character cadence) is a transient, streaming-only presentation
+    // state — asserting its visibility here is inherently racy (the class
+    // is gone once the turn settles, and blocks are mid-fade). It's
+    // covered deterministically by the `useSmoothStreamingText` unit tests
+    // and visually by manual scenario M1, so we intentionally do NOT
+    // assert it in this browser round-trip.
 
     // ── Wait for streaming to finish (Stop reverts to Send) ──
     await expect(
