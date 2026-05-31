@@ -59,7 +59,7 @@ export function ConversationList() {
     <div className="flex flex-col gap-0.5">
       {pinnedRows.length > 0 && (
         <>
-          <div className="px-2.5 pt-3 pb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+          <div className="px-2.5 pt-3 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             Pinned
           </div>
           {pinnedRows.map((c) => (
@@ -69,7 +69,7 @@ export function ConversationList() {
       )}
       {recentRows.length > 0 && (
         <>
-          <div className="px-2.5 pt-3 pb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+          <div className="px-2.5 pt-3 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             Recent
           </div>
           {recentRows.map((c) => (
