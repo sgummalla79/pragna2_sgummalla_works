@@ -153,7 +153,7 @@ export default function ChatLandingView() {
         {!isLoading && (
           <div className="flex items-center gap-4 mb-6 select-none">
             <PragnaLogo className="h-10 w-10 flex-shrink-0" aria-hidden="true" />
-            <h1 className="text-[32px] sm:text-[40px] font-serif font-semibold text-card-foreground m-0 leading-none">
+            <h1 className="text-[32px] sm:text-[40px] font-serif text-card-foreground m-0 leading-none">
               {greeting.text}
             </h1>
           </div>
