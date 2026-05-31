@@ -173,13 +173,13 @@ export default function ChatLandingView() {
             rightActions={
               ready && requestedAgent === DEFAULT_AGENT_NAME ? (
                 <div className="flex items-center gap-2">
-                  <ThinkingToggle
-                    enabled={landingThinkingEnabled}
-                    onChange={setLandingThinkingEnabled}
-                  />
                   <ModelPicker
                     userModelId={landingUserModelId}
                     onModelChange={setLandingUserModelId}
+                  />
+                  <ThinkingToggle
+                    enabled={landingThinkingEnabled}
+                    onChange={setLandingThinkingEnabled}
                   />
                 </div>
               ) : null

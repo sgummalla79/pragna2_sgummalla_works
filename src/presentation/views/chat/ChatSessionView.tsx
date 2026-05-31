@@ -1157,16 +1157,16 @@ function InlineModelPicker({
   const setThinking = useSetThinkingEnabled();
   return (
     <div className="flex items-center gap-2">
-      <ThinkingToggle
-        enabled={thinkingEnabled}
-        onChange={(enabled) =>
-          setThinking.mutate({ id: conversationId, thinkingEnabled: enabled })
-        }
-      />
       <ModelPicker
         userModelId={userModelId}
         onModelChange={(id) =>
           setModel.mutate({ id: conversationId, userModelId: id })
+        }
+      />
+      <ThinkingToggle
+        enabled={thinkingEnabled}
+        onChange={(enabled) =>
+          setThinking.mutate({ id: conversationId, thinkingEnabled: enabled })
         }
       />
     </div>

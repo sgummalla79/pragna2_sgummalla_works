@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { ArrowUp, Paperclip, Square } from 'lucide-react';
+import { Paperclip, Send, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePragnaSlashFlows } from '@/presentation/hooks/pragnaFlows/usePragnaSlashFlows';
 import { useUploadAttachment } from '@/presentation/hooks/attachments/useUploadAttachment';
@@ -608,7 +608,7 @@ export function ChatInput({
                     : 'bg-muted text-muted-foreground cursor-not-allowed',
                 )}
               >
-                <ArrowUp size={18} strokeWidth={2.5} />
+                <Send size={16} strokeWidth={2.25} className="-ml-px" />
               </button>
             )}
           </div>
