@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { Paperclip, Send, Square } from 'lucide-react';
+import { CircleArrowUp, Paperclip, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePragnaSlashFlows } from '@/presentation/hooks/pragnaFlows/usePragnaSlashFlows';
 import { useUploadAttachment } from '@/presentation/hooks/attachments/useUploadAttachment';
@@ -604,11 +604,11 @@ export function ChatInput({
                   'transition-colors',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
                   canSend
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    : 'bg-muted text-muted-foreground cursor-not-allowed',
+                    ? 'text-primary hover:bg-accent'
+                    : 'text-muted-foreground/40 cursor-not-allowed',
                 )}
               >
-                <Send size={16} strokeWidth={2.25} className="-ml-px" />
+                <CircleArrowUp size={30} strokeWidth={2} />
               </button>
             )}
           </div>

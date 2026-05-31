@@ -30,7 +30,7 @@ export function ThinkingToggle({ enabled, onChange }: ThinkingToggleProps) {
         'text-[13px] font-medium transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
         enabled
-          ? 'border-primary/40 bg-primary/10 text-primary'
+          ? 'border-primary bg-primary text-primary-foreground'
           : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground',
       )}
     >
