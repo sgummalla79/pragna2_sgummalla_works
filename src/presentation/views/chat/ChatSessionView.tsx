@@ -30,6 +30,7 @@ import { ChatInput } from './components/ChatInput';
 import { ChatHeader } from './components/ChatHeader';
 import { ThinkingStrip } from './components/ThinkingStrip';
 import { ModelPicker } from './components/ModelPicker';
+import { ThinkingToggle } from './components/ThinkingToggle';
 import { SetupBanner } from './components/SetupBanner';
 import {
   HITLFormCard,
@@ -1155,16 +1156,20 @@ function InlineModelPicker({
   const setModel = useSetConversationModel();
   const setThinking = useSetThinkingEnabled();
   return (
-    <ModelPicker
-      userModelId={userModelId}
-      thinkingEnabled={thinkingEnabled}
-      onModelChange={(id) =>
-        setModel.mutate({ id: conversationId, userModelId: id })
-      }
-      onThinkingChange={(enabled) =>
-        setThinking.mutate({ id: conversationId, thinkingEnabled: enabled })
-      }
-    />
+    <div className="flex items-center gap-2">
+      <ThinkingToggle
+        enabled={thinkingEnabled}
+        onChange={(enabled) =>
+          setThinking.mutate({ id: conversationId, thinkingEnabled: enabled })
+        }
+      />
+      <ModelPicker
+        userModelId={userModelId}
+        onModelChange={(id) =>
+          setModel.mutate({ id: conversationId, userModelId: id })
+        }
+      />
+    </div>
   );
 }
 

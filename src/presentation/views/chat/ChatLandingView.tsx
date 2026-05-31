@@ -8,6 +8,7 @@ import { APP_NAME } from '@/constants/api';
 import { ROUTES } from '@/constants/routes';
 import { ChatInput } from './components/ChatInput';
 import { ModelPicker } from './components/ModelPicker';
+import { ThinkingToggle } from './components/ThinkingToggle';
 import { SetupBanner } from './components/SetupBanner';
 import { useGreeting } from './hooks/useGreeting';
 import { writePendingInitialMessage } from './hooks/initialMessageHandoff';
@@ -171,12 +172,16 @@ export default function ChatLandingView() {
             conversationId={pendingConvId}
             rightActions={
               ready && requestedAgent === DEFAULT_AGENT_NAME ? (
-                <ModelPicker
-                  userModelId={landingUserModelId}
-                  thinkingEnabled={landingThinkingEnabled}
-                  onModelChange={setLandingUserModelId}
-                  onThinkingChange={setLandingThinkingEnabled}
-                />
+                <div className="flex items-center gap-2">
+                  <ThinkingToggle
+                    enabled={landingThinkingEnabled}
+                    onChange={setLandingThinkingEnabled}
+                  />
+                  <ModelPicker
+                    userModelId={landingUserModelId}
+                    onModelChange={setLandingUserModelId}
+                  />
+                </div>
               ) : null
             }
             placeholder={

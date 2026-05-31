@@ -1,8 +1,7 @@
 import { Fragment, useMemo } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { Check, ChevronDown, Brain } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ANTHROPIC_PROVIDER_NAME } from '@/constants/providers';
 import { useLlmProvidersWithRegistrations } from '@/presentation/hooks/providers/useProviders';
 import type { Model } from '@/domain/types/model.types';
 
@@ -23,35 +22,25 @@ interface ModelPickerProps {
    *  always stamps one). */
   userModelId: string | null;
   onModelChange: (userModelId: string) => void;
-  /** Per-conversation extended-thinking toggle. Only meaningful when
-   *  the active model belongs to Anthropic — the checkbox is hidden
-   *  for other providers' groups. */
-  thinkingEnabled: boolean;
-  onThinkingChange: (enabled: boolean) => void;
 }
 
 /**
  * Inline model picker for the chat composer.
  *
- * Trigger: a small pill rendering ``"<Provider> · <Model>"`` for the
- * currently active model. Dropdown: groups every chat-eligible model
- * by provider, with the active option checkmarked. Inside the Anthropic
- * group only, an additional ``Extended thinking`` checkbox toggles the
- * per-conversation flag.
+ * Trigger: a small pill rendering the currently active model's display
+ * name. Dropdown: groups every chat-eligible model by provider, with the
+ * active option checkmarked. (Extended thinking lives in its own
+ * :class:`ThinkingToggle` beside the picker, not in this dropdown.)
  *
  * "Chat-eligible" = ``model.enabled && model.availableForChat &&
  * !model.archived`` AND the parent user_provider is ``enabled``.
  *
- * Selection semantics: the parent owns persistence. On model change
- * the parent PATCHes ``conversations.user_model_id``; on thinking
- * change it PATCHes ``conversations.thinking_enabled``. The component
- * itself is dumb.
+ * Selection semantics: the parent owns persistence. On model change the
+ * parent PATCHes ``conversations.user_model_id``. The component is dumb.
  */
 export function ModelPicker({
   userModelId,
   onModelChange,
-  thinkingEnabled,
-  onThinkingChange,
 }: ModelPickerProps) {
   const { data: providers = [], isLoading } =
     useLlmProvidersWithRegistrations();
@@ -110,7 +99,7 @@ export function ModelPicker({
     return null;
   }
 
-  const triggerLabel = `${active.providerDisplay} · ${active.model.displayName}`;
+  const triggerLabel = active.model.displayName;
 
   return (
     <DropdownMenu.Root>
@@ -175,24 +164,6 @@ export function ModelPicker({
                   </DropdownMenu.Item>
                 );
               })}
-              {g.providerName === ANTHROPIC_PROVIDER_NAME && (
-                <DropdownMenu.CheckboxItem
-                  checked={thinkingEnabled}
-                  onSelect={(e) => e.preventDefault()}
-                  onCheckedChange={onThinkingChange}
-                  className={cn(
-                    'flex cursor-pointer items-center gap-2 rounded-md pl-6 pr-3 py-2 text-sm',
-                    'text-foreground outline-none',
-                    'data-[highlighted]:bg-accent',
-                  )}
-                >
-                  <Brain size={14} aria-hidden className="opacity-80" />
-                  <span className="flex-1">Extended thinking</span>
-                  {thinkingEnabled && (
-                    <Check size={14} aria-label="Enabled" className="opacity-80" />
-                  )}
-                </DropdownMenu.CheckboxItem>
-              )}
             </Fragment>
           ))}
         </DropdownMenu.Content>
