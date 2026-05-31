@@ -68,7 +68,7 @@ export default function AuthCallbackView() {
       .then(({ user, tokens }) => {
         setAccessToken(tokens.accessToken);
         setUser(user);
-        navigate(ROUTES.SETTINGS, { replace: true });
+        navigate(ROUTES.CHAT, { replace: true });
       })
       .catch((err) => {
         logger.fromError('auth:callback:exchange-failed', err);
