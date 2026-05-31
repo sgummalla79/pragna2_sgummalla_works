@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import { CircleArrowUp, Paperclip, Square } from 'lucide-react';
+import { ArrowUp, Paperclip, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePragnaSlashFlows } from '@/presentation/hooks/pragnaFlows/usePragnaSlashFlows';
 import { useUploadAttachment } from '@/presentation/hooks/attachments/useUploadAttachment';
@@ -586,7 +586,7 @@ export function ChatInput({
                 aria-label="Stop generating"
                 className={cn(
                   'flex h-9 w-9 items-center justify-center rounded-full',
-                  'bg-foreground text-background transition-opacity',
+                  'bg-destructive text-destructive-foreground transition-opacity',
                   'hover:opacity-90',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
                 )}
@@ -604,11 +604,11 @@ export function ChatInput({
                   'transition-colors',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
                   canSend
-                    ? 'text-primary hover:bg-accent'
-                    : 'text-muted-foreground/40 cursor-not-allowed',
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed',
                 )}
               >
-                <CircleArrowUp size={30} strokeWidth={2} />
+                <ArrowUp size={18} strokeWidth={2.5} />
               </button>
             )}
           </div>
